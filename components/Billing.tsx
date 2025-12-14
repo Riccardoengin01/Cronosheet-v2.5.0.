@@ -353,7 +353,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile }) => 
       </div>
 
       {/* The Bill / Summary Document */}
-      <div className="bg-white p-10 rounded-none md:rounded-xl shadow-lg print:shadow-none print:border-none print:w-full print:p-0 min-h-[800px]">
+      <div className="bg-white p-10 rounded-none md:rounded-xl shadow-lg print:shadow-none print:border-none print:w-full print:p-0 min-h-[800px] print:h-auto print:min-h-0 print:overflow-visible">
           
           {/* Header */}
           <div className="border-b-2 border-slate-800 pb-6 mb-8 flex justify-between items-start">
@@ -374,18 +374,19 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile }) => 
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                  <thead>
-                      <tr className="bg-gray-100 text-gray-700 uppercase text-xs font-bold tracking-wider">
-                          <th className="px-4 py-3 rounded-l-lg">Data</th>
+          {/* IMPORTANT: Removed overflow-x-auto for print to allow full page table rendering */}
+          <div className="overflow-x-auto print:overflow-visible">
+              <table className="w-full text-sm text-left print:table">
+                  <thead className="print:table-header-group">
+                      <tr className="bg-gray-100 text-gray-700 uppercase text-xs font-bold tracking-wider print:bg-gray-100">
+                          <th className="px-4 py-3 rounded-l-lg print:rounded-none">Data</th>
                           {showProjectColumn && <th className="px-4 py-3">Cliente</th>}
                           <th className="px-4 py-3">Orario</th>
                           <th className="px-4 py-3">Descrizione</th>
                           <th className="px-4 py-3 text-right">Ore</th>
                           <th className="px-4 py-3 text-right">Tariffa</th>
                           <th className="px-4 py-3 text-right">Extra</th>
-                          <th className="px-4 py-3 text-right rounded-r-lg">Totale</th>
+                          <th className="px-4 py-3 text-right rounded-r-lg print:rounded-none">Totale</th>
                       </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -395,7 +396,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile }) => 
                           const project = projects.find(p => p.id === entry.projectId);
 
                           return (
-                              <tr key={entry.id} className="hover:bg-gray-50">
+                              <tr key={entry.id} className="hover:bg-gray-50 print:break-inside-avoid print:page-break-inside-avoid">
                                   <td className="px-4 py-3 font-medium text-slate-800 whitespace-nowrap">
                                       {new Date(entry.startTime).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })}
                                   </td>
@@ -409,7 +410,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile }) => 
                                   <td className="px-4 py-3 font-mono text-slate-600 whitespace-nowrap">
                                       {formatTime(entry.startTime)} - {entry.endTime ? formatTime(entry.endTime) : '...'}
                                   </td>
-                                  <td className="px-4 py-3 text-slate-600 max-w-xs truncate">
+                                  <td className="px-4 py-3 text-slate-600 max-w-xs truncate print:whitespace-normal print:overflow-visible">
                                       {entry.description || '-'}
                                       {entry.isNightShift && <span className="ml-2 text-xs bg-slate-200 px-1 rounded">Notte</span>}
                                   </td>
@@ -440,7 +441,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile }) => 
           </div>
 
           {/* Footer Totals */}
-          <div className="mt-8 border-t-2 border-slate-200 pt-6 flex justify-end break-inside-avoid">
+          <div className="mt-8 border-t-2 border-slate-200 pt-6 flex justify-end break-inside-avoid print:break-inside-avoid">
               <div className="w-full md:w-1/2 lg:w-1/3 space-y-3">
                   <div className="flex justify-between text-slate-600">
                       <span>Totale Ore Lavorate:</span>

@@ -11,6 +11,37 @@
       body {
         font-family: 'Inter', sans-serif;
       }
+      
+      /* PRINT OPTIMIZATION */
+      @media print {
+        @page {
+          margin: 15mm;
+          size: auto;
+        }
+        
+        body, html, #root {
+          height: auto !important;
+          overflow: visible !important;
+          background: white !important;
+        }
+        
+        /* Nasconde scrollbar e resetta contenitori */
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+
+        /* Forza la visibilità del contenuto scrollabile */
+        .overflow-y-auto, .overflow-x-auto, .h-screen {
+          overflow: visible !important;
+          height: auto !important;
+        }
+
+        /* Nasconde elementi UI non necessari */
+        .no-print {
+          display: none !important;
+        }
+      }
     </style>
   <script type="importmap">
 {
