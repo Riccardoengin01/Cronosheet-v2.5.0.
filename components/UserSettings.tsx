@@ -228,6 +228,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
 
                     {/* Dati Fatturazione */}
                     <div id="billing-section" className={`bg-white rounded-2xl shadow-sm border p-6 transition-all ${isEditingBilling ? 'border-indigo-500 ring-2 ring-indigo-50' : 'border-gray-200'}`}>
+                        {/* ... (Ommissis per brevità, il contenuto è invariato) ... */}
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="font-bold text-gray-800 flex items-center gap-2">
                                 <FileText size={18} className="text-indigo-500"/> Dati di Fatturazione
@@ -386,7 +387,8 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
                     
                     {/* Status Card */}
                     <div className="bg-slate-900 text-white rounded-2xl shadow-lg p-8 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-8 opacity-10">
+                        {/* ICONA SFONDO - ORA CON pointer-events-none */}
+                        <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
                             {user.subscription_status === 'elite' ? <Crown size={150} /> : <Zap size={150} />}
                         </div>
                         
@@ -439,7 +441,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
                         
                         {/* Indicazione rinnovo PRO e TOGGLE */}
                         {user.subscription_status === 'pro' && (
-                             <div className="mt-8">
+                             <div className="mt-8 relative z-20"> {/* Aggiunto z-20 al contenitore del toggle */}
                                  <div className={`bg-slate-800/50 p-4 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors ${renewError ? 'border-red-500/50 bg-red-900/10' : 'border-slate-700'}`}>
                                     <div className="flex items-center gap-3">
                                         {renewError ? (
@@ -459,19 +461,21 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
                                             </p>
                                         </div>
                                     </div>
+                                    
+                                    {/* PULSANTE CORRETTO: Solido, Z-index alto, cursore */}
                                     <button 
                                         onClick={handleToggleAutoRenew}
                                         disabled={updatingRenew}
-                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                        className={`relative z-30 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-md active:scale-95 cursor-pointer ${
                                             autoRenew 
-                                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20' 
-                                            : 'bg-slate-700 text-slate-300 border border-slate-600 hover:bg-slate-600'
+                                            ? 'bg-emerald-600 text-white hover:bg-emerald-500 border border-emerald-500 shadow-emerald-900/20' 
+                                            : 'bg-slate-700 text-slate-200 hover:bg-slate-600 border border-slate-600'
                                         }`}
                                     >
                                         {updatingRenew ? 'Aggiornamento...' : (
                                             <>
                                                 {autoRenew ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
-                                                {autoRenew ? 'Disabilita' : 'Abilita'}
+                                                {autoRenew ? 'Disabilita Rinnovo' : 'Abilita Rinnovo'}
                                             </>
                                         )}
                                     </button>
@@ -487,7 +491,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
                                             </code>
                                             <button 
                                                 onClick={copySqlFix}
-                                                className="bg-red-600 hover:bg-red-500 text-white px-3 rounded font-bold flex items-center gap-1 shrink-0"
+                                                className="bg-red-600 hover:bg-red-500 text-white px-3 rounded font-bold flex items-center gap-1 shrink-0 cursor-pointer relative z-30"
                                             >
                                                 <Copy size={14} /> Copia SQL
                                             </button>
