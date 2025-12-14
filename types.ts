@@ -69,6 +69,22 @@ export interface UserProfile {
   billing_info?: BillingInfo;
 }
 
+// --- THEME INTERFACES ---
+export interface ThemeColors {
+    sidebarBg: string;     // Colore Sfondo Sidebar (Hex)
+    itemColor: string;     // Colore Testo Normale (Hex)
+    activeBg: string;      // Sfondo elemento attivo (Hex)
+    activeText: string;    // Testo elemento attivo (Hex)
+    accentColor: string;   // Colore Icone/Accenti (Hex)
+}
+
+export interface AppTheme {
+    trial: ThemeColors;
+    pro: ThemeColors;
+    elite: ThemeColors;
+    admin: ThemeColors;
+}
+
 export enum AppView {
   TIMESHEET = 'TIMESHEET', 
   REPORTS = 'REPORTS', 

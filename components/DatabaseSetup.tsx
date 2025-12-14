@@ -15,7 +15,21 @@ create table if not exists public.profiles (
   billing_info jsonb default '{}'::jsonb
 );
 
--- 2. MIGRAZIONE: Aggiunge colonne se mancano (Esegui sempre questo se qualcosa non va)
+-- 2. Tabella CONFIGURAZIONE APP (Temi, Impostazioni Globali)
+create table if not exists public.app_config (
+  key text primary key,
+  value jsonb
+);
+-- Permessi config
+alter table public.app_config enable row level security;
+drop policy if exists "Config viewable by everyone" on public.app_config;
+create policy "Config viewable by everyone" on public.app_config for select using (true);
+drop policy if exists "Config editable by admins" on public.app_config;
+create policy "Config editable by admins" on public.app_config for all using (
+  exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+);
+
+-- 3. MIGRAZIONE: Aggiunge colonne se mancano (Esegui sempre questo se qualcosa non va)
 do $$
 begin
   if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'full_name') then
@@ -29,7 +43,7 @@ begin
   end if;
 end $$;
 
--- 3. Sicurezza (RLS)
+-- 4. Sicurezza (RLS)
 alter table public.profiles enable row level security;
 drop policy if exists "Public profiles are viewable by everyone" on public.profiles;
 create policy "Public profiles are viewable by everyone" on public.profiles for select using (true);
@@ -40,7 +54,7 @@ create policy "Users can update own profile" on public.profiles for update using
 drop policy if exists "Users can insert their own profile" on public.profiles;
 create policy "Users can insert their own profile" on public.profiles for insert with check (auth.uid() = id);
 
--- 4. Tabelle Progetti e Orari
+-- 5. Tabelle Progetti e Orari
 create table if not exists public.projects (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
@@ -132,7 +146,7 @@ WHERE email = '${targetEmail}';`;
                             <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex gap-3">
                                 <AlertTriangle className="text-blue-600 shrink-0" />
                                 <div className="text-sm text-blue-800">
-                                    <strong>Istruzioni:</strong> Copia lo script SQL qui sotto e incollalo nell'editor SQL di Supabase. Risolve tutti i problemi di colonne mancanti (es. rinnovo automatico).
+                                    <strong>Istruzioni:</strong> Copia lo script SQL qui sotto e incollalo nell'editor SQL di Supabase. Risolve tutti i problemi di colonne mancanti e aggiunge il supporto per i temi personalizzati.
                                 </div>
                             </div>
                             

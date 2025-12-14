@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { Project, TimeEntry, UserProfile } from '../types';
+import { Project, TimeEntry, UserProfile, AppTheme } from '../types';
 import { generateId, COLORS } from '../utils';
 
 // --- MOCK DATA FOR DEMO MODE ---
@@ -7,11 +7,44 @@ const MOCK_DELAY = 500;
 const LOCAL_STORAGE_KEYS = {
     PROJECTS: 'cronosheet_demo_projects',
     ENTRIES: 'cronosheet_demo_entries',
-    PROFILES: 'cronosheet_demo_profiles'
+    PROFILES: 'cronosheet_demo_profiles',
+    CONFIG: 'cronosheet_demo_config'
 };
 
 const getLocal = (key: string) => JSON.parse(localStorage.getItem(key) || '[]');
 const setLocal = (key: string, data: any) => localStorage.setItem(key, JSON.stringify(data));
+
+// DEFAULT THEME CONFIG
+export const DEFAULT_THEME: AppTheme = {
+    trial: {
+        sidebarBg: '#0f172a', // slate-900
+        itemColor: '#94a3b8', // slate-400
+        activeBg: '#4f46e5', // indigo-600
+        activeText: '#ffffff',
+        accentColor: '#6366f1' // indigo-500
+    },
+    pro: {
+        sidebarBg: '#1e1b4b', // indigo-950
+        itemColor: '#a5b4fc', // indigo-300
+        activeBg: '#4338ca', // indigo-700
+        activeText: '#ffffff',
+        accentColor: '#818cf8' // indigo-400
+    },
+    elite: {
+        sidebarBg: '#0f172a', // slate-900
+        itemColor: '#cbd5e1', // slate-300
+        activeBg: '#d97706', // amber-600
+        activeText: '#ffffff',
+        accentColor: '#f59e0b' // amber-500
+    },
+    admin: {
+        sidebarBg: '#020617', // slate-950
+        itemColor: '#94a3b8', // slate-400
+        activeBg: '#0f766e', // teal-700
+        activeText: '#ffffff',
+        accentColor: '#14b8a6' // teal-500
+    }
+};
 
 // --- PROJECTS ---
 
@@ -329,5 +362,39 @@ export const deleteUserAdmin = async (userId: string) => {
         return;
     }
     const { error } = await supabase.from('profiles').delete().eq('id', userId);
+    if (error) throw error;
+};
+
+// --- APP CONFIGURATION / THEMES ---
+
+export const getAppTheme = async (): Promise<AppTheme> => {
+    if (!isSupabaseConfigured) {
+        const stored = localStorage.getItem(LOCAL_STORAGE_KEYS.CONFIG);
+        return stored ? JSON.parse(stored) : DEFAULT_THEME;
+    }
+
+    const { data, error } = await supabase
+        .from('app_config')
+        .select('value')
+        .eq('key', 'theme_settings')
+        .single();
+    
+    if (error || !data) {
+        return DEFAULT_THEME;
+    }
+    
+    return data.value as AppTheme;
+};
+
+export const saveAppTheme = async (theme: AppTheme) => {
+    if (!isSupabaseConfigured) {
+        localStorage.setItem(LOCAL_STORAGE_KEYS.CONFIG, JSON.stringify(theme));
+        return;
+    }
+
+    const { error } = await supabase
+        .from('app_config')
+        .upsert({ key: 'theme_settings', value: theme });
+    
     if (error) throw error;
 };
