@@ -39,9 +39,12 @@ const AdminPanel = () => {
         }
     };
 
-    const getDaysRemaining = (dateString?: string) => {
-        if (!dateString) return null;
-        const end = new Date(dateString).getTime();
+    const getDaysRemaining = (user: UserProfile) => {
+        // Elite non scade mai
+        if (user.subscription_status === 'elite') return 'infinity';
+        
+        if (!user.trial_ends_at) return null;
+        const end = new Date(user.trial_ends_at).getTime();
         const now = new Date().getTime();
         const diff = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
         return diff;
@@ -56,7 +59,6 @@ const AdminPanel = () => {
         setEditFullName(user.full_name || '');
         
         // Format dates for input type="date" (YYYY-MM-DD)
-        // Usiamo slice(0, 10) per prendere solo la parte data ISO sicura
         setEditCreatedAt(user.created_at ? new Date(user.created_at).toISOString().slice(0, 10) : '');
         setEditTrialEnds(user.trial_ends_at ? new Date(user.trial_ends_at).toISOString().slice(0, 10) : '');
     };
@@ -77,17 +79,11 @@ const AdminPanel = () => {
         if (!editingUser) return;
         
         try {
-            // CORREZIONE DATE:
-            // new Date("YYYY-MM-DD") crea una data UTC a mezzanotte.
-            // Se il browser è in Italia (+1/+2), toISOString() potrebbe tornare al giorno prima (23:00).
-            // Soluzione: Aggiungiamo l'orario esplicitamente.
-            
-            // Member Since: Impostiamo mezzogiorno per sicurezza
+            // Fix Fuso Orario Date
             const finalCreatedAt = editCreatedAt 
                 ? new Date(editCreatedAt + 'T12:00:00').toISOString() 
                 : editingUser.created_at;
 
-            // Trial Ends: Impostiamo fine giornata (23:59:59)
             const finalTrialEnds = editTrialEnds 
                 ? new Date(editTrialEnds + 'T23:59:59').toISOString() 
                 : editingUser.trial_ends_at;
@@ -213,7 +209,7 @@ const AdminPanel = () => {
                                 <tr><td colSpan={5} className="p-8 text-center text-gray-400">Nessun utente trovato</td></tr>
                             )}
                             {filteredUsers.map(u => {
-                                const daysLeft = getDaysRemaining(u.trial_ends_at);
+                                const daysLeft = getDaysRemaining(u);
                                 return (
                                     <tr key={u.id} className="hover:bg-gray-50 transition-colors group">
                                         {/* Utente */}
@@ -259,9 +255,13 @@ const AdminPanel = () => {
 
                                         {/* Giorni Rimanenti */}
                                         <td className="px-6 py-4">
-                                            {daysLeft !== null ? (
-                                                <span className={`text-xs font-bold px-2 py-1 rounded ${daysLeft < 0 ? 'bg-red-100 text-red-600' : daysLeft < 7 ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-600'}`}>
-                                                    {daysLeft < 0 ? `Scaduto (${Math.abs(daysLeft)}gg)` : `${daysLeft} giorni`}
+                                            {daysLeft === 'infinity' ? (
+                                                <span className="text-xs font-bold px-2 py-1 rounded bg-amber-100 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
+                                                    <Crown size={12} /> Illimitato
+                                                </span>
+                                            ) : daysLeft !== null ? (
+                                                <span className={`text-xs font-bold px-2 py-1 rounded ${(daysLeft as number) < 0 ? 'bg-red-100 text-red-600' : (daysLeft as number) < 7 ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-600'}`}>
+                                                    {(daysLeft as number) < 0 ? `Scaduto (${Math.abs(daysLeft as number)}gg)` : `${daysLeft} giorni`}
                                                 </span>
                                             ) : (
                                                 <span className="text-gray-300">-</span>
@@ -313,19 +313,17 @@ const AdminPanel = () => {
                                 <p className="text-xs text-gray-400 font-mono">{editingUser.id}</p>
                             </div>
 
-                            {/* 1. Nome Visualizzato / ID */}
+                            {/* Form fields... */}
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Nome Completo / ID Visualizzato</label>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Nome Completo</label>
                                 <input 
                                     type="text" 
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                                     value={editFullName}
                                     onChange={e => setEditFullName(e.target.value)}
-                                    placeholder="Es. Mario Rossi"
                                 />
                             </div>
 
-                            {/* 2. Ruolo & Piano */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Ruolo</label>
@@ -353,7 +351,6 @@ const AdminPanel = () => {
                                 </div>
                             </div>
 
-                            {/* 3. Gestione Date */}
                             <div className="border-t border-gray-100 pt-4">
                                 <h4 className="text-sm font-bold text-indigo-600 mb-3 flex items-center gap-2">
                                     <Calendar size={16} /> Gestione Temporale
@@ -369,35 +366,32 @@ const AdminPanel = () => {
                                         />
                                     </div>
                                     <div className="flex flex-col">
-                                        <label className="block text-xs font-bold text-gray-500 mb-1">Scadenza Trial/Piano</label>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">Scadenza Piano</label>
                                         <input 
                                             type="date" 
                                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none mb-1"
                                             value={editTrialEnds}
                                             onChange={e => setEditTrialEnds(e.target.value)}
+                                            disabled={editPlan === 'elite'} // Disabilita per Elite
                                         />
-                                        <button 
-                                            onClick={setTrialSixtyDays}
-                                            className="text-[10px] text-indigo-600 font-bold hover:underline self-start flex items-center gap-1"
-                                        >
-                                            <ArrowRight size={10} /> Set +60gg da oggi
-                                        </button>
+                                        {editPlan === 'trial' && (
+                                            <button 
+                                                onClick={setTrialSixtyDays}
+                                                className="text-[10px] text-indigo-600 font-bold hover:underline self-start flex items-center gap-1"
+                                            >
+                                                <ArrowRight size={10} /> Reset 60gg
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>
 
                             <div className="flex justify-end gap-3 pt-4">
-                                <button 
-                                    onClick={closeEditModal}
-                                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors"
-                                >
+                                <button onClick={closeEditModal} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors">
                                     Annulla
                                 </button>
-                                <button 
-                                    onClick={handleSaveEdit}
-                                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-lg flex items-center gap-2"
-                                >
-                                    <Save size={18} /> Salva Modifiche
+                                <button onClick={handleSaveEdit} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-lg flex items-center gap-2">
+                                    <Save size={18} /> Salva
                                 </button>
                             </div>
                         </div>

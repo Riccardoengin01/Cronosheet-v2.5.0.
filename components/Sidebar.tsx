@@ -14,7 +14,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
     { id: AppView.CLIENTS, label: 'Clienti', icon: Users },
     { id: AppView.BILLING, label: 'Riepilogo', icon: Receipt },
     { id: AppView.REPORTS, label: 'Statistiche', icon: PieChart },
-    { id: AppView.SETTINGS, label: 'Il mio Profilo', icon: UserCog }, // Nuova voce per tutti
+    { id: AppView.SETTINGS, label: 'Il mio Profilo', icon: UserCog },
   ];
 
   if (userProfile?.role === 'admin') {
@@ -23,12 +23,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
 
   // Helper per calcolare giorni rimanenti REALI dal DB
   const getDaysLeft = () => {
-      if (!userProfile) return 0;
+      if (!userProfile || !userProfile.trial_ends_at) return 0;
       
       const endDate = new Date(userProfile.trial_ends_at).getTime();
       const now = Date.now();
       
-      // Calcolo diretto giorni rimanenti
       return Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
   };
 
@@ -37,6 +36,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
   const renderUserStatus = () => {
       if (!userProfile) return null;
 
+      // ELITE: Nessuna scadenza, nessuna data mostrata
       if (userProfile.subscription_status === 'elite') {
           return (
               <div className="flex items-center gap-2 text-amber-400 mt-1">
@@ -46,7 +46,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
           );
       }
       
+      // PRO: Mostra data rinnovo o giorni se in scadenza
       if (userProfile.subscription_status === 'pro') {
+          const renewDate = new Date(userProfile.trial_ends_at).toLocaleDateString('it-IT');
           return (
               <div className="mt-1">
                   <div className="flex items-center gap-2 text-indigo-400">
@@ -54,13 +56,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
                       <span className="text-xs font-bold uppercase tracking-wider">Pro Plan</span>
                   </div>
                   <div className="text-[10px] text-slate-400 mt-0.5">
-                      {daysLeft < 0 ? `Scaduto da ${Math.abs(daysLeft)} gg` : `Scadenza tra ${daysLeft} gg`}
+                      {daysLeft < 0 ? 'Scaduto' : daysLeft <= 7 ? `Scade tra ${daysLeft} gg` : `Rinnovo: ${renewDate}`}
                   </div>
               </div>
           );
       }
 
-      // Default Trial
+      // TRIAL: Mostra conteggio giorni su 60
       const isExpired = daysLeft < 0;
       return (
           <div className="mt-1">
@@ -80,7 +82,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
       {/* Background Accent */}
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
       
-      {/* Header - Identico per tutti */}
+      {/* Header */}
       <div className="h-20 flex items-center justify-center lg:justify-start lg:px-6 border-b border-slate-800/50 bg-slate-900/50 backdrop-blur-sm">
         <div className="bg-indigo-500/10 p-2 rounded-lg shrink-0">
             <ShieldCheck className="w-8 h-8 text-indigo-400" />
@@ -117,7 +119,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
         })}
       </nav>
 
-      {/* User Info Card (Bottom) - Visibile a tutti su Desktop */}
+      {/* User Info Card (Bottom) */}
       <div className="p-4 border-t border-slate-800/50 bg-slate-900/50 space-y-3">
         
         {/* User Card */}
