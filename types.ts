@@ -60,6 +60,7 @@ export interface UserProfile {
   // Aggiunto 'elite' ai possibili stati
   subscription_status: 'trial' | 'active' | 'pro' | 'elite' | 'expired';
   trial_ends_at: string;
+  auto_renew?: boolean; // Nuovo campo per gestire il rinnovo automatico
   created_at?: string; // Data di registrazione
   is_approved: boolean;
   password?: string; // Solo per Mock Mode locale

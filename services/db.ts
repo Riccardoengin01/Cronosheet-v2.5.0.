@@ -195,7 +195,8 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
   // Mappa il jsonb billing_info nel campo billing_info
   return {
       ...data,
-      billing_info: data.billing_info || {}
+      billing_info: data.billing_info || {},
+      auto_renew: data.auto_renew ?? true // Default to true if missing
   };
 };
 
@@ -213,7 +214,8 @@ export const createUserProfile = async (userId: string, email: string): Promise<
             trial_ends_at: trialEnds,
             created_at: new Date().toISOString(),
             is_approved: true,
-            billing_info: {}
+            billing_info: {},
+            auto_renew: true
         };
         profiles.push(newProfile);
         setLocal(LOCAL_STORAGE_KEYS.PROFILES, profiles);
@@ -227,7 +229,8 @@ export const createUserProfile = async (userId: string, email: string): Promise<
         subscription_status: 'trial',
         trial_ends_at: trialEnds,
         is_approved: true,
-        billing_info: {}
+        billing_info: {},
+        auto_renew: true
     };
 
     const { data, error } = await supabase
@@ -264,6 +267,7 @@ export const updateUserProfile = async (userId: string, updates: Partial<UserPro
     const dbUpdates: any = {};
     if (updates.full_name !== undefined) dbUpdates.full_name = updates.full_name;
     if (updates.billing_info !== undefined) dbUpdates.billing_info = updates.billing_info;
+    if (updates.auto_renew !== undefined) dbUpdates.auto_renew = updates.auto_renew; // Added support for auto_renew
 
     const { error } = await supabase
         .from('profiles')
@@ -293,7 +297,8 @@ export const updateUserProfileAdmin = async (profile: Partial<UserProfile> & { i
         full_name: profile.full_name,
         created_at: profile.created_at,
         trial_ends_at: profile.trial_ends_at,
-        billing_info: profile.billing_info
+        billing_info: profile.billing_info,
+        auto_renew: profile.auto_renew
     };
 
     // Rimuovi chiavi undefined

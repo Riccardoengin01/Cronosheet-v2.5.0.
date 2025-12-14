@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { UserProfile, BillingInfo } from '../types';
 import * as DB from '../services/db';
-import { User, Shield, CheckCircle, Crown, Star, Clock, Zap, CreditCard, ArrowRight, Pencil, Save, X, Building, FileText, AlertCircle } from 'lucide-react';
+import { User, Shield, CheckCircle, Crown, Star, Clock, Zap, CreditCard, ArrowRight, Pencil, Save, X, Building, FileText, AlertCircle, ToggleLeft, ToggleRight, Calendar } from 'lucide-react';
 
 interface UserSettingsProps {
     user: UserProfile;
@@ -18,6 +18,10 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
     const [isEditingBilling, setIsEditingBilling] = useState(false);
     const [billingInfo, setBillingInfo] = useState<BillingInfo>(user.billing_info || {});
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+    
+    // Auto Renewal State
+    const [autoRenew, setAutoRenew] = useState(user.auto_renew !== undefined ? user.auto_renew : true);
+    const [updatingRenew, setUpdatingRenew] = useState(false);
 
     const getTrialEndDate = () => {
         if (!user.trial_ends_at) return new Date(); 
@@ -58,6 +62,20 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
         } catch (error) {
             console.error(error);
             setSaveStatus('error');
+        }
+    };
+    
+    const handleToggleAutoRenew = async () => {
+        setUpdatingRenew(true);
+        const newValue = !autoRenew;
+        try {
+            await DB.updateUserProfile(user.id, { auto_renew: newValue });
+            setAutoRenew(newValue);
+            // Refresh facoltativo o feedback visivo
+        } catch (error) {
+            alert("Errore aggiornamento preferenza rinnovo.");
+        } finally {
+            setUpdatingRenew(false);
         }
     };
 
@@ -354,11 +372,15 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
                                     
                                     {user.subscription_status === 'trial' && `Hai ancora ${daysLeft} giorni di prova gratuita.`}
                                     
-                                    {user.subscription_status === 'pro' && `Il tuo abbonamento è attivo fino al ${trialEnd.toLocaleDateString('it-IT')}.`}
+                                    {user.subscription_status === 'pro' && (
+                                        autoRenew 
+                                        ? `Il tuo abbonamento è attivo e si rinnoverà il ${trialEnd.toLocaleDateString('it-IT')}.`
+                                        : `Il tuo abbonamento scadrà il ${trialEnd.toLocaleDateString('it-IT')}. Non si rinnoverà.`
+                                    )}
                                 </p>
                             </div>
 
-                            {user.subscription_status !== 'elite' && (
+                            {user.subscription_status !== 'elite' && user.subscription_status !== 'pro' && (
                                 <div className="bg-slate-800 p-1.5 rounded-xl inline-flex items-center border border-slate-700">
                                     <button onClick={() => setBillingCycle('monthly')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${billingCycle === 'monthly' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-400 hover:text-white'}`}>
                                         Mensile
@@ -383,10 +405,39 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
                              </div>
                         )}
                         
-                        {/* Indicazione rinnovo PRO */}
+                        {/* Indicazione rinnovo PRO e TOGGLE */}
                         {user.subscription_status === 'pro' && (
-                             <div className="mt-8 flex items-center gap-2 text-sm text-emerald-400 font-medium">
-                                <CheckCircle size={16} /> Rinnovo automatico attivo il {trialEnd.toLocaleDateString('it-IT')}
+                             <div className="mt-8 bg-slate-800/50 p-4 rounded-xl border border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <Calendar className={autoRenew ? "text-emerald-400" : "text-amber-400"} size={20} />
+                                    <div>
+                                        <p className="text-sm font-bold text-white">
+                                            {autoRenew ? 'Rinnovo Automatico Attivo' : 'Rinnovo Automatico Disattivato'}
+                                        </p>
+                                        <p className="text-xs text-slate-400">
+                                            {autoRenew 
+                                                ? `Prossimo addebito: ${trialEnd.toLocaleDateString('it-IT')}`
+                                                : `Scadenza servizio: ${trialEnd.toLocaleDateString('it-IT')}`
+                                            }
+                                        </p>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={handleToggleAutoRenew}
+                                    disabled={updatingRenew}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                        autoRenew 
+                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20' 
+                                        : 'bg-slate-700 text-slate-300 border border-slate-600 hover:bg-slate-600'
+                                    }`}
+                                >
+                                    {updatingRenew ? 'Aggiornamento...' : (
+                                        <>
+                                            {autoRenew ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
+                                            {autoRenew ? 'Disabilita' : 'Abilita'}
+                                        </>
+                                    )}
+                                </button>
                              </div>
                         )}
                     </div>

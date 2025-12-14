@@ -9,9 +9,10 @@ create table if not exists public.profiles (
   role text default 'user',
   subscription_status text default 'trial',
   trial_ends_at timestamptz,
+  auto_renew boolean default true, -- Nuovo campo rinnovo automatico
   is_approved boolean default true,
   created_at timestamptz default now(),
-  billing_info jsonb default '{}'::jsonb -- Aggiunto campo JSON per dati fatturazione
+  billing_info jsonb default '{}'::jsonb
 );
 
 -- 1b. MIGRAZIONE: Aggiunge colonne se mancano
@@ -25,6 +26,11 @@ begin
   -- Aggiungi billing_info se manca
   if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'billing_info') then
     alter table public.profiles add column billing_info jsonb default '{}'::jsonb;
+  end if;
+
+  -- Aggiungi auto_renew se manca
+  if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'auto_renew') then
+    alter table public.profiles add column auto_renew boolean default true;
   end if;
 end $$;
 
@@ -143,7 +149,7 @@ WHERE email = '${targetEmail}';`;
                             <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex gap-3">
                                 <AlertTriangle className="text-blue-600 shrink-0" />
                                 <div className="text-sm text-blue-800">
-                                    <strong>Aggiornamento Richiesto:</strong> Questo script aggiunge il supporto per i <strong>Dati di Fatturazione</strong> (P.IVA, Codice Fiscale, SDI). Eseguilo in Supabase per evitare errori nel salvataggio del profilo.
+                                    <strong>Aggiornamento Richiesto:</strong> Questo script aggiunge il campo <strong>auto_renew</strong> per la gestione dei rinnovi automatici dei piani Pro.
                                 </div>
                             </div>
                             <div className="relative">

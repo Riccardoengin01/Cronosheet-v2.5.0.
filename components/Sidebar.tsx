@@ -49,14 +49,20 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
       // PRO: Mostra data rinnovo o giorni se in scadenza
       if (userProfile.subscription_status === 'pro') {
           const renewDate = new Date(userProfile.trial_ends_at).toLocaleDateString('it-IT');
+          // Default to true if undefined
+          const isAutoRenew = userProfile.auto_renew !== false; 
+          
           return (
               <div className="mt-1">
                   <div className="flex items-center gap-2 text-indigo-400">
                       <Star size={14} fill="currentColor" />
                       <span className="text-xs font-bold uppercase tracking-wider">Pro Plan</span>
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">
-                      {daysLeft < 0 ? 'Scaduto' : daysLeft <= 7 ? `Scade tra ${daysLeft} gg` : `Rinnovo: ${renewDate}`}
+                  <div className={`text-[10px] mt-0.5 ${isAutoRenew ? 'text-slate-400' : 'text-amber-500 font-medium'}`}>
+                      {daysLeft < 0 
+                        ? 'Scaduto' 
+                        : (isAutoRenew ? `Rinnovo: ${renewDate}` : `Scadenza: ${renewDate}`)
+                      }
                   </div>
               </div>
           );
