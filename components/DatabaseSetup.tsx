@@ -5,12 +5,21 @@ const INIT_SCRIPT = `-- 1. Crea la tabella PROFILES (se non esiste)
 create table if not exists public.profiles (
   id uuid references auth.users on delete cascade not null primary key,
   email text,
+  full_name text, -- Aggiunto campo nome completo
   role text default 'user',
   subscription_status text default 'trial',
   trial_ends_at timestamptz,
   is_approved boolean default true,
   created_at timestamptz default now()
 );
+
+-- 1b. AGGIORNAMENTO PER DB ESISTENTI: Aggiunge colonna full_name se manca
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'full_name') then
+    alter table public.profiles add column full_name text;
+  end if;
+end $$;
 
 -- 2. Abilita sicurezza (RLS)
 alter table public.profiles enable row level security;
@@ -150,7 +159,7 @@ WHERE email = '${targetEmail}';`;
                             <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex gap-3">
                                 <AlertTriangle className="text-blue-600 shrink-0" />
                                 <div className="text-sm text-blue-800">
-                                    <strong>Importante:</strong> Esegui questo script per aggiornare le "Policy" di sicurezza. Senza questo, il pannello Admin non funzionerà perché Supabase bloccherà le modifiche agli altri utenti.
+                                    <strong>Importante:</strong> Esegui questo script per aggiornare le "Policy" di sicurezza e aggiungere la colonna <code>full_name</code> al database. Senza questo, il salvataggio del nome utente fallirà.
                                 </div>
                             </div>
                             <div className="relative">

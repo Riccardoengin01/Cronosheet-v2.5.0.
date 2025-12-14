@@ -253,9 +253,15 @@ export const updateUserProfile = async (userId: string, updates: Partial<UserPro
         return;
     }
 
+    // SANITIZZAZIONE: Rimuovi campi che non esistono nel DB o non devono essere toccati qui
+    const dbUpdates: any = { ...updates };
+    delete dbUpdates.id; // L'ID non si cambia
+    delete dbUpdates.email; // L'email si cambia via auth
+    delete dbUpdates.password; // Rimuovi campo mock
+
     const { error } = await supabase
         .from('profiles')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', userId);
 
     if (error) throw error;
@@ -273,16 +279,22 @@ export const updateUserProfileAdmin = async (profile: Partial<UserProfile> & { i
         return;
     }
 
+    // Mappatura esplicita per evitare invio di campi sporchi
+    const updates: any = {
+        is_approved: profile.is_approved,
+        subscription_status: profile.subscription_status,
+        role: profile.role,
+        full_name: profile.full_name,
+        created_at: profile.created_at,
+        trial_ends_at: profile.trial_ends_at
+    };
+
+    // Rimuovi chiavi undefined per non sovrascrivere con null involontariamente
+    Object.keys(updates).forEach(key => updates[key] === undefined && delete updates[key]);
+
     const { error } = await supabase
         .from('profiles')
-        .update({
-            is_approved: profile.is_approved,
-            subscription_status: profile.subscription_status,
-            role: profile.role,
-            full_name: profile.full_name,
-            created_at: profile.created_at,
-            trial_ends_at: profile.trial_ends_at
-        })
+        .update(updates)
         .eq('id', profile.id);
     
     if (error) throw error;
