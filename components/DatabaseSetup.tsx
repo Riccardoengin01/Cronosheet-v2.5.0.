@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Database, Copy, Check, RefreshCw, Terminal, Shield, Key, AlertTriangle } from 'lucide-react';
+import { Database, Copy, Check, RefreshCw, Terminal, Shield, Key, AlertTriangle, Play } from 'lucide-react';
 
 const INIT_SCRIPT = `-- 1. Crea o Aggiorna Tabella PROFILES
 create table if not exists public.profiles (
@@ -9,49 +9,38 @@ create table if not exists public.profiles (
   role text default 'user',
   subscription_status text default 'trial',
   trial_ends_at timestamptz,
-  auto_renew boolean default true, -- Nuovo campo rinnovo automatico
+  auto_renew boolean default true,
   is_approved boolean default true,
   created_at timestamptz default now(),
   billing_info jsonb default '{}'::jsonb
 );
 
--- 1b. MIGRAZIONE: Aggiunge colonne se mancano
+-- 2. MIGRAZIONE: Aggiunge colonne se mancano (Esegui sempre questo se qualcosa non va)
 do $$
 begin
-  -- Aggiungi full_name se manca
   if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'full_name') then
     alter table public.profiles add column full_name text;
   end if;
-  
-  -- Aggiungi billing_info se manca
   if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'billing_info') then
     alter table public.profiles add column billing_info jsonb default '{}'::jsonb;
   end if;
-
-  -- Aggiungi auto_renew se manca
   if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'auto_renew') then
     alter table public.profiles add column auto_renew boolean default true;
   end if;
 end $$;
 
--- 2. Sicurezza (RLS)
+-- 3. Sicurezza (RLS)
 alter table public.profiles enable row level security;
-
--- 3. PULIZIA POLICY VECCHIE
-drop policy if exists "Users can insert their own profile" on public.profiles;
-drop policy if exists "Users can update own profile" on public.profiles;
 drop policy if exists "Public profiles are viewable by everyone" on public.profiles;
-drop policy if exists "Admins can update everyone" on public.profiles;
-drop policy if exists "Admins can delete everyone" on public.profiles;
-
--- 4. CREA NUOVE POLICY
 create policy "Public profiles are viewable by everyone" on public.profiles for select using (true);
-create policy "Users can insert their own profile" on public.profiles for insert with check (auth.uid() = id);
-create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
-create policy "Admins can update everyone" on public.profiles for update using ((select role from public.profiles where id = auth.uid()) = 'admin');
-create policy "Admins can delete everyone" on public.profiles for delete using ((select role from public.profiles where id = auth.uid()) = 'admin');
 
--- 5. Tabelle Progetti e Orari
+drop policy if exists "Users can update own profile" on public.profiles;
+create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
+
+drop policy if exists "Users can insert their own profile" on public.profiles;
+create policy "Users can insert their own profile" on public.profiles for insert with check (auth.uid() = id);
+
+-- 4. Tabelle Progetti e Orari
 create table if not exists public.projects (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
@@ -81,21 +70,7 @@ create table if not exists public.time_entries (
 alter table public.time_entries enable row level security;
 drop policy if exists "Users can CRUD their own entries" on public.time_entries;
 create policy "Users can CRUD their own entries" on public.time_entries for all using (auth.uid() = user_id);
-
--- 6. Constraints
-alter table public.profiles drop constraint if exists check_subscription_status;
-alter table public.profiles add constraint check_subscription_status check (subscription_status in ('trial', 'active', 'pro', 'elite', 'expired'));
-alter table public.profiles drop constraint if exists check_role;
-alter table public.profiles add constraint check_role check (role in ('admin', 'user'));
 `;
-
-const FIX_COLUMN_SCRIPT = `-- Fix veloce: Aggiunge solo la colonna auto_renew se mancante
-do $$
-begin
-  if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'auto_renew') then
-    alter table public.profiles add column auto_renew boolean default true;
-  end if;
-end $$;`;
 
 const DatabaseSetup = () => {
     const [activeTab, setActiveTab] = useState<'init' | 'admin'>('init');
@@ -140,7 +115,7 @@ WHERE email = '${targetEmail}';`;
                         onClick={() => setActiveTab('init')}
                         className={`flex-1 py-4 text-sm font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors ${activeTab === 'init' ? 'border-b-4 border-indigo-600 text-indigo-700 bg-indigo-50' : 'text-gray-500 hover:bg-gray-50'}`}
                     >
-                        <Terminal size={18} /> 1. Tabelle & Permessi
+                        <Terminal size={18} /> 1. Struttura & Riparazione
                     </button>
                     <button 
                         onClick={() => setActiveTab('admin')}
@@ -157,19 +132,12 @@ WHERE email = '${targetEmail}';`;
                             <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex gap-3">
                                 <AlertTriangle className="text-blue-600 shrink-0" />
                                 <div className="text-sm text-blue-800">
-                                    <strong>Importante:</strong> Se il pulsante "Rinnovo Automatico" non funziona, esegui nuovamente questo script. Include la correzione per la colonna mancante.
+                                    <strong>Istruzioni:</strong> Copia lo script SQL qui sotto e incollalo nell'editor SQL di Supabase. Risolve tutti i problemi di colonne mancanti (es. rinnovo automatico).
                                 </div>
                             </div>
                             
                             <div className="relative">
-                                <div className="absolute top-3 right-3 flex gap-2">
-                                     <button 
-                                        onClick={() => handleCopy(FIX_COLUMN_SCRIPT)}
-                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors"
-                                        title="Copia solo la correzione colonna"
-                                    >
-                                        Solo Fix Colonna
-                                    </button>
+                                <div className="absolute top-3 right-3">
                                     <button 
                                         onClick={() => handleCopy(INIT_SCRIPT)}
                                         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${copied ? 'bg-green-500 text-white' : 'bg-slate-700 text-white hover:bg-slate-600'}`}
@@ -177,7 +145,7 @@ WHERE email = '${targetEmail}';`;
                                         {copied ? <Check size={14}/> : <Copy size={14}/>} Copia Tutto
                                     </button>
                                 </div>
-                                <pre className="bg-slate-900 text-slate-300 p-4 rounded-xl overflow-x-auto text-xs font-mono h-64 border-4 border-slate-100">
+                                <pre className="bg-slate-900 text-emerald-400 p-4 rounded-xl overflow-x-auto text-xs font-mono h-64 border-4 border-slate-100">
                                     <code>{INIT_SCRIPT}</code>
                                 </pre>
                             </div>
@@ -186,15 +154,6 @@ WHERE email = '${targetEmail}';`;
 
                     {activeTab === 'admin' && (
                         <div className="animate-fade-in">
-                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
-                                <h3 className="font-bold text-amber-800 mb-2 flex items-center gap-2">
-                                    <Key size={18} /> Come diventare Admin
-                                </h3>
-                                <p className="text-amber-700 text-sm">
-                                    Inserisci la tua email. Copia il codice SQL generato. Incollalo nell'Editor SQL di Supabase e premi RUN.
-                                </p>
-                            </div>
-
                             <label className="block text-sm font-bold text-gray-700 mb-2">La tua Email:</label>
                             <input 
                                 type="email" 
@@ -221,12 +180,9 @@ WHERE email = '${targetEmail}';`;
                     )}
 
                     <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600">
-                        <p className="font-bold mb-1">Passaggi su Supabase:</p>
                         <ol className="list-decimal list-inside space-y-1">
-                            <li>Vai su <a href="https://supabase.com/dashboard" target="_blank" className="text-indigo-600 font-bold hover:underline">Supabase Dashboard</a> &gt; Progetto.</li>
-                            <li>Clicca su <strong>SQL Editor</strong> (icona terminale a sinistra).</li>
-                            <li>Incolla il codice copiato qui sopra.</li>
-                            <li>Clicca su <strong>Run</strong> (in basso a destra).</li>
+                            <li>Apri <a href="https://supabase.com/dashboard" target="_blank" className="text-indigo-600 font-bold hover:underline">Supabase SQL Editor</a>.</li>
+                            <li>Incolla lo script e premi <strong>RUN</strong>.</li>
                         </ol>
                     </div>
 

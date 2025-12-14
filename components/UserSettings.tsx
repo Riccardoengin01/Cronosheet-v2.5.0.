@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { UserProfile, BillingInfo } from '../types';
 import * as DB from '../services/db';
-import { User, Shield, CheckCircle, Crown, Star, Clock, Zap, CreditCard, ArrowRight, Pencil, Save, X, Building, FileText, AlertCircle, ToggleLeft, ToggleRight, Calendar } from 'lucide-react';
+import { User, Shield, CheckCircle, Crown, Star, Clock, Zap, CreditCard, ArrowRight, Pencil, Save, X, Building, FileText, AlertCircle, ToggleLeft, ToggleRight, Calendar, AlertTriangle, Copy, Terminal } from 'lucide-react';
 
 interface UserSettingsProps {
     user: UserProfile;
@@ -23,6 +23,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
     // Auto Renewal State
     const [autoRenew, setAutoRenew] = useState(user.auto_renew !== undefined ? user.auto_renew : true);
     const [updatingRenew, setUpdatingRenew] = useState(false);
+    const [renewError, setRenewError] = useState<string | null>(null);
 
     const getTrialEndDate = () => {
         if (!user.trial_ends_at) return new Date(); 
@@ -68,17 +69,30 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
     
     const handleToggleAutoRenew = async () => {
         setUpdatingRenew(true);
+        setRenewError(null);
+        // Calcoliamo il nuovo valore invertendo quello attuale
         const newValue = !autoRenew;
+        
         try {
+            // Tentiamo l'aggiornamento sul DB
             await DB.updateUserProfile(user.id, { auto_renew: newValue });
+            
+            // Se successo, aggiorniamo stato locale e globale
             setAutoRenew(newValue);
-            onProfileUpdate(); // Refresh global state
-        } catch (error) {
-            console.error(error);
-            alert("Errore salvataggio. Probabilmente manca la colonna 'auto_renew' nel database. Esegui lo script di migrazione in Database Setup.");
+            onProfileUpdate(); 
+        } catch (error: any) {
+            console.error("Errore toggle rinnovo:", error);
+            // Mostriamo l'errore e lo script di fix se necessario
+            setRenewError("Errore Database: Probabilmente manca la colonna 'auto_renew'. Esegui lo script qui sotto nel SQL Editor di Supabase.");
         } finally {
             setUpdatingRenew(false);
         }
+    };
+
+    const copySqlFix = () => {
+        const sql = `ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS auto_renew BOOLEAN DEFAULT TRUE;`;
+        navigator.clipboard.writeText(sql);
+        alert("Codice SQL copiato! Incollalo nell'editor SQL di Supabase.");
     };
 
     const updateBillingField = (field: keyof BillingInfo, value: string) => {
@@ -112,7 +126,6 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
     ];
 
     const handleUpgrade = (planName: string) => {
-        // Controllo validazione Dati Fiscali prima dell'acquisto
         const hasBillingInfo = user.billing_info && (user.billing_info.tax_code || user.billing_info.vat_number);
         
         if (!hasBillingInfo) {
@@ -198,6 +211,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
 
                     {/* Dati Fatturazione */}
                     <div id="billing-section" className={`bg-white rounded-2xl shadow-sm border p-6 transition-all ${isEditingBilling ? 'border-indigo-500 ring-2 ring-indigo-50' : 'border-gray-200'}`}>
+                        {/* ... (Codice Fatturazione invariato) ... */}
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="font-bold text-gray-800 flex items-center gap-2">
                                 <FileText size={18} className="text-indigo-500"/> Dati di Fatturazione
@@ -409,37 +423,61 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
                         
                         {/* Indicazione rinnovo PRO e TOGGLE */}
                         {user.subscription_status === 'pro' && (
-                             <div className="mt-8 bg-slate-800/50 p-4 rounded-xl border border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                <div className="flex items-center gap-3">
-                                    <Calendar className={autoRenew ? "text-emerald-400" : "text-amber-400"} size={20} />
-                                    <div>
-                                        <p className="text-sm font-bold text-white">
-                                            {autoRenew ? 'Rinnovo Automatico Attivo' : 'Rinnovo Automatico Disattivato'}
-                                        </p>
-                                        <p className="text-xs text-slate-400">
-                                            {autoRenew 
-                                                ? `Prossimo addebito: ${trialEnd.toLocaleDateString('it-IT')}`
-                                                : `Scadenza servizio: ${trialEnd.toLocaleDateString('it-IT')}`
-                                            }
-                                        </p>
+                             <div className="mt-8">
+                                 <div className={`bg-slate-800/50 p-4 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors ${renewError ? 'border-red-500/50 bg-red-900/10' : 'border-slate-700'}`}>
+                                    <div className="flex items-center gap-3">
+                                        {renewError ? (
+                                            <AlertTriangle className="text-red-400" size={20} />
+                                        ) : (
+                                            <Calendar className={autoRenew ? "text-emerald-400" : "text-amber-400"} size={20} />
+                                        )}
+                                        <div>
+                                            <p className="text-sm font-bold text-white">
+                                                {autoRenew ? 'Rinnovo Automatico Attivo' : 'Rinnovo Automatico Disattivato'}
+                                            </p>
+                                            <p className="text-xs text-slate-400">
+                                                {autoRenew 
+                                                    ? `Prossimo addebito: ${trialEnd.toLocaleDateString('it-IT')}`
+                                                    : `Scadenza servizio: ${trialEnd.toLocaleDateString('it-IT')}`
+                                                }
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
-                                <button 
-                                    onClick={handleToggleAutoRenew}
-                                    disabled={updatingRenew}
-                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                        autoRenew 
-                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20' 
-                                        : 'bg-slate-700 text-slate-300 border border-slate-600 hover:bg-slate-600'
-                                    }`}
-                                >
-                                    {updatingRenew ? 'Aggiornamento...' : (
-                                        <>
-                                            {autoRenew ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
-                                            {autoRenew ? 'Disabilita' : 'Abilita'}
-                                        </>
-                                    )}
-                                </button>
+                                    <button 
+                                        onClick={handleToggleAutoRenew}
+                                        disabled={updatingRenew}
+                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                            autoRenew 
+                                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20' 
+                                            : 'bg-slate-700 text-slate-300 border border-slate-600 hover:bg-slate-600'
+                                        }`}
+                                    >
+                                        {updatingRenew ? 'Aggiornamento...' : (
+                                            <>
+                                                {autoRenew ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
+                                                {autoRenew ? 'Disabilita' : 'Abilita'}
+                                            </>
+                                        )}
+                                    </button>
+                                 </div>
+                                 
+                                 {/* ERROR BOX WITH FIX */}
+                                 {renewError && (
+                                     <div className="mt-3 bg-red-900/30 border border-red-500/30 rounded-lg p-3 text-red-200 text-xs">
+                                         <p className="font-bold mb-2 flex items-center gap-2"><AlertCircle size={14}/> {renewError}</p>
+                                         <div className="flex gap-2">
+                                            <code className="bg-black/30 p-2 rounded flex-grow font-mono overflow-x-auto whitespace-nowrap">
+                                                ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS auto_renew BOOLEAN DEFAULT TRUE;
+                                            </code>
+                                            <button 
+                                                onClick={copySqlFix}
+                                                className="bg-red-600 hover:bg-red-500 text-white px-3 rounded font-bold flex items-center gap-1 shrink-0"
+                                            >
+                                                <Copy size={14} /> Copia SQL
+                                            </button>
+                                         </div>
+                                     </div>
+                                 )}
                              </div>
                         )}
                     </div>

@@ -19,7 +19,6 @@ export const getProjects = async (userId?: string): Promise<Project[]> => {
   if (!isSupabaseConfigured) {
       await new Promise(r => setTimeout(r, MOCK_DELAY));
       const all = getLocal(LOCAL_STORAGE_KEYS.PROJECTS);
-      // In demo mode, return defaults if empty
       if (all.length === 0) {
           const defaults = [
               { id: 'p1', user_id: userId, name: 'Demo Cliente A', color: COLORS[0], defaultHourlyRate: 20, shifts: [] },
@@ -192,16 +191,14 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
 
   if (error) return null;
   
-  // Mappa il jsonb billing_info nel campo billing_info
   return {
       ...data,
       billing_info: data.billing_info || {},
-      auto_renew: data.auto_renew ?? true // Default to true if missing
+      auto_renew: data.auto_renew ?? true 
   };
 };
 
 export const createUserProfile = async (userId: string, email: string): Promise<UserProfile | null> => {
-    // Calcola la scadenza trial (60 giorni da oggi) una sola volta alla creazione
     const trialEnds = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
     
     if (!isSupabaseConfigured) {
@@ -241,17 +238,14 @@ export const createUserProfile = async (userId: string, email: string): Promise<
     
     if (error) {
         console.error("Error creating/upserting profile:", error);
-        // Se esiste già, ritornalo
         return getUserProfile(userId);
     }
     
-    // Se è stato appena creato o ritornato
     if (data) return { ...data, billing_info: data.billing_info || {} };
     
     return getUserProfile(userId);
 };
 
-// Funzione per l'utente (modifica se stesso)
 export const updateUserProfile = async (userId: string, updates: Partial<UserProfile>) => {
     if (!isSupabaseConfigured) {
         const profiles = getLocal(LOCAL_STORAGE_KEYS.PROFILES);
@@ -263,11 +257,15 @@ export const updateUserProfile = async (userId: string, updates: Partial<UserPro
         return;
     }
 
-    // SANITIZZAZIONE
+    // SANITIZZAZIONE: Creiamo un oggetto pulito
     const dbUpdates: any = {};
     if (updates.full_name !== undefined) dbUpdates.full_name = updates.full_name;
     if (updates.billing_info !== undefined) dbUpdates.billing_info = updates.billing_info;
-    if (updates.auto_renew !== undefined) dbUpdates.auto_renew = updates.auto_renew; // Added support for auto_renew
+    // IMPORTANTE: Questo assicura che false venga passato correttamente
+    if (typeof updates.auto_renew === 'boolean') dbUpdates.auto_renew = updates.auto_renew;
+
+    // Se l'oggetto è vuoto, non fare nulla
+    if (Object.keys(dbUpdates).length === 0) return;
 
     const { error } = await supabase
         .from('profiles')
@@ -277,7 +275,6 @@ export const updateUserProfile = async (userId: string, updates: Partial<UserPro
     if (error) throw error;
 };
 
-// Funzione per Admin (modifica chiunque)
 export const updateUserProfileAdmin = async (profile: Partial<UserProfile> & { id: string }) => {
     if (!isSupabaseConfigured) {
         const profiles = getLocal(LOCAL_STORAGE_KEYS.PROFILES);
@@ -289,7 +286,6 @@ export const updateUserProfileAdmin = async (profile: Partial<UserProfile> & { i
         return;
     }
 
-    // Mappatura esplicita per evitare invio di campi sporchi
     const updates: any = {
         is_approved: profile.is_approved,
         subscription_status: profile.subscription_status,
@@ -301,7 +297,6 @@ export const updateUserProfileAdmin = async (profile: Partial<UserProfile> & { i
         auto_renew: profile.auto_renew
     };
 
-    // Rimuovi chiavi undefined
     Object.keys(updates).forEach(key => updates[key] === undefined && delete updates[key]);
 
     const { error } = await supabase
