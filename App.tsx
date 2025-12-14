@@ -9,6 +9,7 @@ import Billing from './components/Billing';
 import AdminPanel from './components/AdminPanel';
 import UserSettings from './components/UserSettings';
 import Auth from './components/Auth';
+import DatabaseSetup from './components/DatabaseSetup'; // Importato DatabaseSetup
 import * as DB from './services/db';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { Plus, Lock, LogOut, Loader2, Database, Play, AlertOctagon, CreditCard } from 'lucide-react';
@@ -180,31 +181,22 @@ function App() {
 
   // --- RENDER LOGIC ---
 
+  // SE SUPABASE NON È CONFIGURATO -> MOSTRA DATABASE SETUP SCREEN
   if (!isSupabaseConfigured && !demoMode && !loadingAuth) {
       return (
-          <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans">
-              <div className="bg-white max-w-2xl w-full rounded-2xl shadow-2xl p-8 text-center space-y-6 relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500"></div>
-                  <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto border-4 border-white shadow-lg">
-                      <Database className="w-10 h-10 text-slate-600" />
-                  </div>
-                  <div>
-                    <h1 className="text-3xl font-bold text-slate-800 mb-2">Benvenuto in Cronosheet</h1>
-                    <p className="text-slate-500 text-lg">L'applicazione non è collegata alle variabili d'ambiente.</p>
-                  </div>
-                  <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-6 text-left shadow-inner">
-                      <h3 className="font-bold text-indigo-900 flex items-center gap-2 mb-2">
-                          <Play className="w-5 h-5 fill-indigo-600 text-indigo-600" /> Anteprima Immediata
-                      </h3>
-                      <p className="text-indigo-700 mb-4 text-sm leading-relaxed">
-                          Puoi avviare l'applicazione in <strong>Modalità Demo</strong>. I dati verranno salvati temporaneamente nel tuo browser.
-                      </p>
-                      <button onClick={() => setDemoMode(true)} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-all shadow-lg shadow-indigo-200 active:scale-95 flex justify-center items-center gap-2">
-                          Avvia Modalità Demo
-                      </button>
-                  </div>
-              </div>
-          </div>
+        <>
+            {/* Mostra il componente di Setup se non siamo in demo mode e mancano le chiavi */}
+            <DatabaseSetup />
+            {/* Pulsante Demo Mode di fallback in basso a destra fisso sopra tutto, opzionale */}
+            <div className="fixed bottom-4 right-4 z-[60]">
+                 <button 
+                    onClick={() => setDemoMode(true)}
+                    className="bg-slate-800 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-lg hover:bg-slate-700 transition-colors"
+                 >
+                    Salta e usa Demo Mode
+                 </button>
+            </div>
+        </>
       );
   }
 
