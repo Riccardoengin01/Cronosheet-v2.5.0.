@@ -85,8 +85,8 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
     <div className="animate-fade-in space-y-6">
       <div className="flex justify-between items-center">
         <div>
-            <h2 className="text-2xl font-bold text-gray-800">Gestione Clienti</h2>
-            <p className="text-gray-500">Crea clienti e imposta i turni specifici per velocizzare l'inserimento.</p>
+            <h2 className="text-2xl font-bold text-gray-800">Registro Progetti</h2>
+            <p className="text-gray-500">Visualizza e gestisci la lista di tutti i clienti, cantieri e progetti.</p>
         </div>
         {!isEditing && (
             <button 

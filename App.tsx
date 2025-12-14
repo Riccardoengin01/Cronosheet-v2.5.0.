@@ -19,7 +19,8 @@ function App() {
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
 
-  const [view, setView] = useState<AppView>(AppView.TIMESHEET);
+  // Default view cambiata a CLIENTS (Registro Progetti)
+  const [view, setView] = useState<AppView>(AppView.CLIENTS);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingData, setLoadingData] = useState(false);

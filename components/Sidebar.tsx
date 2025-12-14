@@ -28,8 +28,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
   }, [userProfile, theme]);
 
   const menuItems = [
-    { id: AppView.TIMESHEET, label: 'Registro', icon: Table2 },
-    { id: AppView.CLIENTS, label: 'Clienti', icon: Users },
+    { id: AppView.TIMESHEET, label: 'Registro Ore', icon: Table2 },
+    { id: AppView.CLIENTS, label: 'Registro Progetti', icon: Users },
     { id: AppView.BILLING, label: 'Riepilogo', icon: Receipt },
     { id: AppView.REPORTS, label: 'Statistiche', icon: PieChart },
     { id: AppView.SETTINGS, label: 'Il mio Profilo', icon: UserCog },
