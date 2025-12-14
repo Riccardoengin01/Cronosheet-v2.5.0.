@@ -54,7 +54,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
                       <span className="text-xs font-bold uppercase tracking-wider">Pro Plan</span>
                   </div>
                   <div className="text-[10px] text-slate-400 mt-0.5">
-                      Scadenza tra {daysLeft} gg
+                      {daysLeft < 0 ? `Scaduto da ${Math.abs(daysLeft)} gg` : `Scadenza tra ${daysLeft} gg`}
                   </div>
               </div>
           );
@@ -69,7 +69,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
                   <span className="text-xs font-bold uppercase tracking-wider">Trial</span>
               </div>
               <div className={`text-[10px] mt-0.5 ${isExpired ? 'text-red-500 font-bold' : 'text-slate-400'}`}>
-                  {isExpired ? 'Scaduto' : `${daysLeft} giorni rimanenti`}
+                  {isExpired ? `Scaduto da ${Math.abs(daysLeft)} gg` : `${daysLeft} giorni rimanenti`}
               </div>
           </div>
       );

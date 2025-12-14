@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { UserProfile } from '../types';
 import * as DB from '../services/db';
-import { Check, Shield, Trash2, RefreshCw, Crown, Star, Clock, UserCog, User, Search, Ban, CheckCircle, Pencil, X, Save, Calendar, Users } from 'lucide-react';
+import { Check, Shield, Trash2, RefreshCw, Crown, Star, Clock, UserCog, User, Search, Ban, CheckCircle, Pencil, X, Save, Calendar, Users, ArrowRight } from 'lucide-react';
 
 const AdminPanel = () => {
     const [users, setUsers] = useState<UserProfile[]>([]);
@@ -39,6 +39,14 @@ const AdminPanel = () => {
         }
     };
 
+    const getDaysRemaining = (dateString?: string) => {
+        if (!dateString) return null;
+        const end = new Date(dateString).getTime();
+        const now = new Date().getTime();
+        const diff = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
+        return diff;
+    };
+
     // --- MODAL HANDLERS ---
     
     const openEditModal = (user: UserProfile) => {
@@ -47,32 +55,56 @@ const AdminPanel = () => {
         setEditPlan(user.subscription_status);
         setEditFullName(user.full_name || '');
         
-        // Format dates for input type="datetime-local" or date
-        // ISO string is YYYY-MM-DDTHH:mm:ss.sssZ, input wants YYYY-MM-DD
-        setEditCreatedAt(user.created_at ? new Date(user.created_at).toISOString().split('T')[0] : '');
-        setEditTrialEnds(user.trial_ends_at ? new Date(user.trial_ends_at).toISOString().split('T')[0] : '');
+        // Format dates for input type="date" (YYYY-MM-DD)
+        // Usiamo slice(0, 10) per prendere solo la parte data ISO sicura
+        setEditCreatedAt(user.created_at ? new Date(user.created_at).toISOString().slice(0, 10) : '');
+        setEditTrialEnds(user.trial_ends_at ? new Date(user.trial_ends_at).toISOString().slice(0, 10) : '');
     };
 
     const closeEditModal = () => {
         setEditingUser(null);
     };
 
+    const setTrialSixtyDays = () => {
+        if (!editCreatedAt) return;
+        const start = new Date(editCreatedAt);
+        // Aggiungi 60 giorni
+        const end = new Date(start.setDate(start.getDate() + 60));
+        setEditTrialEnds(end.toISOString().slice(0, 10));
+    };
+
     const handleSaveEdit = async () => {
         if (!editingUser) return;
         
         try {
+            // CORREZIONE DATE:
+            // new Date("YYYY-MM-DD") crea una data UTC a mezzanotte.
+            // Se il browser è in Italia (+1/+2), toISOString() potrebbe tornare al giorno prima (23:00).
+            // Soluzione: Aggiungiamo l'orario esplicitamente.
+            
+            // Member Since: Impostiamo mezzogiorno per sicurezza
+            const finalCreatedAt = editCreatedAt 
+                ? new Date(editCreatedAt + 'T12:00:00').toISOString() 
+                : editingUser.created_at;
+
+            // Trial Ends: Impostiamo fine giornata (23:59:59)
+            const finalTrialEnds = editTrialEnds 
+                ? new Date(editTrialEnds + 'T23:59:59').toISOString() 
+                : editingUser.trial_ends_at;
+
             await DB.updateUserProfileAdmin({
                 id: editingUser.id,
                 role: editRole,
                 subscription_status: editPlan,
                 full_name: editFullName,
-                created_at: editCreatedAt ? new Date(editCreatedAt).toISOString() : editingUser.created_at,
-                trial_ends_at: editTrialEnds ? new Date(editTrialEnds).toISOString() : editingUser.trial_ends_at,
-                is_approved: editingUser.is_approved // Manteniamo lo stato attuale
+                created_at: finalCreatedAt,
+                trial_ends_at: finalTrialEnds,
+                is_approved: editingUser.is_approved
             });
             await loadUsers();
             closeEditModal();
         } catch (e) {
+            console.error(e);
             alert("Errore salvataggio modifiche");
         }
     };
@@ -169,81 +201,93 @@ const AdminPanel = () => {
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-gray-50 text-gray-500 uppercase text-xs font-bold">
                             <tr>
-                                <th className="px-6 py-4 border-b border-gray-200 w-1/3">Utente</th>
+                                <th className="px-6 py-4 border-b border-gray-200">Utente</th>
                                 <th className="px-6 py-4 border-b border-gray-200">Stato</th>
-                                <th className="px-6 py-4 border-b border-gray-200">Ruolo & Piano</th>
+                                <th className="px-6 py-4 border-b border-gray-200">Piano</th>
+                                <th className="px-6 py-4 border-b border-gray-200">Giorni Rim.</th>
                                 <th className="px-6 py-4 text-right border-b border-gray-200">Gestione</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {filteredUsers.length === 0 && !loading && (
-                                <tr><td colSpan={4} className="p-8 text-center text-gray-400">Nessun utente trovato</td></tr>
+                                <tr><td colSpan={5} className="p-8 text-center text-gray-400">Nessun utente trovato</td></tr>
                             )}
-                            {filteredUsers.map(u => (
-                                <tr key={u.id} className="hover:bg-gray-50 transition-colors group">
-                                    {/* Utente */}
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm ${u.role === 'admin' ? 'bg-indigo-600' : 'bg-slate-400'}`}>
-                                                {u.email.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div>
-                                                <div className="font-bold text-gray-800 flex items-center gap-2">
-                                                    {u.full_name || u.email}
-                                                    {u.role === 'admin' && <Crown size={14} className="text-amber-500 fill-amber-500" />}
+                            {filteredUsers.map(u => {
+                                const daysLeft = getDaysRemaining(u.trial_ends_at);
+                                return (
+                                    <tr key={u.id} className="hover:bg-gray-50 transition-colors group">
+                                        {/* Utente */}
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm ${u.role === 'admin' ? 'bg-indigo-600' : 'bg-slate-400'}`}>
+                                                    {u.email.charAt(0).toUpperCase()}
                                                 </div>
-                                                <div className="text-xs text-gray-400 font-mono" title={u.id}>
-                                                    {u.email}
+                                                <div>
+                                                    <div className="font-bold text-gray-800 flex items-center gap-2">
+                                                        {u.full_name || u.email}
+                                                        {u.role === 'admin' && <Crown size={14} className="text-amber-500 fill-amber-500" />}
+                                                    </div>
+                                                    <div className="text-xs text-gray-400 font-mono" title={u.id}>
+                                                        {u.email}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </td>
+                                        </td>
 
-                                    {/* Stato */}
-                                    <td className="px-6 py-4">
-                                         <button 
-                                            onClick={() => handleToggleApproval(u)}
-                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-colors ${
-                                                u.is_approved 
-                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-red-50 hover:text-red-600 hover:border-red-200' 
-                                                : 'bg-red-50 text-red-700 border-red-100 hover:bg-emerald-50 hover:text-emerald-700'
-                                            }`}
-                                        >
-                                            {u.is_approved ? 'Attivo' : 'Sospeso'}
-                                        </button>
-                                    </td>
+                                        {/* Stato */}
+                                        <td className="px-6 py-4">
+                                             <button 
+                                                onClick={() => handleToggleApproval(u)}
+                                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-colors ${
+                                                    u.is_approved 
+                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-red-50 hover:text-red-600 hover:border-red-200' 
+                                                    : 'bg-red-50 text-red-700 border-red-100 hover:bg-emerald-50 hover:text-emerald-700'
+                                                }`}
+                                            >
+                                                {u.is_approved ? 'Attivo' : 'Sospeso'}
+                                            </button>
+                                        </td>
 
-                                    {/* Ruolo e Piano (Display Only - edit in modal) */}
-                                    <td className="px-6 py-4">
-                                        <div className="flex flex-col gap-1">
-                                             <span className="text-xs font-bold uppercase text-gray-500">{u.role}</span>
-                                             <div className="flex items-center gap-2">
+                                        {/* Piano */}
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2">
                                                  {u.subscription_status === 'elite' && <Crown size={14} className="text-amber-500" />}
                                                  {u.subscription_status === 'pro' && <Star size={14} className="text-indigo-500" />}
                                                  <span className="capitalize text-sm font-medium">{u.subscription_status}</span>
-                                             </div>
-                                        </div>
-                                    </td>
+                                            </div>
+                                        </td>
 
-                                    {/* Azioni */}
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <button 
-                                                onClick={() => openEditModal(u)}
-                                                className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 p-2 rounded-lg transition-colors flex items-center gap-2 text-sm font-bold"
-                                            >
-                                                <UserCog size={16} /> Gestisci
-                                            </button>
-                                            <button 
-                                                onClick={() => handleDelete(u.id)}
-                                                className="text-gray-300 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                        {/* Giorni Rimanenti */}
+                                        <td className="px-6 py-4">
+                                            {daysLeft !== null ? (
+                                                <span className={`text-xs font-bold px-2 py-1 rounded ${daysLeft < 0 ? 'bg-red-100 text-red-600' : daysLeft < 7 ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-600'}`}>
+                                                    {daysLeft < 0 ? `Scaduto (${Math.abs(daysLeft)}gg)` : `${daysLeft} giorni`}
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-300">-</span>
+                                            )}
+                                        </td>
+
+                                        {/* Azioni */}
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <button 
+                                                    onClick={() => openEditModal(u)}
+                                                    className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 p-2 rounded-lg transition-colors flex items-center gap-2 text-sm font-bold"
+                                                >
+                                                    <UserCog size={16} /> Gestisci
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDelete(u.id)}
+                                                    className="text-gray-300 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
@@ -324,15 +368,20 @@ const AdminPanel = () => {
                                             onChange={e => setEditCreatedAt(e.target.value)}
                                         />
                                     </div>
-                                    <div>
+                                    <div className="flex flex-col">
                                         <label className="block text-xs font-bold text-gray-500 mb-1">Scadenza Trial/Piano</label>
                                         <input 
                                             type="date" 
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none mb-1"
                                             value={editTrialEnds}
                                             onChange={e => setEditTrialEnds(e.target.value)}
                                         />
-                                        <p className="text-[10px] text-gray-400 mt-1">Modifica per estendere la prova.</p>
+                                        <button 
+                                            onClick={setTrialSixtyDays}
+                                            className="text-[10px] text-indigo-600 font-bold hover:underline self-start flex items-center gap-1"
+                                        >
+                                            <ArrowRight size={10} /> Set +60gg da oggi
+                                        </button>
                                     </div>
                                 </div>
                             </div>
