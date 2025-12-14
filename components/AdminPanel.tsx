@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { UserProfile } from '../types';
+import { UserProfile, BillingInfo } from '../types';
 import * as DB from '../services/db';
-import { Check, Shield, Trash2, RefreshCw, Crown, Star, Clock, UserCog, User, Search, Ban, CheckCircle, Pencil, X, Save, Calendar, Users, ArrowRight, Receipt, MapPin } from 'lucide-react';
+import { Shield, Trash2, RefreshCw, Crown, Star, UserCog, Search, Ban, CheckCircle, X, Save, Calendar, Users, ArrowRight, Receipt, MapPin, Copy, FileText, ChevronDown } from 'lucide-react';
 
 const AdminPanel = () => {
     const [users, setUsers] = useState<UserProfile[]>([]);
@@ -10,12 +10,27 @@ const AdminPanel = () => {
     
     // Edit Modal State
     const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
-    // Form fields for editing
+    
+    // Form fields for editing - PROFILE
     const [editRole, setEditRole] = useState<'admin' | 'user'>('user');
     const [editPlan, setEditPlan] = useState<'trial' | 'active' | 'pro' | 'elite' | 'expired'>('trial');
     const [editCreatedAt, setEditCreatedAt] = useState('');
     const [editTrialEnds, setEditTrialEnds] = useState('');
     const [editFullName, setEditFullName] = useState('');
+
+    // Form fields for editing - BILLING
+    const [editBilling, setEditBilling] = useState<BillingInfo>({});
+
+    // CAUSALE GENERATOR
+    const [selectedCausale, setSelectedCausale] = useState('');
+    const [customCausale, setCustomCausale] = useState('');
+    const [copiedCausale, setCopiedCausale] = useState(false);
+
+    const CAUSALI_PRESETS = [
+        "Canone di utilizzo piattaforma gestionale Cronosheet - Piano Pro",
+        "Servizio di elaborazione dati e timesheet in cloud",
+        "Accesso ai servizi telematici di calcolo e reportistica"
+    ];
 
     useEffect(() => {
         loadUsers();
@@ -40,9 +55,7 @@ const AdminPanel = () => {
     };
 
     const getDaysRemaining = (user: UserProfile) => {
-        // Elite non scade mai
         if (user.subscription_status === 'elite') return 'infinity';
-        
         if (!user.trial_ends_at) return null;
         const end = new Date(user.trial_ends_at).getTime();
         const now = new Date().getTime();
@@ -57,6 +70,12 @@ const AdminPanel = () => {
         setEditRole(user.role);
         setEditPlan(user.subscription_status);
         setEditFullName(user.full_name || '');
+        setEditBilling(user.billing_info || {});
+        
+        // Reset Causale
+        setSelectedCausale('');
+        setCustomCausale('');
+        setCopiedCausale(false);
         
         // Format dates for input type="date" (YYYY-MM-DD)
         setEditCreatedAt(user.created_at ? new Date(user.created_at).toISOString().slice(0, 10) : '');
@@ -70,7 +89,6 @@ const AdminPanel = () => {
     const setTrialSixtyDays = () => {
         if (!editCreatedAt) return;
         const start = new Date(editCreatedAt);
-        // Aggiungi 60 giorni
         const end = new Date(start.setDate(start.getDate() + 60));
         setEditTrialEnds(end.toISOString().slice(0, 10));
     };
@@ -95,13 +113,14 @@ const AdminPanel = () => {
                 full_name: editFullName,
                 created_at: finalCreatedAt,
                 trial_ends_at: finalTrialEnds,
-                is_approved: editingUser.is_approved
+                is_approved: editingUser.is_approved,
+                billing_info: editBilling // Salva i dati fatturazione modificati
             });
             await loadUsers();
             closeEditModal();
         } catch (e) {
             console.error(e);
-            alert("Errore salvataggio modifiche");
+            alert("Errore salvataggio modifiche. Controlla la console.");
         }
     };
 
@@ -115,7 +134,30 @@ const AdminPanel = () => {
         }
     };
 
+    const handleCausaleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const val = e.target.value;
+        setSelectedCausale(val);
+        setCustomCausale(val === 'custom' ? '' : val);
+    };
+
+    const copyCausale = () => {
+        navigator.clipboard.writeText(customCausale);
+        setCopiedCausale(true);
+        setTimeout(() => setCopiedCausale(false), 2000);
+    };
+
+    // Helper per aggiornare lo stato billing annidato
+    const updateBilling = (field: keyof BillingInfo, value: string) => {
+        setEditBilling(prev => ({ ...prev, [field]: value }));
+    };
+
     // --- STATS & FILTER ---
+    const filteredUsers = users.filter(u => 
+        u.email.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (u.full_name && u.full_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        u.id.includes(searchTerm)
+    );
+
     const stats = {
         total: users.length,
         admins: users.filter(u => u.role === 'admin').length,
@@ -123,12 +165,6 @@ const AdminPanel = () => {
         elite: users.filter(u => u.subscription_status === 'elite').length,
         pending: users.filter(u => !u.is_approved).length
     };
-
-    const filteredUsers = users.filter(u => 
-        u.email.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        (u.full_name && u.full_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        u.id.includes(searchTerm)
-    );
 
     return (
         <div className="space-y-8 animate-fade-in pb-10">
@@ -139,7 +175,7 @@ const AdminPanel = () => {
                         <h2 className="text-2xl font-bold flex items-center gap-2">
                             <Shield className="text-emerald-400" /> Pannello Master
                         </h2>
-                        <p className="text-slate-400">Gestione centralizzata utenti, licenze e date.</p>
+                        <p className="text-slate-400">Gestione centralizzata utenti, licenze e dati fatturazione.</p>
                     </div>
                     <button onClick={loadUsers} className="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors">
                         <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
@@ -212,7 +248,6 @@ const AdminPanel = () => {
                                 const daysLeft = getDaysRemaining(u);
                                 return (
                                     <tr key={u.id} className="hover:bg-gray-50 transition-colors group">
-                                        {/* Utente */}
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm ${u.role === 'admin' ? 'bg-indigo-600' : 'bg-slate-400'}`}>
@@ -229,8 +264,6 @@ const AdminPanel = () => {
                                                 </div>
                                             </div>
                                         </td>
-
-                                        {/* Stato */}
                                         <td className="px-6 py-4">
                                              <button 
                                                 onClick={() => handleToggleApproval(u)}
@@ -243,8 +276,6 @@ const AdminPanel = () => {
                                                 {u.is_approved ? 'Attivo' : 'Sospeso'}
                                             </button>
                                         </td>
-
-                                        {/* Piano */}
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
                                                  {u.subscription_status === 'elite' && <Crown size={14} className="text-amber-500" />}
@@ -252,8 +283,6 @@ const AdminPanel = () => {
                                                  <span className="capitalize text-sm font-medium">{u.subscription_status}</span>
                                             </div>
                                         </td>
-
-                                        {/* Giorni Rimanenti */}
                                         <td className="px-6 py-4">
                                             {daysLeft === 'infinity' ? (
                                                 <span className="text-xs font-bold px-2 py-1 rounded bg-amber-100 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
@@ -267,8 +296,6 @@ const AdminPanel = () => {
                                                 <span className="text-gray-300">-</span>
                                             )}
                                         </td>
-
-                                        {/* Azioni */}
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-2">
                                                 <button 
@@ -296,120 +323,193 @@ const AdminPanel = () => {
             {/* EDIT USER MODAL */}
             {editingUser && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
                         <div className="bg-slate-900 p-6 flex justify-between items-center text-white sticky top-0 z-10">
                             <h3 className="text-xl font-bold flex items-center gap-2">
-                                <UserCog /> Modifica Utente
+                                <UserCog /> Modifica & Fatturazione
                             </h3>
                             <button onClick={closeEditModal} className="hover:bg-slate-700 p-2 rounded-full transition-colors">
                                 <X size={20} />
                             </button>
                         </div>
                         
-                        <div className="p-6 space-y-5">
-                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4">
-                                <p className="text-xs text-gray-500 font-bold uppercase">Utente Selezionato</p>
-                                <p className="font-bold text-slate-800">{editingUser.email}</p>
-                                <p className="text-xs text-gray-400 font-mono">{editingUser.id}</p>
-                            </div>
-
-                            {/* Form fields... */}
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Nome Completo</label>
-                                <input 
-                                    type="text" 
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    value={editFullName}
-                                    onChange={e => setEditFullName(e.target.value)}
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
+                        <div className="p-6 space-y-6">
+                            {/* INFO UTENTE BASICHE */}
+                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex justify-between items-center">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Ruolo</label>
-                                    <select 
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-                                        value={editRole}
-                                        onChange={e => setEditRole(e.target.value as 'admin' | 'user')}
-                                    >
-                                        <option value="user">User</option>
-                                        <option value="admin">Admin</option>
-                                    </select>
+                                    <p className="text-xs text-gray-500 font-bold uppercase">Account</p>
+                                    <p className="font-bold text-slate-800">{editingUser.email}</p>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Piano</label>
-                                    <select 
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white uppercase"
-                                        value={editPlan}
-                                        onChange={e => setEditPlan(e.target.value as any)}
-                                    >
-                                        <option value="trial">Trial</option>
-                                        <option value="pro">Pro</option>
-                                        <option value="elite">Elite</option>
-                                        <option value="expired">Expired</option>
-                                    </select>
+                                <div className="text-right">
+                                    <p className="text-xs text-gray-500 font-bold uppercase">ID</p>
+                                    <p className="text-xs text-gray-400 font-mono">{editingUser.id}</p>
                                 </div>
                             </div>
 
-                            {/* Dati Fatturazione Cliente - NEW SECTION */}
-                            <div className="border-t border-gray-100 pt-4">
-                                <h4 className="text-sm font-bold text-slate-600 mb-3 flex items-center gap-2">
-                                    <Receipt size={16} /> Dati Fatturazione Cliente
-                                </h4>
-                                {editingUser.billing_info && (editingUser.billing_info.tax_code || editingUser.billing_info.vat_number) ? (
-                                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-sm space-y-1">
-                                        <p><strong className="text-slate-500">Intestatario:</strong> {editingUser.billing_info.company_name}</p>
-                                        <div className="grid grid-cols-2 gap-2 mt-1">
-                                            <p><strong className="text-slate-500">P.IVA:</strong> <span className="font-mono">{editingUser.billing_info.vat_number || '-'}</span></p>
-                                            <p><strong className="text-slate-500">C.F.:</strong> <span className="font-mono">{editingUser.billing_info.tax_code}</span></p>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <p><strong className="text-slate-500">SDI:</strong> <span className="font-mono">{editingUser.billing_info.sdi_code || '-'}</span></p>
-                                            <p><strong className="text-slate-500">PEC:</strong> {editingUser.billing_info.pec || '-'}</p>
-                                        </div>
-                                        <p className="flex items-start gap-1 mt-1">
-                                            <MapPin size={14} className="shrink-0 mt-0.5 text-slate-400"/> 
-                                            {editingUser.billing_info.address}, {editingUser.billing_info.city} ({editingUser.billing_info.zip})
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="bg-amber-50 p-3 rounded-lg border border-amber-100 text-amber-700 text-xs italic">
-                                        Nessun dato fiscale inserito dall'utente.
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="border-t border-gray-100 pt-4">
-                                <h4 className="text-sm font-bold text-indigo-600 mb-3 flex items-center gap-2">
-                                    <Calendar size={16} /> Gestione Temporale
-                                </h4>
-                                <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* COLONNA SX: Dati Anagrafici */}
+                                <div className="space-y-4">
+                                    <h4 className="text-sm font-bold text-gray-800 border-b pb-2">Profilo</h4>
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-500 mb-1">Membro Dal</label>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">Nome Completo</label>
                                         <input 
-                                            type="date" 
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                                            value={editCreatedAt}
-                                            onChange={e => setEditCreatedAt(e.target.value)}
+                                            type="text" 
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            value={editFullName}
+                                            onChange={e => setEditFullName(e.target.value)}
                                         />
                                     </div>
-                                    <div className="flex flex-col">
-                                        <label className="block text-xs font-bold text-gray-500 mb-1">Scadenza Piano</label>
-                                        <input 
-                                            type="date" 
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none mb-1"
-                                            value={editTrialEnds}
-                                            onChange={e => setEditTrialEnds(e.target.value)}
-                                            disabled={editPlan === 'elite'} // Disabilita per Elite
-                                        />
-                                        {editPlan === 'trial' && (
-                                            <button 
-                                                onClick={setTrialSixtyDays}
-                                                className="text-[10px] text-indigo-600 font-bold hover:underline self-start flex items-center gap-1"
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">Ruolo</label>
+                                            <select 
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                                                value={editRole}
+                                                onChange={e => setEditRole(e.target.value as 'admin' | 'user')}
                                             >
-                                                <ArrowRight size={10} /> Reset 60gg
-                                            </button>
-                                        )}
+                                                <option value="user">User</option>
+                                                <option value="admin">Admin</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">Piano</label>
+                                            <select 
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white uppercase"
+                                                value={editPlan}
+                                                onChange={e => setEditPlan(e.target.value as any)}
+                                            >
+                                                <option value="trial">Trial</option>
+                                                <option value="pro">Pro</option>
+                                                <option value="elite">Elite</option>
+                                                <option value="expired">Expired</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">Iscritto Dal</label>
+                                            <input 
+                                                type="date" 
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                value={editCreatedAt}
+                                                onChange={e => setEditCreatedAt(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">Scadenza</label>
+                                            <input 
+                                                type="date" 
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                value={editTrialEnds}
+                                                onChange={e => setEditTrialEnds(e.target.value)}
+                                                disabled={editPlan === 'elite'} 
+                                            />
+                                            {editPlan === 'trial' && (
+                                                <button onClick={setTrialSixtyDays} className="text-[10px] text-indigo-600 font-bold hover:underline self-start mt-1">
+                                                    Reset 60gg
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* COLONNA DX: Dati Fatturazione (Editabili) */}
+                                <div className="space-y-4">
+                                    <h4 className="text-sm font-bold text-gray-800 border-b pb-2 flex items-center gap-2">
+                                        <Receipt size={16} className="text-indigo-600"/> Dati Fatturazione
+                                    </h4>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">Intestatario</label>
+                                        <input 
+                                            type="text" 
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            value={editBilling.company_name || ''}
+                                            onChange={e => updateBilling('company_name', e.target.value)}
+                                            placeholder="Ragione Sociale o Nome"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">P.IVA</label>
+                                            <input 
+                                                type="text" 
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
+                                                value={editBilling.vat_number || ''}
+                                                onChange={e => updateBilling('vat_number', e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">Cod. Fiscale</label>
+                                            <input 
+                                                type="text" 
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
+                                                value={editBilling.tax_code || ''}
+                                                onChange={e => updateBilling('tax_code', e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <div className="col-span-1">
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">SDI</label>
+                                            <input 
+                                                type="text" 
+                                                maxLength={7}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-mono uppercase"
+                                                value={editBilling.sdi_code || ''}
+                                                onChange={e => updateBilling('sdi_code', e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="col-span-2">
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">Indirizzo</label>
+                                            <input 
+                                                type="text" 
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                value={editBilling.address || ''}
+                                                onChange={e => updateBilling('address', e.target.value)}
+                                                placeholder="Via, Città, CAP"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* TOOL CAUSALE PER INGEGNERE */}
+                            <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
+                                <h4 className="text-sm font-bold text-indigo-800 mb-3 flex items-center gap-2">
+                                    <FileText size={16} /> Generatore Causale Fattura (Tool Interno)
+                                </h4>
+                                <div className="space-y-3">
+                                    <div className="relative">
+                                        <select 
+                                            value={selectedCausale}
+                                            onChange={handleCausaleChange}
+                                            className="w-full appearance-none bg-white border border-indigo-200 text-gray-700 py-2 px-3 pr-8 rounded-lg leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium cursor-pointer"
+                                        >
+                                            <option value="" disabled>Seleziona una causale tecnica suggerita...</option>
+                                            {CAUSALI_PRESETS.map((c, i) => (
+                                                <option key={i} value={c}>{c}</option>
+                                            ))}
+                                            <option value="custom">-- Scrivi Manualmente --</option>
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" size={16} />
+                                    </div>
+                                    
+                                    <div className="flex gap-2">
+                                        <textarea 
+                                            className="w-full p-3 border border-indigo-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 h-20 resize-none font-mono"
+                                            value={customCausale}
+                                            onChange={e => setCustomCausale(e.target.value)}
+                                            placeholder="Seleziona una voce sopra o scrivi qui la causale per la fattura elettronica..."
+                                        />
+                                        <button 
+                                            onClick={copyCausale}
+                                            disabled={!customCausale}
+                                            className="bg-white border border-indigo-200 hover:bg-indigo-50 text-indigo-600 rounded-lg px-4 flex flex-col items-center justify-center gap-1 transition-colors min-w-[80px]"
+                                            title="Copia negli appunti"
+                                        >
+                                            {copiedCausale ? <CheckCircle size={20} className="text-green-500"/> : <Copy size={20}/>}
+                                            <span className="text-[10px] font-bold uppercase">{copiedCausale ? 'Copiato' : 'Copia'}</span>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -419,7 +519,7 @@ const AdminPanel = () => {
                                     Annulla
                                 </button>
                                 <button onClick={handleSaveEdit} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-lg flex items-center gap-2">
-                                    <Save size={18} /> Salva
+                                    <Save size={18} /> Salva Modifiche
                                 </button>
                             </div>
                         </div>
