@@ -1,14 +1,15 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Project, TimeEntry } from '../types';
+import { Project, TimeEntry, UserProfile } from '../types';
 import { formatCurrency, formatDuration, calculateEarnings, formatTime } from '../utils';
-import { Printer, Calendar, CheckSquare, Square, MapPin, ChevronDown, Search } from 'lucide-react';
+import { Printer, Calendar, CheckSquare, Square, MapPin, ChevronDown, Search, FileDown, Lock } from 'lucide-react';
 
 interface BillingProps {
   entries: TimeEntry[];
   projects: Project[];
+  userProfile?: UserProfile | null;
 }
 
-const Billing: React.FC<BillingProps> = ({ entries, projects }) => {
+const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile }) => {
   // --- STATES ---
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
@@ -117,6 +118,42 @@ const Billing: React.FC<BillingProps> = ({ entries, projects }) => {
       window.print();
   };
 
+  const handleExportCSV = () => {
+    // Check Pro
+    if (userProfile?.subscription_status === 'trial' && userProfile?.role !== 'admin') {
+        alert("🔒 Funzionalità Pro\n\nL'esportazione dei dati grezzi (CSV/Excel) è riservata agli utenti Pro.\n\nPassa a Pro per sbloccare questa funzione.");
+        return;
+    }
+
+    if (filteredEntries.length === 0) return;
+
+    // Build CSV Content
+    const headers = ["Data", "Cliente", "Orario Inizio", "Orario Fine", "Descrizione", "Durata (Ore)", "Tariffa Oraria", "Extra", "Totale (€)"];
+    
+    const rows = filteredEntries.map(e => {
+        const date = new Date(e.startTime).toLocaleDateString('it-IT');
+        const projName = projects.find(p => p.id === e.projectId)?.name || 'N/D';
+        const start = formatTime(e.startTime);
+        const end = e.endTime ? formatTime(e.endTime) : '-';
+        const desc = (e.description || '').replace(/,/g, ' '); // remove commas for CSV safety
+        const duration = (e.duration / 3600).toFixed(2).replace('.', ',');
+        const rate = (e.hourlyRate || 0).toFixed(2).replace('.', ',');
+        const extra = (e.expenses ? e.expenses.reduce((s, x) => s + x.amount, 0) : 0).toFixed(2).replace('.', ',');
+        const total = calculateEarnings(e).toFixed(2).replace('.', ',');
+
+        return [date, projName, start, end, desc, duration, rate, extra, total].join(";"); // Semi-colon for Excel EUR compatibility
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(";"), ...rows].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `cronosheet_export_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const formatMonthLabel = (m: string) => {
       const [y, mo] = m.split('-');
       const date = new Date(parseInt(y), parseInt(mo) - 1, 1);
@@ -154,6 +191,8 @@ const Billing: React.FC<BillingProps> = ({ entries, projects }) => {
           </div>
       );
   }
+
+  const isPro = userProfile?.subscription_status !== 'trial' || userProfile?.role === 'admin';
 
   return (
     <div className="space-y-6 animate-fade-in max-w-5xl mx-auto">
@@ -283,13 +322,30 @@ const Billing: React.FC<BillingProps> = ({ entries, projects }) => {
                 <p className="text-3xl font-bold text-gray-800">{formatCurrency(totalAmount)}</p>
                 <p className="text-sm text-gray-600 mt-1">{filteredEntries.length} servizi selezionati</p>
             </div>
-            <button 
-                onClick={handlePrint}
-                disabled={filteredEntries.length === 0}
-                className="w-full flex justify-center items-center gap-2 bg-slate-800 disabled:bg-slate-300 text-white px-6 py-3 rounded-lg hover:bg-slate-900 transition-colors shadow-lg active:scale-95"
-            >
-                <Printer size={20} /> Stampa / PDF
-            </button>
+            
+            <div className="flex flex-col gap-3">
+                <button 
+                    onClick={handlePrint}
+                    disabled={filteredEntries.length === 0}
+                    className="w-full flex justify-center items-center gap-2 bg-slate-800 disabled:bg-slate-300 text-white px-6 py-3 rounded-lg hover:bg-slate-900 transition-colors shadow-lg active:scale-95"
+                >
+                    <Printer size={20} /> Stampa / PDF
+                </button>
+                
+                <button 
+                    onClick={handleExportCSV}
+                    disabled={filteredEntries.length === 0}
+                    className={`w-full flex justify-center items-center gap-2 px-6 py-3 rounded-lg transition-colors border active:scale-95 ${
+                        isPro 
+                        ? 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm' 
+                        : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed hover:bg-gray-100'
+                    }`}
+                >
+                    {isPro ? <FileDown size={20} /> : <Lock size={16} />}
+                    {isPro ? 'Export Dati (CSV)' : 'Export CSV (Pro)'}
+                </button>
+            </div>
+            
             <p className="text-xs text-center text-gray-400 mt-3">
                 Solo i mesi selezionati verranno inclusi.
             </p>

@@ -9,10 +9,10 @@ import Billing from './components/Billing';
 import AdminPanel from './components/AdminPanel';
 import UserSettings from './components/UserSettings';
 import Auth from './components/Auth';
-import DatabaseSetup from './components/DatabaseSetup'; // Importato DatabaseSetup
+import DatabaseSetup from './components/DatabaseSetup'; 
 import * as DB from './services/db';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
-import { Plus, Lock, LogOut, Loader2, Database, Play, AlertOctagon, CreditCard } from 'lucide-react';
+import { Plus, Lock, LogOut, Loader2, AlertOctagon, CreditCard, PieChart, ArrowRight } from 'lucide-react';
 
 function App() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -180,7 +180,6 @@ function App() {
 
   const handleRenewSubscription = () => {
       alert("Reindirizzamento al portale pagamenti PayPal...");
-      // Qui andrebbe l'integrazione con PayPal
   };
 
   // Helper per controllare se è scaduto in base alla data
@@ -200,13 +199,10 @@ function App() {
 
   // --- RENDER LOGIC ---
 
-  // SE SUPABASE NON È CONFIGURATO -> MOSTRA DATABASE SETUP SCREEN
   if (!isSupabaseConfigured && !demoMode && !loadingAuth) {
       return (
         <>
-            {/* Mostra il componente di Setup se non siamo in demo mode e mancano le chiavi */}
             <DatabaseSetup />
-            {/* Pulsante Demo Mode di fallback in basso a destra fisso sopra tutto, opzionale */}
             <div className="fixed bottom-4 right-4 z-[60]">
                  <button 
                     onClick={() => setDemoMode(true)}
@@ -284,10 +280,6 @@ function App() {
                           Esci dall'account
                       </button>
                   </div>
-                  
-                  <p className="mt-6 text-xs text-gray-400">
-                      Hai bisogno di aiuto? Contatta support@cronosheet.com
-                  </p>
               </div>
           </div>
       );
@@ -320,8 +312,28 @@ function App() {
       case AppView.CLIENTS:
           return <ManageClients projects={projects} onSave={handleSaveProject} onDelete={handleDeleteProject} />;
       case AppView.BILLING:
-          return <Billing entries={entries} projects={projects} />;
+          return <Billing entries={entries} projects={projects} userProfile={profile} />;
       case AppView.REPORTS:
+        // CHECK BLOCCO STATISTICHE PER UTENTI FREE/TRIAL
+        if (profile.subscription_status === 'trial' && profile.role !== 'admin') {
+            return (
+                <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in">
+                    <div className="bg-indigo-50 p-6 rounded-full mb-6">
+                        <PieChart className="w-16 h-16 text-indigo-400" />
+                    </div>
+                    <h2 className="text-3xl font-bold text-gray-800 mb-3">Statistiche Avanzate</h2>
+                    <p className="text-gray-500 max-w-md mb-8 text-lg">
+                        L'analisi dettagliata, i grafici di produttività e l'andamento giornaliero sono funzionalità esclusive del piano <strong className="text-indigo-600">Pro</strong>.
+                    </p>
+                    <button 
+                        onClick={() => setView(AppView.SETTINGS)}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-indigo-200 flex items-center gap-2"
+                    >
+                        Passa a Pro <ArrowRight size={20} />
+                    </button>
+                </div>
+            );
+        }
         return (
             <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-gray-800">Analisi Produttività</h2>
@@ -332,7 +344,6 @@ function App() {
           if (profile.role !== 'admin') return <div className="text-red-500 p-8">Accesso Negato.</div>;
           return <AdminPanel />;
       case AppView.SETTINGS:
-          // Passiamo la funzione di callback per aggiornare il profilo dopo le modifiche
           return <UserSettings user={profile} onProfileUpdate={() => fetchUserProfile({ id: profile.id, email: profile.email })} />;
       default:
         return null;

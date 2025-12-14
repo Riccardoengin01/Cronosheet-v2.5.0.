@@ -5,7 +5,7 @@ import { User, Shield, CheckCircle, Crown, Star, Clock, Zap, CreditCard, ArrowRi
 
 interface UserSettingsProps {
     user: UserProfile;
-    onProfileUpdate: () => void; // Funzione per forzare l'aggiornamento in App.tsx
+    onProfileUpdate: () => void; 
 }
 
 const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) => {
@@ -91,7 +91,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
             name: 'Start',
             price: 'Gratis',
             annualPrice: 'Gratis',
-            features: ['Registro Orari (Max 15 voci)', 'Export PDF Base', 'Durata Limite: 60 giorni'],
+            features: ['Registro Orari (Max 15 voci)', 'Export PDF (Stampa Browser)', 'No Statistiche Avanzate', 'Durata Limite: 60 giorni'],
             current: user.subscription_status === 'trial',
             color: 'bg-slate-100 border-slate-200',
             buttonColor: 'bg-slate-200 text-slate-600',
@@ -103,7 +103,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
             price: '€9.99',
             annualPrice: '€99.00',
             saveLabel: '-17%',
-            features: ['Voci Illimitate', 'Statistiche Avanzate', 'Export Completo', 'Nessun Limite di Tempo'],
+            features: ['Voci Illimitate', 'Accesso Analisi Grafiche', 'Export Dati (CSV/Excel)', 'Nessun Limite di Tempo'],
             current: user.subscription_status === 'pro',
             color: 'bg-white border-indigo-200 shadow-xl shadow-indigo-100 ring-1 ring-indigo-50',
             buttonColor: 'bg-indigo-600 text-white hover:bg-indigo-700',
