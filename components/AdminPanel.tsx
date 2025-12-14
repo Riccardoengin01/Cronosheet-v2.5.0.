@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { UserProfile } from '../types';
 import * as DB from '../services/db';
-import { Check, Shield, Trash2, RefreshCw, Crown, Star, Clock, UserCog, User, Search, Ban, CheckCircle, Pencil, X, Save, Calendar, Users, ArrowRight } from 'lucide-react';
+import { Check, Shield, Trash2, RefreshCw, Crown, Star, Clock, UserCog, User, Search, Ban, CheckCircle, Pencil, X, Save, Calendar, Users, ArrowRight, Receipt, MapPin } from 'lucide-react';
 
 const AdminPanel = () => {
     const [users, setUsers] = useState<UserProfile[]>([]);
@@ -296,8 +296,8 @@ const AdminPanel = () => {
             {/* EDIT USER MODAL */}
             {editingUser && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-                        <div className="bg-slate-900 p-6 flex justify-between items-center text-white">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto">
+                        <div className="bg-slate-900 p-6 flex justify-between items-center text-white sticky top-0 z-10">
                             <h3 className="text-xl font-bold flex items-center gap-2">
                                 <UserCog /> Modifica Utente
                             </h3>
@@ -351,6 +351,34 @@ const AdminPanel = () => {
                                 </div>
                             </div>
 
+                            {/* Dati Fatturazione Cliente - NEW SECTION */}
+                            <div className="border-t border-gray-100 pt-4">
+                                <h4 className="text-sm font-bold text-slate-600 mb-3 flex items-center gap-2">
+                                    <Receipt size={16} /> Dati Fatturazione Cliente
+                                </h4>
+                                {editingUser.billing_info && (editingUser.billing_info.tax_code || editingUser.billing_info.vat_number) ? (
+                                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-sm space-y-1">
+                                        <p><strong className="text-slate-500">Intestatario:</strong> {editingUser.billing_info.company_name}</p>
+                                        <div className="grid grid-cols-2 gap-2 mt-1">
+                                            <p><strong className="text-slate-500">P.IVA:</strong> <span className="font-mono">{editingUser.billing_info.vat_number || '-'}</span></p>
+                                            <p><strong className="text-slate-500">C.F.:</strong> <span className="font-mono">{editingUser.billing_info.tax_code}</span></p>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <p><strong className="text-slate-500">SDI:</strong> <span className="font-mono">{editingUser.billing_info.sdi_code || '-'}</span></p>
+                                            <p><strong className="text-slate-500">PEC:</strong> {editingUser.billing_info.pec || '-'}</p>
+                                        </div>
+                                        <p className="flex items-start gap-1 mt-1">
+                                            <MapPin size={14} className="shrink-0 mt-0.5 text-slate-400"/> 
+                                            {editingUser.billing_info.address}, {editingUser.billing_info.city} ({editingUser.billing_info.zip})
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="bg-amber-50 p-3 rounded-lg border border-amber-100 text-amber-700 text-xs italic">
+                                        Nessun dato fiscale inserito dall'utente.
+                                    </div>
+                                )}
+                            </div>
+
                             <div className="border-t border-gray-100 pt-4">
                                 <h4 className="text-sm font-bold text-indigo-600 mb-3 flex items-center gap-2">
                                     <Calendar size={16} /> Gestione Temporale
@@ -386,7 +414,7 @@ const AdminPanel = () => {
                                 </div>
                             </div>
 
-                            <div className="flex justify-end gap-3 pt-4">
+                            <div className="flex justify-end gap-3 pt-4 sticky bottom-0 bg-white border-t border-gray-100 pb-2">
                                 <button onClick={closeEditModal} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors">
                                     Annulla
                                 </button>
