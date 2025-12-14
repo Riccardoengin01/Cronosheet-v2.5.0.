@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile, BillingInfo } from '../types';
 import * as DB from '../services/db';
-import { User, Shield, CheckCircle, Crown, Star, Clock, Zap, CreditCard, ArrowRight, Pencil, Save, X, Building, FileText, AlertCircle, ToggleLeft, ToggleRight, Calendar, AlertTriangle, Copy, Terminal } from 'lucide-react';
+import PayPalCheckout from './PayPalCheckout';
+import { User, Shield, CheckCircle, Crown, Star, Clock, Zap, CreditCard, ArrowRight, Pencil, Save, X, FileText, AlertCircle, ToggleLeft, ToggleRight, Calendar, AlertTriangle, Copy } from 'lucide-react';
 
 interface UserSettingsProps {
     user: UserProfile;
@@ -21,12 +22,14 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
     
     // Auto Renewal State
-    // Inizializziamo con il valore dell'utente, default true se mancante
     const [autoRenew, setAutoRenew] = useState(user.auto_renew !== undefined ? user.auto_renew : true);
     const [updatingRenew, setUpdatingRenew] = useState(false);
     const [renewError, setRenewError] = useState<string | null>(null);
 
-    // Sincronizza lo stato locale se i dati dell'utente cambiano dall'esterno (es. fetch del genitore)
+    // Payment State
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<{name: string, price: string} | null>(null);
+
     useEffect(() => {
         if (user.auto_renew !== undefined) {
             setAutoRenew(user.auto_renew);
@@ -52,7 +55,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
         try {
             await DB.updateUserProfile(user.id, { full_name: tempName });
             setIsEditingName(false);
-            onProfileUpdate(); // Refresh global state
+            onProfileUpdate();
         } catch (error) {
             alert('Errore nel salvataggio del nome.');
         }
@@ -67,7 +70,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
             setTimeout(() => {
                 setIsEditingBilling(false);
                 setSaveStatus('idle');
-                onProfileUpdate(); // Refresh global state
+                onProfileUpdate();
             }, 1000);
         } catch (error) {
             console.error(error);
@@ -78,28 +81,17 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
     const handleToggleAutoRenew = async () => {
         setUpdatingRenew(true);
         setRenewError(null);
-        
-        // 1. OPTIMISTIC UPDATE: Aggiorniamo subito la UI per feedback istantaneo
         const previousValue = autoRenew;
         const newValue = !previousValue;
         setAutoRenew(newValue);
         
         try {
-            // 2. Tentiamo l'aggiornamento sul DB
             await DB.updateUserProfile(user.id, { auto_renew: newValue });
-            
-            // 3. Se successo, notifichiamo il genitore (senza cambiare stato locale che è già ok)
             onProfileUpdate(); 
         } catch (error: any) {
             console.error("Errore toggle rinnovo:", error);
-            
-            // 4. ROLLBACK: Se fallisce, torniamo al valore precedente
             setAutoRenew(previousValue);
-            
-            // Mostriamo l'errore
             setRenewError("Errore Database: Impossibile aggiornare. Probabilmente manca la colonna 'auto_renew'. Esegui lo script SQL di riparazione.");
-            
-            // Alert esplicito nel caso l'utente non veda il box rosso
             alert("Errore salvataggio: Colonna 'auto_renew' mancante nel database. Vedi istruzioni in rosso sotto il pulsante.");
         } finally {
             setUpdatingRenew(false);
@@ -131,8 +123,8 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
         {
             id: 'pro',
             name: 'Pro',
-            price: '€9.99',
-            annualPrice: '€99.00',
+            price: '9.99',
+            annualPrice: '99.00',
             saveLabel: '-17%',
             features: ['Voci Illimitate', 'Accesso Analisi Grafiche', 'Export Dati (CSV/Excel)', 'Nessun Limite di Tempo'],
             current: user.subscription_status === 'pro',
@@ -142,7 +134,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
         }
     ];
 
-    const handleUpgrade = (planName: string) => {
+    const handleUpgradeClick = (planName: string) => {
         const hasBillingInfo = user.billing_info && (user.billing_info.tax_code || user.billing_info.vat_number);
         
         if (!hasBillingInfo) {
@@ -153,12 +145,61 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
         }
 
         const selectedPlan = plans.find(p => p.name === planName);
-        const price = billingCycle === 'annual' ? selectedPlan?.annualPrice : selectedPlan?.price;
-        alert(`Integrazione PayPal in arrivo.\n\nStai per acquistare il piano ${planName} (${billingCycle === 'annual' ? 'Annuale' : 'Mensile'}) a ${price}.`);
+        if (!selectedPlan) return;
+
+        const price = billingCycle === 'annual' ? selectedPlan.annualPrice : selectedPlan.price;
+        
+        setSelectedPlanForPayment({
+            name: planName,
+            price: price
+        });
+        setShowPaymentModal(true);
+    };
+
+    const handlePaymentSuccess = async (details: any) => {
+        // 1. Calcola la nuova data di scadenza
+        const newExpiryDate = new Date();
+        if (billingCycle === 'annual') {
+            newExpiryDate.setFullYear(newExpiryDate.getFullYear() + 1);
+        } else {
+            newExpiryDate.setMonth(newExpiryDate.getMonth() + 1);
+        }
+
+        try {
+            // 2. Aggiorna il DB
+            await DB.updateUserProfile(user.id, {
+                subscription_status: 'pro',
+                trial_ends_at: newExpiryDate.toISOString(),
+                auto_renew: true
+            });
+
+            // 3. UI Updates
+            alert(`Pagamento completato con successo! Benvenuto in Cronosheet Pro. ID Transazione: ${details.id}`);
+            setShowPaymentModal(false);
+            onProfileUpdate(); // Ricarica i dati utente
+        } catch (error) {
+            console.error(error);
+            alert("Pagamento riuscito ma errore nell'aggiornamento del profilo. Contatta l'assistenza con ID: " + details.id);
+        }
     };
 
     return (
-        <div className="animate-fade-in space-y-8 pb-12">
+        <div className="animate-fade-in space-y-8 pb-12 relative">
+            
+            {/* Payment Modal Overlay */}
+            {showPaymentModal && selectedPlanForPayment && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <PayPalCheckout 
+                        amount={selectedPlanForPayment.price}
+                        planName={selectedPlanForPayment.name}
+                        billingCycle={billingCycle}
+                        onSuccess={handlePaymentSuccess}
+                        onError={(err) => alert("Errore durante il pagamento PayPal.")}
+                        onCancel={() => setShowPaymentModal(false)}
+                    />
+                </div>
+            )}
+
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-800">Il mio Profilo</h1>
@@ -228,7 +269,6 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
 
                     {/* Dati Fatturazione */}
                     <div id="billing-section" className={`bg-white rounded-2xl shadow-sm border p-6 transition-all ${isEditingBilling ? 'border-indigo-500 ring-2 ring-indigo-50' : 'border-gray-200'}`}>
-                        {/* ... (Ommissis per brevità, il contenuto è invariato) ... */}
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="font-bold text-gray-800 flex items-center gap-2">
                                 <FileText size={18} className="text-indigo-500"/> Dati di Fatturazione
@@ -387,7 +427,6 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
                     
                     {/* Status Card */}
                     <div className="bg-slate-900 text-white rounded-2xl shadow-lg p-8 relative overflow-hidden">
-                        {/* ICONA SFONDO - ORA CON pointer-events-none */}
                         <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
                             {user.subscription_status === 'elite' ? <Crown size={150} /> : <Zap size={150} />}
                         </div>
@@ -403,9 +442,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
                                 
                                 <p className="text-slate-400 mt-2 text-sm max-w-sm">
                                     {user.subscription_status === 'elite' && "Licenza a vita. Nessuna scadenza."}
-                                    
                                     {user.subscription_status === 'trial' && `Hai ancora ${daysLeft} giorni di prova gratuita.`}
-                                    
                                     {user.subscription_status === 'pro' && (
                                         autoRenew 
                                         ? `Il tuo abbonamento è attivo e si rinnoverà il ${trialEnd.toLocaleDateString('it-IT')}.`
@@ -441,7 +478,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
                         
                         {/* Indicazione rinnovo PRO e TOGGLE */}
                         {user.subscription_status === 'pro' && (
-                             <div className="mt-8 relative z-20"> {/* Aggiunto z-20 al contenitore del toggle */}
+                             <div className="mt-8 relative z-20"> 
                                  <div className={`bg-slate-800/50 p-4 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors ${renewError ? 'border-red-500/50 bg-red-900/10' : 'border-slate-700'}`}>
                                     <div className="flex items-center gap-3">
                                         {renewError ? (
@@ -462,7 +499,6 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
                                         </div>
                                     </div>
                                     
-                                    {/* PULSANTE CORRETTO: Solido, Z-index alto, cursore */}
                                     <button 
                                         onClick={handleToggleAutoRenew}
                                         disabled={updatingRenew}
@@ -481,7 +517,6 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
                                     </button>
                                  </div>
                                  
-                                 {/* ERROR BOX WITH FIX */}
                                  {renewError && (
                                      <div className="mt-3 bg-red-900/30 border border-red-500/30 rounded-lg p-3 text-red-200 text-xs">
                                          <p className="font-bold mb-2 flex items-center gap-2"><AlertCircle size={14}/> {renewError}</p>
@@ -507,6 +542,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
                         {plans.map(plan => {
                             const currentPrice = billingCycle === 'annual' ? plan.annualPrice : plan.price;
                             const isCurrent = plan.current;
+                            const priceValue = billingCycle === 'annual' ? plan.annualPrice : plan.price;
                             
                             return (
                                 <div key={plan.id} className={`rounded-2xl p-6 border-2 transition-all flex flex-col relative ${isCurrent ? 'border-indigo-500 ring-4 ring-indigo-50/50 z-10 transform md:-translate-y-2' : 'border-gray-200 bg-white hover:border-gray-300'} ${plan.color}`}>
@@ -516,7 +552,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
                                         </div>
                                         <h4 className="font-bold text-xl text-gray-800">{plan.name}</h4>
                                         <div className="flex items-baseline gap-1 mt-1">
-                                            <span className="text-2xl font-bold text-gray-900">{currentPrice}</span>
+                                            <span className="text-2xl font-bold text-gray-900">{priceValue.includes('Gratis') ? 'Gratis' : `€${priceValue}`}</span>
                                             {plan.price !== 'Gratis' && <span className="text-gray-500 text-sm">/{billingCycle === 'annual' ? 'anno' : 'mese'}</span>}
                                         </div>
                                     </div>
@@ -531,7 +567,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
                                     </ul>
 
                                     <button 
-                                        onClick={() => !isCurrent && handleUpgrade(plan.name)}
+                                        onClick={() => !isCurrent && handleUpgradeClick(plan.name)}
                                         disabled={isCurrent}
                                         className={`w-full py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${plan.buttonColor} ${isCurrent ? 'opacity-50 cursor-default' : 'shadow-lg shadow-indigo-100 hover:scale-[1.02]'}`}
                                     >

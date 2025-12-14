@@ -15,7 +15,8 @@
     "@supabase/supabase-js": "2.39.0",
     "lucide-react": "^0.559.0",
     "recharts": "^3.5.1",
-    "react-markdown": "^10.1.0"
+    "react-markdown": "^10.1.0",
+    "@paypal/react-paypal-js": "^8.9.2"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
