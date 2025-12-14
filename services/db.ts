@@ -241,18 +241,27 @@ export const createUserProfile = async (userId: string, email: string): Promise<
     return getUserProfile(userId);
 };
 
-export const getAllProfiles = async (): Promise<UserProfile[]> => {
+// Funzione per l'utente (modifica se stesso)
+export const updateUserProfile = async (userId: string, updates: Partial<UserProfile>) => {
     if (!isSupabaseConfigured) {
-        return getLocal(LOCAL_STORAGE_KEYS.PROFILES);
+        const profiles = getLocal(LOCAL_STORAGE_KEYS.PROFILES);
+        const idx = profiles.findIndex((p: any) => p.id === userId);
+        if (idx >= 0) {
+            profiles[idx] = { ...profiles[idx], ...updates };
+            setLocal(LOCAL_STORAGE_KEYS.PROFILES, profiles);
+        }
+        return;
     }
-    const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-    if (error) {
-        console.error("Error fetching all profiles", error);
-        return [];
-    }
-    return data;
+
+    const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', userId);
+
+    if (error) throw error;
 };
 
+// Funzione per Admin (modifica chiunque)
 export const updateUserProfileAdmin = async (profile: Partial<UserProfile> & { id: string }) => {
     if (!isSupabaseConfigured) {
         const profiles = getLocal(LOCAL_STORAGE_KEYS.PROFILES);
@@ -269,11 +278,26 @@ export const updateUserProfileAdmin = async (profile: Partial<UserProfile> & { i
         .update({
             is_approved: profile.is_approved,
             subscription_status: profile.subscription_status,
-            role: profile.role
+            role: profile.role,
+            full_name: profile.full_name,
+            created_at: profile.created_at,
+            trial_ends_at: profile.trial_ends_at
         })
         .eq('id', profile.id);
     
     if (error) throw error;
+};
+
+export const getAllProfiles = async (): Promise<UserProfile[]> => {
+    if (!isSupabaseConfigured) {
+        return getLocal(LOCAL_STORAGE_KEYS.PROFILES);
+    }
+    const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+    if (error) {
+        console.error("Error fetching all profiles", error);
+        return [];
+    }
+    return data;
 };
 
 export const deleteUserAdmin = async (userId: string) => {

@@ -1,12 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { UserProfile } from '../types';
 import * as DB from '../services/db';
-import { Check, Shield, Trash2, RefreshCw, Crown, Star, Clock, UserCog, User, Search, TrendingUp, Users, AlertCircle, Ban, CheckCircle } from 'lucide-react';
+import { Check, Shield, Trash2, RefreshCw, Crown, Star, Clock, UserCog, User, Search, Ban, CheckCircle, Pencil, X, Save, Calendar, Users } from 'lucide-react';
 
 const AdminPanel = () => {
     const [users, setUsers] = useState<UserProfile[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    
+    // Edit Modal State
+    const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+    // Form fields for editing
+    const [editRole, setEditRole] = useState<'admin' | 'user'>('user');
+    const [editPlan, setEditPlan] = useState<'trial' | 'active' | 'pro' | 'elite' | 'expired'>('trial');
+    const [editCreatedAt, setEditCreatedAt] = useState('');
+    const [editTrialEnds, setEditTrialEnds] = useState('');
+    const [editFullName, setEditFullName] = useState('');
 
     useEffect(() => {
         loadUsers();
@@ -17,43 +26,6 @@ const AdminPanel = () => {
         const list = await DB.getAllProfiles();
         setUsers(list);
         setLoading(false);
-    };
-
-    const handleToggleApproval = async (user: UserProfile) => {
-        const newStatus = !user.is_approved;
-        if (!newStatus && !window.confirm("Sei sicuro di voler sospendere questo utente? Non potrà più accedere.")) {
-            return;
-        }
-        try {
-            await DB.updateUserProfileAdmin({ id: user.id, is_approved: newStatus });
-            loadUsers();
-        } catch (e) {
-            alert("Errore durante l'aggiornamento dello stato");
-        }
-    };
-
-    const handleChangePlan = async (userId: string, newStatus: string) => {
-        // Cast string to specific union type safely
-        const status = newStatus as 'trial' | 'pro' | 'elite' | 'active' | 'expired';
-        try {
-            await DB.updateUserProfileAdmin({ id: userId, subscription_status: status });
-            loadUsers();
-        } catch (e) {
-            alert("Errore modifica piano");
-        }
-    };
-
-    const handleToggleRole = async (user: UserProfile) => {
-        const newRole = user.role === 'admin' ? 'user' : 'admin';
-        if (newRole === 'user' && !window.confirm("Sei sicuro di voler rimuovere i permessi di Admin a questo utente?")) {
-            return;
-        }
-        try {
-            await DB.updateUserProfileAdmin({ id: user.id, role: newRole });
-            loadUsers();
-        } catch (e) {
-            alert("Errore modifica ruolo");
-        }
     };
 
     const handleDelete = async (userId: string) => {
@@ -67,7 +39,55 @@ const AdminPanel = () => {
         }
     };
 
-    // Statistiche
+    // --- MODAL HANDLERS ---
+    
+    const openEditModal = (user: UserProfile) => {
+        setEditingUser(user);
+        setEditRole(user.role);
+        setEditPlan(user.subscription_status);
+        setEditFullName(user.full_name || '');
+        
+        // Format dates for input type="datetime-local" or date
+        // ISO string is YYYY-MM-DDTHH:mm:ss.sssZ, input wants YYYY-MM-DD
+        setEditCreatedAt(user.created_at ? new Date(user.created_at).toISOString().split('T')[0] : '');
+        setEditTrialEnds(user.trial_ends_at ? new Date(user.trial_ends_at).toISOString().split('T')[0] : '');
+    };
+
+    const closeEditModal = () => {
+        setEditingUser(null);
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editingUser) return;
+        
+        try {
+            await DB.updateUserProfileAdmin({
+                id: editingUser.id,
+                role: editRole,
+                subscription_status: editPlan,
+                full_name: editFullName,
+                created_at: editCreatedAt ? new Date(editCreatedAt).toISOString() : editingUser.created_at,
+                trial_ends_at: editTrialEnds ? new Date(editTrialEnds).toISOString() : editingUser.trial_ends_at,
+                is_approved: editingUser.is_approved // Manteniamo lo stato attuale
+            });
+            await loadUsers();
+            closeEditModal();
+        } catch (e) {
+            alert("Errore salvataggio modifiche");
+        }
+    };
+
+    const handleToggleApproval = async (user: UserProfile) => {
+        const newStatus = !user.is_approved;
+        try {
+            await DB.updateUserProfileAdmin({ id: user.id, is_approved: newStatus });
+            loadUsers();
+        } catch (e) {
+            alert("Errore aggiornamento stato");
+        }
+    };
+
+    // --- STATS & FILTER ---
     const stats = {
         total: users.length,
         admins: users.filter(u => u.role === 'admin').length,
@@ -76,9 +96,9 @@ const AdminPanel = () => {
         pending: users.filter(u => !u.is_approved).length
     };
 
-    // Filtro
     const filteredUsers = users.filter(u => 
         u.email.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (u.full_name && u.full_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
         u.id.includes(searchTerm)
     );
 
@@ -91,7 +111,7 @@ const AdminPanel = () => {
                         <h2 className="text-2xl font-bold flex items-center gap-2">
                             <Shield className="text-emerald-400" /> Pannello Master
                         </h2>
-                        <p className="text-slate-400">Gestione centralizzata utenti e licenze.</p>
+                        <p className="text-slate-400">Gestione centralizzata utenti, licenze e date.</p>
                     </div>
                     <button onClick={loadUsers} className="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors">
                         <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
@@ -132,13 +152,12 @@ const AdminPanel = () => {
 
             {/* Lista Utenti */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                {/* Toolbar */}
                 <div className="p-4 border-b border-gray-100 bg-gray-50 flex items-center gap-4">
                     <div className="relative flex-grow max-w-md">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                         <input 
                             type="text" 
-                            placeholder="Cerca per email o ID..." 
+                            placeholder="Cerca per email, nome o ID..." 
                             className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
@@ -151,15 +170,14 @@ const AdminPanel = () => {
                         <thead className="bg-gray-50 text-gray-500 uppercase text-xs font-bold">
                             <tr>
                                 <th className="px-6 py-4 border-b border-gray-200 w-1/3">Utente</th>
-                                <th className="px-6 py-4 border-b border-gray-200">Accesso</th>
-                                <th className="px-6 py-4 border-b border-gray-200">Ruolo</th>
-                                <th className="px-6 py-4 border-b border-gray-200">Licenza</th>
-                                <th className="px-6 py-4 text-right border-b border-gray-200">Azioni</th>
+                                <th className="px-6 py-4 border-b border-gray-200">Stato</th>
+                                <th className="px-6 py-4 border-b border-gray-200">Ruolo & Piano</th>
+                                <th className="px-6 py-4 text-right border-b border-gray-200">Gestione</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {filteredUsers.length === 0 && !loading && (
-                                <tr><td colSpan={5} className="p-8 text-center text-gray-400">Nessun utente trovato</td></tr>
+                                <tr><td colSpan={4} className="p-8 text-center text-gray-400">Nessun utente trovato</td></tr>
                             )}
                             {filteredUsers.map(u => (
                                 <tr key={u.id} className="hover:bg-gray-50 transition-colors group">
@@ -171,93 +189,58 @@ const AdminPanel = () => {
                                             </div>
                                             <div>
                                                 <div className="font-bold text-gray-800 flex items-center gap-2">
-                                                    {u.email}
+                                                    {u.full_name || u.email}
                                                     {u.role === 'admin' && <Crown size={14} className="text-amber-500 fill-amber-500" />}
                                                 </div>
                                                 <div className="text-xs text-gray-400 font-mono" title={u.id}>
-                                                    {u.id}
+                                                    {u.email}
                                                 </div>
                                             </div>
                                         </div>
                                     </td>
 
-                                    {/* Stato Approvazione (Accesso) */}
+                                    {/* Stato */}
                                     <td className="px-6 py-4">
-                                        {u.is_approved ? (
-                                            <button
-                                                onClick={() => handleToggleApproval(u)}
-                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-100 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all group/status"
-                                                title="Clicca per Sospendere"
-                                            >
-                                                <span className="block group-hover/status:hidden">Attivo</span>
-                                                <span className="hidden group-hover/status:block">Sospendi</span>
-                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 group-hover/status:bg-red-500"></div>
-                                            </button>
-                                        ) : (
-                                            <button 
-                                                onClick={() => handleToggleApproval(u)}
-                                                className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-100 text-red-700 text-xs font-bold hover:bg-emerald-100 hover:text-emerald-700 transition-colors border border-red-200 shadow-sm"
-                                            >
-                                                <Ban size={12} /> Sospeso
-                                            </button>
-                                        )}
-                                    </td>
-
-                                    {/* Ruolo */}
-                                    <td className="px-6 py-4">
-                                        <button 
-                                            onClick={() => handleToggleRole(u)}
-                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
-                                                u.role === 'admin' 
-                                                ? 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100' 
-                                                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                         <button 
+                                            onClick={() => handleToggleApproval(u)}
+                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-colors ${
+                                                u.is_approved 
+                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-red-50 hover:text-red-600 hover:border-red-200' 
+                                                : 'bg-red-50 text-red-700 border-red-100 hover:bg-emerald-50 hover:text-emerald-700'
                                             }`}
                                         >
-                                            {u.role === 'admin' ? <Shield size={14} /> : <User size={14} />}
-                                            {u.role.toUpperCase()}
+                                            {u.is_approved ? 'Attivo' : 'Sospeso'}
                                         </button>
                                     </td>
 
-                                    {/* Licenza */}
+                                    {/* Ruolo e Piano (Display Only - edit in modal) */}
                                     <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2">
-                                            <select 
-                                                value={u.subscription_status}
-                                                onChange={(e) => handleChangePlan(u.id, e.target.value)}
-                                                className={`appearance-none pl-8 pr-8 py-1.5 rounded-lg text-xs font-bold border outline-none cursor-pointer transition-colors uppercase tracking-wide
-                                                    ${u.subscription_status === 'elite' ? 'bg-amber-50 border-amber-200 text-amber-700' : 
-                                                      u.subscription_status === 'pro' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 
-                                                      'bg-blue-50 border-blue-200 text-blue-700'}
-                                                `}
-                                                style={{ 
-                                                    backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="gray" viewBox="0 0 16 16"><path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/></svg>')`,
-                                                    backgroundRepeat: 'no-repeat',
-                                                    backgroundPosition: 'right 8px center'
-                                                }}
-                                            >
-                                                <option value="trial">Trial</option>
-                                                <option value="pro">Pro</option>
-                                                <option value="elite">Elite</option>
-                                                <option value="expired">Scaduto</option>
-                                            </select>
-                                            
-                                            <div className="absolute ml-2 pointer-events-none">
-                                                {u.subscription_status === 'elite' && <Crown size={12} className="text-amber-600" />}
-                                                {u.subscription_status === 'pro' && <Star size={12} className="text-indigo-600" />}
-                                                {u.subscription_status === 'trial' && <Clock size={12} className="text-blue-600" />}
-                                            </div>
+                                        <div className="flex flex-col gap-1">
+                                             <span className="text-xs font-bold uppercase text-gray-500">{u.role}</span>
+                                             <div className="flex items-center gap-2">
+                                                 {u.subscription_status === 'elite' && <Crown size={14} className="text-amber-500" />}
+                                                 {u.subscription_status === 'pro' && <Star size={14} className="text-indigo-500" />}
+                                                 <span className="capitalize text-sm font-medium">{u.subscription_status}</span>
+                                             </div>
                                         </div>
                                     </td>
 
                                     {/* Azioni */}
                                     <td className="px-6 py-4 text-right">
-                                        <button 
-                                            onClick={() => handleDelete(u.id)}
-                                            className="text-gray-300 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors"
-                                            title="Elimina Utente per sempre"
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
+                                        <div className="flex justify-end gap-2">
+                                            <button 
+                                                onClick={() => openEditModal(u)}
+                                                className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 p-2 rounded-lg transition-colors flex items-center gap-2 text-sm font-bold"
+                                            >
+                                                <UserCog size={16} /> Gestisci
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDelete(u.id)}
+                                                className="text-gray-300 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -265,6 +248,113 @@ const AdminPanel = () => {
                     </table>
                 </div>
             </div>
+
+            {/* EDIT USER MODAL */}
+            {editingUser && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+                        <div className="bg-slate-900 p-6 flex justify-between items-center text-white">
+                            <h3 className="text-xl font-bold flex items-center gap-2">
+                                <UserCog /> Modifica Utente
+                            </h3>
+                            <button onClick={closeEditModal} className="hover:bg-slate-700 p-2 rounded-full transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 space-y-5">
+                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4">
+                                <p className="text-xs text-gray-500 font-bold uppercase">Utente Selezionato</p>
+                                <p className="font-bold text-slate-800">{editingUser.email}</p>
+                                <p className="text-xs text-gray-400 font-mono">{editingUser.id}</p>
+                            </div>
+
+                            {/* 1. Nome Visualizzato / ID */}
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Nome Completo / ID Visualizzato</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    value={editFullName}
+                                    onChange={e => setEditFullName(e.target.value)}
+                                    placeholder="Es. Mario Rossi"
+                                />
+                            </div>
+
+                            {/* 2. Ruolo & Piano */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Ruolo</label>
+                                    <select 
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                                        value={editRole}
+                                        onChange={e => setEditRole(e.target.value as 'admin' | 'user')}
+                                    >
+                                        <option value="user">User</option>
+                                        <option value="admin">Admin</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Piano</label>
+                                    <select 
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white uppercase"
+                                        value={editPlan}
+                                        onChange={e => setEditPlan(e.target.value as any)}
+                                    >
+                                        <option value="trial">Trial</option>
+                                        <option value="pro">Pro</option>
+                                        <option value="elite">Elite</option>
+                                        <option value="expired">Expired</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* 3. Gestione Date */}
+                            <div className="border-t border-gray-100 pt-4">
+                                <h4 className="text-sm font-bold text-indigo-600 mb-3 flex items-center gap-2">
+                                    <Calendar size={16} /> Gestione Temporale
+                                </h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">Membro Dal</label>
+                                        <input 
+                                            type="date" 
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            value={editCreatedAt}
+                                            onChange={e => setEditCreatedAt(e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">Scadenza Trial/Piano</label>
+                                        <input 
+                                            type="date" 
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            value={editTrialEnds}
+                                            onChange={e => setEditTrialEnds(e.target.value)}
+                                        />
+                                        <p className="text-[10px] text-gray-400 mt-1">Modifica per estendere la prova.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-4">
+                                <button 
+                                    onClick={closeEditModal}
+                                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors"
+                                >
+                                    Annulla
+                                </button>
+                                <button 
+                                    onClick={handleSaveEdit}
+                                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-lg flex items-center gap-2"
+                                >
+                                    <Save size={18} /> Salva Modifiche
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

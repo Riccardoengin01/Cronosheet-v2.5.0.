@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserProfile } from '../types';
-import { User, Mail, Shield, CheckCircle, Crown, Star, Clock, Zap, CreditCard, ArrowRight } from 'lucide-react';
+import * as DB from '../services/db';
+import { User, Mail, Shield, CheckCircle, Crown, Star, Clock, Zap, CreditCard, ArrowRight, Pencil, Save, X } from 'lucide-react';
 
 interface UserSettingsProps {
     user: UserProfile;
@@ -8,40 +9,49 @@ interface UserSettingsProps {
 
 const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
     const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [tempName, setTempName] = useState(user.full_name || '');
 
     const getTrialEndDate = () => {
-        // Usa RIGOROSAMENTE la data dal DB. Non resettare mai a "oggi + 60".
         if (!user.trial_ends_at) return new Date(); 
         return new Date(user.trial_ends_at);
     };
 
     const trialEnd = getTrialEndDate();
     const now = new Date();
-    // Calcolo giorni rimanenti reali
     const daysLeft = Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 3600 * 24));
     
-    // Barra progresso basata su 60 giorni totali
     const totalTrialDays = 60;
     const progress = Math.max(0, Math.min(100, ((totalTrialDays - daysLeft) / totalTrialDays) * 100));
 
-    // Estrazione Username dall'email per visualizzazione User ID
-    const username = user.email.split('@')[0];
-
-    // Data di creazione. Se manca (vecchi utenti), usa un fallback su 'oggi' o calcolato, MAI 1970.
+    // LOGICA VISUALIZZAZIONE USER ID
+    // Se c'è un full_name, usiamo quello come ID Visualizzato principale.
+    // Altrimenti usiamo la prima parte dell'email.
+    const displayId = user.full_name && user.full_name.trim() !== '' ? user.full_name : user.email.split('@')[0];
+    
     const memberSinceDate = user.created_at 
         ? new Date(user.created_at) 
         : (user.trial_ends_at 
-            ? new Date(new Date(user.trial_ends_at).getTime() - (60 * 24 * 60 * 60 * 1000)) // Fallback: fine trial - 60gg
+            ? new Date(new Date(user.trial_ends_at).getTime() - (60 * 24 * 60 * 60 * 1000))
             : new Date());
 
-    // Definiamo i piani prima per poter accedere ai prezzi nell'handler
+    const handleSaveName = async () => {
+        try {
+            await DB.updateUserProfile(user.id, { full_name: tempName });
+            setIsEditingName(false);
+            // Refresh soft (in app reale meglio ricaricare il contesto o window reload)
+            window.location.reload(); 
+        } catch (error) {
+            alert('Errore nel salvataggio del nome.');
+        }
+    };
+
     const plans = [
         {
             id: 'trial',
             name: 'Start',
             price: 'Gratis',
             annualPrice: 'Gratis',
-            // Regola: Max 15 voci (non copre un mese lavorativo intero)
             features: ['Registro Orari (Max 15 voci)', 'Export PDF Base', 'Durata Limite: 60 giorni'],
             current: user.subscription_status === 'trial',
             color: 'bg-slate-100 border-slate-200',
@@ -54,7 +64,6 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
             price: '€9.99',
             annualPrice: '€99.00',
             saveLabel: '-17%',
-            // Regola: Tolto Gemini e Supporto, tenuto Statistiche e Voci Illimitate
             features: ['Voci Illimitate', 'Statistiche Avanzate', 'Export Completo', 'Nessun Limite di Tempo'],
             current: user.subscription_status === 'pro',
             color: 'bg-white border-indigo-200 shadow-xl shadow-indigo-100 ring-1 ring-indigo-50',
@@ -78,13 +87,13 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
                     <p className="text-gray-500 mt-1">Gestisci le tue informazioni e il piano di abbonamento.</p>
                 </div>
                 
-                {/* User Header Summary for Mobile */}
+                {/* Mobile Header */}
                 <div className="md:hidden flex items-center gap-3 bg-white p-3 rounded-xl border border-gray-200">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white ${user.role === 'admin' ? 'bg-indigo-600' : 'bg-slate-700'}`}>
                         {user.email.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                        <p className="text-sm font-bold text-gray-800 truncate max-w-[150px]">{user.email}</p>
+                        <p className="text-sm font-bold text-gray-800 truncate max-w-[150px]">{displayId}</p>
                         <span className="text-xs text-gray-500 capitalize">{user.role}</span>
                     </div>
                 </div>
@@ -92,14 +101,14 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 
-                {/* Colonna Sinistra: Info Utente (4/12) */}
+                {/* Colonna Sinistra */}
                 <div className="lg:col-span-4 space-y-6">
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col items-center text-center relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-full h-20 bg-gradient-to-b from-indigo-50 to-transparent"></div>
                         <div className={`relative z-10 w-24 h-24 rounded-full flex items-center justify-center text-4xl font-bold text-white mb-4 shadow-lg border-4 border-white ${user.role === 'admin' ? 'bg-gradient-to-br from-indigo-500 to-purple-600' : 'bg-slate-700'}`}>
                             {user.email.charAt(0).toUpperCase()}
                         </div>
-                        <h2 className="text-xl font-bold text-gray-800 break-all">{username}</h2>
+                        <h2 className="text-xl font-bold text-gray-800 break-all">{displayId}</h2>
                         <span className="text-sm text-gray-500 mb-4 break-all">{user.email}</span>
                         
                         <div className="flex flex-wrap justify-center gap-2">
@@ -119,12 +128,36 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
                             <Shield size={18} className="text-indigo-500"/> Dettagli Account
                         </h3>
                         <div className="space-y-4 text-sm">
-                            <div className="flex justify-between items-center py-2 border-b border-gray-50">
-                                <span className="text-gray-500">User ID</span>
-                                {/* MODIFICA: Mostra lo Username (email parte prima) invece dell'UUID */}
-                                <span className="font-mono text-gray-700 text-sm font-bold bg-gray-100 px-2 py-1 rounded truncate max-w-[140px]" title={user.id}>
-                                    {username}
-                                </span>
+                            <div className="py-2 border-b border-gray-50">
+                                <span className="text-gray-500 block mb-1">User ID / Nome</span>
+                                <div className="flex items-center justify-between gap-2">
+                                    {isEditingName ? (
+                                        <div className="flex items-center gap-2 w-full">
+                                            <input 
+                                                type="text" 
+                                                value={tempName}
+                                                onChange={(e) => setTempName(e.target.value)}
+                                                className="w-full border border-indigo-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                                placeholder="Il tuo nome..."
+                                            />
+                                            <button onClick={handleSaveName} className="text-emerald-600 hover:bg-emerald-50 p-1 rounded"><Save size={16}/></button>
+                                            <button onClick={() => setIsEditingName(false)} className="text-red-500 hover:bg-red-50 p-1 rounded"><X size={16}/></button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <span className="font-mono text-gray-700 text-sm font-bold bg-gray-100 px-2 py-1 rounded truncate max-w-[160px]" title={user.id}>
+                                                {displayId}
+                                            </span>
+                                            <button 
+                                                onClick={() => { setTempName(user.full_name || displayId); setIsEditingName(true); }}
+                                                className="text-gray-400 hover:text-indigo-600 p-1 transition-colors"
+                                                title="Modifica User ID"
+                                            >
+                                                <Pencil size={14} />
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                             <div className="flex justify-between items-center py-2 border-b border-gray-50">
                                 <span className="text-gray-500">Membro dal</span>
@@ -141,12 +174,11 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
                     </div>
                 </div>
 
-                {/* Colonna Destra: Piani e Pagamenti (8/12) */}
+                {/* Colonna Destra */}
                 <div className="lg:col-span-8 space-y-8">
                     
-                    {/* Status Card & Billing Switch */}
+                    {/* Status Card */}
                     <div className="bg-slate-900 text-white rounded-2xl shadow-lg p-8 relative overflow-hidden">
-                        {/* Background pattern */}
                         <div className="absolute top-0 right-0 p-8 opacity-10">
                             {user.subscription_status === 'elite' ? <Crown size={150} /> : <Zap size={150} />}
                         </div>
@@ -168,7 +200,6 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
                                 </p>
                             </div>
 
-                            {/* Billing Cycle Switch */}
                             <div className="bg-slate-800 p-1.5 rounded-xl inline-flex items-center border border-slate-700">
                                 <button
                                     onClick={() => setBillingCycle('monthly')}
@@ -185,7 +216,6 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
                             </div>
                         </div>
 
-                        {/* Progress Bar for Trial */}
                         {user.subscription_status === 'trial' && (
                              <div className="mt-8">
                                 <div className="flex justify-between text-xs font-semibold mb-2 text-slate-400">
