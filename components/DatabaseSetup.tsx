@@ -1,30 +1,37 @@
 import React, { useState } from 'react';
 import { Database, Copy, Check, RefreshCw, Terminal, Shield, Key, AlertTriangle } from 'lucide-react';
 
-const INIT_SCRIPT = `-- 1. Crea la tabella PROFILES (se non esiste)
+const INIT_SCRIPT = `-- 1. Crea o Aggiorna Tabella PROFILES
 create table if not exists public.profiles (
   id uuid references auth.users on delete cascade not null primary key,
   email text,
-  full_name text, -- Aggiunto campo nome completo
+  full_name text,
   role text default 'user',
   subscription_status text default 'trial',
   trial_ends_at timestamptz,
   is_approved boolean default true,
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  billing_info jsonb default '{}'::jsonb -- Aggiunto campo JSON per dati fatturazione
 );
 
--- 1b. AGGIORNAMENTO PER DB ESISTENTI: Aggiunge colonna full_name se manca
+-- 1b. MIGRAZIONE: Aggiunge colonne se mancano
 do $$
 begin
+  -- Aggiungi full_name se manca
   if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'full_name') then
     alter table public.profiles add column full_name text;
   end if;
+  
+  -- Aggiungi billing_info se manca
+  if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'billing_info') then
+    alter table public.profiles add column billing_info jsonb default '{}'::jsonb;
+  end if;
 end $$;
 
--- 2. Abilita sicurezza (RLS)
+-- 2. Sicurezza (RLS)
 alter table public.profiles enable row level security;
 
--- 3. PULIZIA POLICY VECCHIE (Per evitare conflitti)
+-- 3. PULIZIA POLICY VECCHIE
 drop policy if exists "Users can insert their own profile" on public.profiles;
 drop policy if exists "Users can update own profile" on public.profiles;
 drop policy if exists "Public profiles are viewable by everyone" on public.profiles;
@@ -32,29 +39,11 @@ drop policy if exists "Admins can update everyone" on public.profiles;
 drop policy if exists "Admins can delete everyone" on public.profiles;
 
 -- 4. CREA NUOVE POLICY
--- Tutti possono vedere i profili (necessario per login e admin panel)
-create policy "Public profiles are viewable by everyone" on public.profiles
-  for select using (true);
-
--- Gli utenti possono inserire se stessi al signup
-create policy "Users can insert their own profile" on public.profiles
-  for insert with check (auth.uid() = id);
-
--- Gli utenti possono modificare SOLO se stessi
-create policy "Users can update own profile" on public.profiles
-  for update using (auth.uid() = id);
-
--- GLI ADMIN POSSONO MODIFICARE TUTTI (Cruciale per il Pannello Admin)
-create policy "Admins can update everyone" on public.profiles
-  for update using (
-    (select role from public.profiles where id = auth.uid()) = 'admin'
-  );
-
--- GLI ADMIN POSSONO ELIMINARE TUTTI
-create policy "Admins can delete everyone" on public.profiles
-  for delete using (
-    (select role from public.profiles where id = auth.uid()) = 'admin'
-  );
+create policy "Public profiles are viewable by everyone" on public.profiles for select using (true);
+create policy "Users can insert their own profile" on public.profiles for insert with check (auth.uid() = id);
+create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
+create policy "Admins can update everyone" on public.profiles for update using ((select role from public.profiles where id = auth.uid()) = 'admin');
+create policy "Admins can delete everyone" on public.profiles for delete using ((select role from public.profiles where id = auth.uid()) = 'admin');
 
 -- 5. Tabelle Progetti e Orari
 create table if not exists public.projects (
@@ -68,8 +57,7 @@ create table if not exists public.projects (
 );
 alter table public.projects enable row level security;
 drop policy if exists "Users can CRUD their own projects" on public.projects;
-create policy "Users can CRUD their own projects" on public.projects
-  for all using (auth.uid() = user_id);
+create policy "Users can CRUD their own projects" on public.projects for all using (auth.uid() = user_id);
 
 create table if not exists public.time_entries (
   id text not null primary key,
@@ -86,17 +74,13 @@ create table if not exists public.time_entries (
 );
 alter table public.time_entries enable row level security;
 drop policy if exists "Users can CRUD their own entries" on public.time_entries;
-create policy "Users can CRUD their own entries" on public.time_entries
-  for all using (auth.uid() = user_id);
+create policy "Users can CRUD their own entries" on public.time_entries for all using (auth.uid() = user_id);
 
--- 6. Constraints per Dropdown Supabase
+-- 6. Constraints
 alter table public.profiles drop constraint if exists check_subscription_status;
-alter table public.profiles add constraint check_subscription_status 
-  check (subscription_status in ('trial', 'active', 'pro', 'elite', 'expired'));
-
+alter table public.profiles add constraint check_subscription_status check (subscription_status in ('trial', 'active', 'pro', 'elite', 'expired'));
 alter table public.profiles drop constraint if exists check_role;
-alter table public.profiles add constraint check_role 
-  check (role in ('admin', 'user'));
+alter table public.profiles add constraint check_role check (role in ('admin', 'user'));
 `;
 
 const DatabaseSetup = () => {
@@ -159,7 +143,7 @@ WHERE email = '${targetEmail}';`;
                             <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex gap-3">
                                 <AlertTriangle className="text-blue-600 shrink-0" />
                                 <div className="text-sm text-blue-800">
-                                    <strong>Importante:</strong> Esegui questo script per aggiornare le "Policy" di sicurezza e aggiungere la colonna <code>full_name</code> al database. Senza questo, il salvataggio del nome utente fallirà.
+                                    <strong>Aggiornamento Richiesto:</strong> Questo script aggiunge il supporto per i <strong>Dati di Fatturazione</strong> (P.IVA, Codice Fiscale, SDI). Eseguilo in Supabase per evitare errori nel salvataggio del profilo.
                                 </div>
                             </div>
                             <div className="relative">
@@ -185,7 +169,7 @@ WHERE email = '${targetEmail}';`;
                                     <Key size={18} /> Come diventare Admin
                                 </h3>
                                 <p className="text-amber-700 text-sm">
-                                    Inserisci la tua email. Copia il codice SQL generato. Incollalo nell'Editor SQL di Supabase e premi RUN. Questo ti renderà immediatamente Admin ed Elite.
+                                    Inserisci la tua email. Copia il codice SQL generato. Incollalo nell'Editor SQL di Supabase e premi RUN.
                                 </p>
                             </div>
 

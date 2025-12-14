@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { UserProfile } from '../types';
+import { UserProfile, BillingInfo } from '../types';
 import * as DB from '../services/db';
-import { User, Mail, Shield, CheckCircle, Crown, Star, Clock, Zap, CreditCard, ArrowRight, Pencil, Save, X } from 'lucide-react';
+import { User, Shield, CheckCircle, Crown, Star, Clock, Zap, CreditCard, ArrowRight, Pencil, Save, X, Building, FileText, AlertCircle } from 'lucide-react';
 
 interface UserSettingsProps {
     user: UserProfile;
@@ -9,8 +9,15 @@ interface UserSettingsProps {
 
 const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
     const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+    
+    // Anagrafica Base
     const [isEditingName, setIsEditingName] = useState(false);
     const [tempName, setTempName] = useState(user.full_name || '');
+
+    // Dati Fatturazione
+    const [isEditingBilling, setIsEditingBilling] = useState(false);
+    const [billingInfo, setBillingInfo] = useState<BillingInfo>(user.billing_info || {});
+    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
     const getTrialEndDate = () => {
         if (!user.trial_ends_at) return new Date(); 
@@ -21,7 +28,6 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
     const now = new Date();
     const daysLeft = Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 3600 * 24));
     
-    // Calcolo progresso SOLO per Trial
     const totalTrialDays = 60;
     const progress = Math.max(0, Math.min(100, ((totalTrialDays - daysLeft) / totalTrialDays) * 100));
 
@@ -36,6 +42,27 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
         } catch (error) {
             alert('Errore nel salvataggio del nome.');
         }
+    };
+
+    const handleSaveBilling = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSaveStatus('saving');
+        try {
+            await DB.updateUserProfile(user.id, { billing_info: billingInfo });
+            setSaveStatus('success');
+            setTimeout(() => {
+                setIsEditingBilling(false);
+                setSaveStatus('idle');
+                window.location.reload(); // Ricarica per aggiornare stato globale se necessario
+            }, 1000);
+        } catch (error) {
+            console.error(error);
+            setSaveStatus('error');
+        }
+    };
+
+    const updateBillingField = (field: keyof BillingInfo, value: string) => {
+        setBillingInfo(prev => ({ ...prev, [field]: value }));
     };
 
     const plans = [
@@ -65,6 +92,16 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
     ];
 
     const handleUpgrade = (planName: string) => {
+        // Controllo validazione Dati Fiscali prima dell'acquisto
+        const hasBillingInfo = user.billing_info && (user.billing_info.tax_code || user.billing_info.vat_number);
+        
+        if (!hasBillingInfo) {
+            alert("⚠️ Attenzione: Per procedere all'acquisto e ricevere regolare fattura, devi prima compilare i 'Dati di Fatturazione' in questa pagina.");
+            document.getElementById('billing-section')?.scrollIntoView({ behavior: 'smooth' });
+            setIsEditingBilling(true);
+            return;
+        }
+
         const selectedPlan = plans.find(p => p.name === planName);
         const price = billingCycle === 'annual' ? selectedPlan?.annualPrice : selectedPlan?.price;
         alert(`Integrazione PayPal in arrivo.\n\nStai per acquistare il piano ${planName} (${billingCycle === 'annual' ? 'Annuale' : 'Mensile'}) a ${price}.`);
@@ -81,8 +118,10 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 
-                {/* Colonna Sinistra */}
-                <div className="lg:col-span-4 space-y-6">
+                {/* Colonna Sinistra: Anagrafica & Fatturazione */}
+                <div className="lg:col-span-5 space-y-6">
+                    
+                    {/* Card Utente */}
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col items-center text-center relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-full h-20 bg-gradient-to-b from-indigo-50 to-transparent"></div>
                         <div className={`relative z-10 w-24 h-24 rounded-full flex items-center justify-center text-4xl font-bold text-white mb-4 shadow-lg border-4 border-white ${user.role === 'admin' ? 'bg-gradient-to-br from-indigo-500 to-purple-600' : 'bg-slate-700'}`}>
@@ -98,13 +137,14 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
                         </div>
                     </div>
 
+                    {/* Dettagli Base */}
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                         <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
                             <Shield size={18} className="text-indigo-500"/> Dettagli Account
                         </h3>
                         <div className="space-y-4 text-sm">
                             <div className="py-2 border-b border-gray-50">
-                                <span className="text-gray-500 block mb-1">User ID / Nome</span>
+                                <span className="text-gray-500 block mb-1">Nome Visualizzato</span>
                                 <div className="flex items-center justify-between gap-2">
                                     {isEditingName ? (
                                         <div className="flex items-center gap-2 w-full">
@@ -135,10 +175,164 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
                             </div>
                         </div>
                     </div>
+
+                    {/* Dati Fatturazione */}
+                    <div id="billing-section" className={`bg-white rounded-2xl shadow-sm border p-6 transition-all ${isEditingBilling ? 'border-indigo-500 ring-2 ring-indigo-50' : 'border-gray-200'}`}>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                                <FileText size={18} className="text-indigo-500"/> Dati di Fatturazione
+                            </h3>
+                            {!isEditingBilling && (
+                                <button onClick={() => setIsEditingBilling(true)} className="text-sm text-indigo-600 font-bold hover:underline flex items-center gap-1">
+                                    <Pencil size={14} /> Modifica
+                                </button>
+                            )}
+                        </div>
+
+                        {!isEditingBilling ? (
+                            <div className="text-sm space-y-3">
+                                {user.billing_info && (user.billing_info.tax_code || user.billing_info.vat_number) ? (
+                                    <>
+                                        <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                            <p className="font-bold text-gray-800">{user.billing_info.company_name || user.full_name || 'N/D'}</p>
+                                            <p className="text-gray-600">{user.billing_info.address}</p>
+                                            <p className="text-gray-600">{user.billing_info.zip} {user.billing_info.city} ({user.billing_info.country})</p>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
+                                            <div>
+                                                <span className="block font-bold">P.IVA:</span> {user.billing_info.vat_number || '-'}
+                                            </div>
+                                            <div>
+                                                <span className="block font-bold">Cod. Fiscale:</span> {user.billing_info.tax_code || '-'}
+                                            </div>
+                                            <div>
+                                                <span className="block font-bold">SDI:</span> {user.billing_info.sdi_code || '-'}
+                                            </div>
+                                            <div>
+                                                <span className="block font-bold">PEC:</span> {user.billing_info.pec || '-'}
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="text-amber-600 bg-amber-50 p-3 rounded-lg text-xs flex gap-2 items-start">
+                                        <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                                        <p>Nessun dato fiscale inserito. Necessario per l'emissione della fattura in caso di acquisto.</p>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <form onSubmit={handleSaveBilling} className="space-y-3 animate-fade-in">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Ragione Sociale / Nome e Cognome *</label>
+                                    <input 
+                                        type="text" 
+                                        required
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-indigo-500 outline-none"
+                                        placeholder="Es. Mario Rossi o Rossi S.r.l."
+                                        value={billingInfo.company_name || ''}
+                                        onChange={e => updateBillingField('company_name', e.target.value)}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="col-span-2">
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">Indirizzo *</label>
+                                        <input 
+                                            type="text" 
+                                            required
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-indigo-500 outline-none"
+                                            placeholder="Via Roma 1"
+                                            value={billingInfo.address || ''}
+                                            onChange={e => updateBillingField('address', e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">Città *</label>
+                                        <input 
+                                            type="text" 
+                                            required
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-indigo-500 outline-none"
+                                            value={billingInfo.city || ''}
+                                            onChange={e => updateBillingField('city', e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">CAP *</label>
+                                        <input 
+                                            type="text" 
+                                            required
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-indigo-500 outline-none"
+                                            value={billingInfo.zip || ''}
+                                            onChange={e => updateBillingField('zip', e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
+                                     <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">Partita IVA</label>
+                                        <input 
+                                            type="text" 
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-indigo-500 outline-none font-mono"
+                                            placeholder="IT..."
+                                            value={billingInfo.vat_number || ''}
+                                            onChange={e => updateBillingField('vat_number', e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">Codice Fiscale *</label>
+                                        <input 
+                                            type="text" 
+                                            required
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-indigo-500 outline-none font-mono uppercase"
+                                            value={billingInfo.tax_code || ''}
+                                            onChange={e => updateBillingField('tax_code', e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">Codice SDI</label>
+                                        <input 
+                                            type="text" 
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-indigo-500 outline-none font-mono uppercase"
+                                            maxLength={7}
+                                            placeholder="0000000"
+                                            value={billingInfo.sdi_code || ''}
+                                            onChange={e => updateBillingField('sdi_code', e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 mb-1">PEC</label>
+                                        <input 
+                                            type="email" 
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-indigo-500 outline-none"
+                                            value={billingInfo.pec || ''}
+                                            onChange={e => updateBillingField('pec', e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                                
+                                <div className="flex justify-end gap-2 pt-2">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setIsEditingBilling(false)}
+                                        className="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-medium"
+                                    >
+                                        Annulla
+                                    </button>
+                                    <button 
+                                        type="submit" 
+                                        disabled={saveStatus === 'saving'}
+                                        className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-bold hover:bg-slate-900 flex items-center gap-2"
+                                    >
+                                        {saveStatus === 'saving' ? 'Salvataggio...' : <><Save size={14}/> Salva Dati</>}
+                                    </button>
+                                </div>
+                                {saveStatus === 'success' && <p className="text-xs text-green-600 font-bold text-center">Dati salvati correttamente!</p>}
+                            </form>
+                        )}
+                    </div>
                 </div>
 
-                {/* Colonna Destra */}
-                <div className="lg:col-span-8 space-y-8">
+                {/* Colonna Destra: Piani e Abbonamento */}
+                <div className="lg:col-span-7 space-y-8">
                     
                     {/* Status Card */}
                     <div className="bg-slate-900 text-white rounded-2xl shadow-lg p-8 relative overflow-hidden">
@@ -155,7 +349,6 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
                                     {user.subscription_status === 'pro' && <Star className="text-indigo-400 fill-indigo-400" size={32} />}
                                 </h2>
                                 
-                                {/* LOGICA DESCRIZIONE SCADENZE */}
                                 <p className="text-slate-400 mt-2 text-sm max-w-sm">
                                     {user.subscription_status === 'elite' && "Licenza a vita. Nessuna scadenza."}
                                     
@@ -245,7 +438,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
                     <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-600">
                         <div className="flex items-center gap-3">
                             <CreditCard className="text-gray-400" />
-                            <span>Pagamenti sicuri e crittografati tramite PayPal.</span>
+                            <span>Pagamenti sicuri e fatturazione conforme normativa vigente.</span>
                         </div>
                         <a href="#" className="text-indigo-600 font-bold hover:underline">Scarica Fatture Precedenti</a>
                     </div>

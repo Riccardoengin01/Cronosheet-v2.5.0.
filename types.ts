@@ -40,6 +40,18 @@ export interface DayGroup {
   totalDuration: number;
 }
 
+export interface BillingInfo {
+  company_name?: string; // Ragione Sociale o Nome Cognome
+  address?: string;
+  city?: string;
+  zip?: string;
+  country?: string;
+  vat_number?: string; // Partita IVA
+  tax_code?: string; // Codice Fiscale
+  sdi_code?: string; // Codice Univoco
+  pec?: string;
+}
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -51,6 +63,9 @@ export interface UserProfile {
   created_at?: string; // Data di registrazione
   is_approved: boolean;
   password?: string; // Solo per Mock Mode locale
+  
+  // Dati Fatturazione
+  billing_info?: BillingInfo;
 }
 
 export enum AppView {

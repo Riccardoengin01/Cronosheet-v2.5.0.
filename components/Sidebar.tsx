@@ -168,7 +168,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
             </div>
             <div className="hidden lg:block text-center border-t border-slate-800 pt-2 mt-1">
                 <p className="text-[10px] text-slate-500 font-medium tracking-wide">
-                    © Engineer Riccardo Righini
+                    © Ing. Riccardo Righini<br/>All rights reserved
                 </p>
             </div>
         </div>

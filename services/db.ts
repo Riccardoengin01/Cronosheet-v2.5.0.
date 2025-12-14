@@ -191,7 +191,12 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
     .single();
 
   if (error) return null;
-  return data;
+  
+  // Mappa il jsonb billing_info nel campo billing_info
+  return {
+      ...data,
+      billing_info: data.billing_info || {}
+  };
 };
 
 export const createUserProfile = async (userId: string, email: string): Promise<UserProfile | null> => {
@@ -207,7 +212,8 @@ export const createUserProfile = async (userId: string, email: string): Promise<
             subscription_status: 'trial',
             trial_ends_at: trialEnds,
             created_at: new Date().toISOString(),
-            is_approved: true
+            is_approved: true,
+            billing_info: {}
         };
         profiles.push(newProfile);
         setLocal(LOCAL_STORAGE_KEYS.PROFILES, profiles);
@@ -220,7 +226,8 @@ export const createUserProfile = async (userId: string, email: string): Promise<
         role: 'user',
         subscription_status: 'trial',
         trial_ends_at: trialEnds,
-        is_approved: true
+        is_approved: true,
+        billing_info: {}
     };
 
     const { data, error } = await supabase
@@ -236,7 +243,7 @@ export const createUserProfile = async (userId: string, email: string): Promise<
     }
     
     // Se è stato appena creato o ritornato
-    if (data) return data;
+    if (data) return { ...data, billing_info: data.billing_info || {} };
     
     return getUserProfile(userId);
 };
@@ -253,11 +260,10 @@ export const updateUserProfile = async (userId: string, updates: Partial<UserPro
         return;
     }
 
-    // SANITIZZAZIONE: Rimuovi campi che non esistono nel DB o non devono essere toccati qui
-    const dbUpdates: any = { ...updates };
-    delete dbUpdates.id; // L'ID non si cambia
-    delete dbUpdates.email; // L'email si cambia via auth
-    delete dbUpdates.password; // Rimuovi campo mock
+    // SANITIZZAZIONE
+    const dbUpdates: any = {};
+    if (updates.full_name !== undefined) dbUpdates.full_name = updates.full_name;
+    if (updates.billing_info !== undefined) dbUpdates.billing_info = updates.billing_info;
 
     const { error } = await supabase
         .from('profiles')
@@ -286,10 +292,11 @@ export const updateUserProfileAdmin = async (profile: Partial<UserProfile> & { i
         role: profile.role,
         full_name: profile.full_name,
         created_at: profile.created_at,
-        trial_ends_at: profile.trial_ends_at
+        trial_ends_at: profile.trial_ends_at,
+        billing_info: profile.billing_info
     };
 
-    // Rimuovi chiavi undefined per non sovrascrivere con null involontariamente
+    // Rimuovi chiavi undefined
     Object.keys(updates).forEach(key => updates[key] === undefined && delete updates[key]);
 
     const { error } = await supabase
@@ -309,7 +316,10 @@ export const getAllProfiles = async (): Promise<UserProfile[]> => {
         console.error("Error fetching all profiles", error);
         return [];
     }
-    return data;
+    return data.map((p: any) => ({
+        ...p,
+        billing_info: p.billing_info || {}
+    }));
 };
 
 export const deleteUserAdmin = async (userId: string) => {
