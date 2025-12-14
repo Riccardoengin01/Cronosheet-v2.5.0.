@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserProfile, BillingInfo } from '../types';
 import * as DB from '../services/db';
 import { User, Shield, CheckCircle, Crown, Star, Clock, Zap, CreditCard, ArrowRight, Pencil, Save, X, Building, FileText, AlertCircle, ToggleLeft, ToggleRight, Calendar, AlertTriangle, Copy, Terminal } from 'lucide-react';
@@ -21,9 +21,17 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
     
     // Auto Renewal State
+    // Inizializziamo con il valore dell'utente, default true se mancante
     const [autoRenew, setAutoRenew] = useState(user.auto_renew !== undefined ? user.auto_renew : true);
     const [updatingRenew, setUpdatingRenew] = useState(false);
     const [renewError, setRenewError] = useState<string | null>(null);
+
+    // Sincronizza lo stato locale se i dati dell'utente cambiano dall'esterno (es. fetch del genitore)
+    useEffect(() => {
+        if (user.auto_renew !== undefined) {
+            setAutoRenew(user.auto_renew);
+        }
+    }, [user.auto_renew]);
 
     const getTrialEndDate = () => {
         if (!user.trial_ends_at) return new Date(); 
@@ -70,20 +78,29 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
     const handleToggleAutoRenew = async () => {
         setUpdatingRenew(true);
         setRenewError(null);
-        // Calcoliamo il nuovo valore invertendo quello attuale
-        const newValue = !autoRenew;
+        
+        // 1. OPTIMISTIC UPDATE: Aggiorniamo subito la UI per feedback istantaneo
+        const previousValue = autoRenew;
+        const newValue = !previousValue;
+        setAutoRenew(newValue);
         
         try {
-            // Tentiamo l'aggiornamento sul DB
+            // 2. Tentiamo l'aggiornamento sul DB
             await DB.updateUserProfile(user.id, { auto_renew: newValue });
             
-            // Se successo, aggiorniamo stato locale e globale
-            setAutoRenew(newValue);
+            // 3. Se successo, notifichiamo il genitore (senza cambiare stato locale che è già ok)
             onProfileUpdate(); 
         } catch (error: any) {
             console.error("Errore toggle rinnovo:", error);
-            // Mostriamo l'errore e lo script di fix se necessario
-            setRenewError("Errore Database: Probabilmente manca la colonna 'auto_renew'. Esegui lo script qui sotto nel SQL Editor di Supabase.");
+            
+            // 4. ROLLBACK: Se fallisce, torniamo al valore precedente
+            setAutoRenew(previousValue);
+            
+            // Mostriamo l'errore
+            setRenewError("Errore Database: Impossibile aggiornare. Probabilmente manca la colonna 'auto_renew'. Esegui lo script SQL di riparazione.");
+            
+            // Alert esplicito nel caso l'utente non veda il box rosso
+            alert("Errore salvataggio: Colonna 'auto_renew' mancante nel database. Vedi istruzioni in rosso sotto il pulsante.");
         } finally {
             setUpdatingRenew(false);
         }
@@ -92,7 +109,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
     const copySqlFix = () => {
         const sql = `ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS auto_renew BOOLEAN DEFAULT TRUE;`;
         navigator.clipboard.writeText(sql);
-        alert("Codice SQL copiato! Incollalo nell'editor SQL di Supabase.");
+        alert("Codice SQL copiato negli appunti! Incollalo nell'editor SQL di Supabase e premi Run.");
     };
 
     const updateBillingField = (field: keyof BillingInfo, value: string) => {
@@ -211,7 +228,6 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
 
                     {/* Dati Fatturazione */}
                     <div id="billing-section" className={`bg-white rounded-2xl shadow-sm border p-6 transition-all ${isEditingBilling ? 'border-indigo-500 ring-2 ring-indigo-50' : 'border-gray-200'}`}>
-                        {/* ... (Codice Fatturazione invariato) ... */}
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="font-bold text-gray-800 flex items-center gap-2">
                                 <FileText size={18} className="text-indigo-500"/> Dati di Fatturazione
