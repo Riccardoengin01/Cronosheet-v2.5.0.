@@ -89,6 +89,14 @@ alter table public.profiles drop constraint if exists check_role;
 alter table public.profiles add constraint check_role check (role in ('admin', 'user'));
 `;
 
+const FIX_COLUMN_SCRIPT = `-- Fix veloce: Aggiunge solo la colonna auto_renew se mancante
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'auto_renew') then
+    alter table public.profiles add column auto_renew boolean default true;
+  end if;
+end $$;`;
+
 const DatabaseSetup = () => {
     const [activeTab, setActiveTab] = useState<'init' | 'admin'>('init');
     const [copied, setCopied] = useState(false);
@@ -149,16 +157,24 @@ WHERE email = '${targetEmail}';`;
                             <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex gap-3">
                                 <AlertTriangle className="text-blue-600 shrink-0" />
                                 <div className="text-sm text-blue-800">
-                                    <strong>Aggiornamento Richiesto:</strong> Questo script aggiunge il campo <strong>auto_renew</strong> per la gestione dei rinnovi automatici dei piani Pro.
+                                    <strong>Importante:</strong> Se il pulsante "Rinnovo Automatico" non funziona, esegui nuovamente questo script. Include la correzione per la colonna mancante.
                                 </div>
                             </div>
+                            
                             <div className="relative">
-                                <div className="absolute top-3 right-3">
+                                <div className="absolute top-3 right-3 flex gap-2">
+                                     <button 
+                                        onClick={() => handleCopy(FIX_COLUMN_SCRIPT)}
+                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors"
+                                        title="Copia solo la correzione colonna"
+                                    >
+                                        Solo Fix Colonna
+                                    </button>
                                     <button 
                                         onClick={() => handleCopy(INIT_SCRIPT)}
                                         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${copied ? 'bg-green-500 text-white' : 'bg-slate-700 text-white hover:bg-slate-600'}`}
                                     >
-                                        {copied ? <Check size={14}/> : <Copy size={14}/>} Copia
+                                        {copied ? <Check size={14}/> : <Copy size={14}/>} Copia Tutto
                                     </button>
                                 </div>
                                 <pre className="bg-slate-900 text-slate-300 p-4 rounded-xl overflow-x-auto text-xs font-mono h-64 border-4 border-slate-100">

@@ -5,9 +5,10 @@ import { User, Shield, CheckCircle, Crown, Star, Clock, Zap, CreditCard, ArrowRi
 
 interface UserSettingsProps {
     user: UserProfile;
+    onProfileUpdate: () => void; // Funzione per forzare l'aggiornamento in App.tsx
 }
 
-const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
+const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) => {
     const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
     
     // Anagrafica Base
@@ -42,7 +43,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
         try {
             await DB.updateUserProfile(user.id, { full_name: tempName });
             setIsEditingName(false);
-            window.location.reload(); 
+            onProfileUpdate(); // Refresh global state
         } catch (error) {
             alert('Errore nel salvataggio del nome.');
         }
@@ -57,7 +58,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
             setTimeout(() => {
                 setIsEditingBilling(false);
                 setSaveStatus('idle');
-                window.location.reload(); // Ricarica per aggiornare stato globale se necessario
+                onProfileUpdate(); // Refresh global state
             }, 1000);
         } catch (error) {
             console.error(error);
@@ -71,9 +72,10 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
         try {
             await DB.updateUserProfile(user.id, { auto_renew: newValue });
             setAutoRenew(newValue);
-            // Refresh facoltativo o feedback visivo
+            onProfileUpdate(); // Refresh global state
         } catch (error) {
-            alert("Errore aggiornamento preferenza rinnovo.");
+            console.error(error);
+            alert("Errore salvataggio. Probabilmente manca la colonna 'auto_renew' nel database. Esegui lo script di migrazione in Database Setup.");
         } finally {
             setUpdatingRenew(false);
         }

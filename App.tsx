@@ -332,7 +332,8 @@ function App() {
           if (profile.role !== 'admin') return <div className="text-red-500 p-8">Accesso Negato.</div>;
           return <AdminPanel />;
       case AppView.SETTINGS:
-          return <UserSettings user={profile} />;
+          // Passiamo la funzione di callback per aggiornare il profilo dopo le modifiche
+          return <UserSettings user={profile} onProfileUpdate={() => fetchUserProfile({ id: profile.id, email: profile.email })} />;
       default:
         return null;
     }
