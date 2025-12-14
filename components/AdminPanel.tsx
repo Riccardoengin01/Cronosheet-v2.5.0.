@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { UserProfile, BillingInfo, AppTheme } from '../types';
 import * as DB from '../services/db';
-import { Shield, Trash2, RefreshCw, Crown, Star, UserCog, Search, Ban, CheckCircle, X, Save, Palette, Receipt, Copy, FileText, ChevronDown, Monitor, Users } from 'lucide-react';
+import { Shield, Trash2, RefreshCw, Crown, Star, UserCog, Search, Ban, CheckCircle, X, Save, Palette, Receipt, Copy, FileText, ChevronDown, Monitor, Users, Clock } from 'lucide-react';
 
 const AdminPanel = () => {
     const [activeTab, setActiveTab] = useState<'users' | 'theme'>('users');
@@ -181,6 +181,7 @@ const AdminPanel = () => {
     const stats = {
         total: users.length,
         admins: users.filter(u => u.role === 'admin').length,
+        trial: users.filter(u => u.subscription_status === 'trial').length,
         pro: users.filter(u => u.subscription_status === 'pro').length,
         elite: users.filter(u => u.subscription_status === 'elite').length,
         pending: users.filter(u => !u.is_approved).length
@@ -214,7 +215,7 @@ const AdminPanel = () => {
             </div>
 
             {activeTab === 'users' ? (
-                /* TAB UTENTI (Codice esistente) */
+                /* TAB UTENTI */
                 <>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
@@ -224,7 +225,15 @@ const AdminPanel = () => {
                                 <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
                             </div>
                         </div>
-                        {/* Altre stats omesse per brevità, sono identiche a prima */}
+
+                        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+                            <div className="bg-slate-100 p-3 rounded-lg text-slate-600"><Clock size={24} /></div>
+                            <div>
+                                <p className="text-xs text-gray-500 font-bold uppercase">Trial (Start)</p>
+                                <p className="text-2xl font-bold text-gray-800">{stats.trial}</p>
+                            </div>
+                        </div>
+
                         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
                             <div className="bg-indigo-100 p-3 rounded-lg text-indigo-600"><Star size={24} /></div>
                             <div>
@@ -232,6 +241,7 @@ const AdminPanel = () => {
                                 <p className="text-2xl font-bold text-gray-800">{stats.pro + stats.elite}</p>
                             </div>
                         </div>
+                        
                          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
                             <div className={`p-3 rounded-lg ${stats.pending > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
                                 {stats.pending > 0 ? <Ban size={24} /> : <CheckCircle size={24} />}
