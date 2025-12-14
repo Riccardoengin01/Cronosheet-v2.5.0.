@@ -91,8 +91,12 @@ function App() {
 
   // 2. Data Fetching when profile changes
   useEffect(() => {
-      if (profile && profile.is_approved && profile.subscription_status !== 'expired') {
-          fetchData(profile.id);
+      if (profile && profile.is_approved) {
+          // Check expiration before fetching data
+          const isExpired = checkIsExpired(profile);
+          if (!isExpired) {
+             fetchData(profile.id);
+          }
       }
   }, [profile]);
 
@@ -179,6 +183,21 @@ function App() {
       // Qui andrebbe l'integrazione con PayPal
   };
 
+  // Helper per controllare se è scaduto in base alla data
+  const checkIsExpired = (p: UserProfile) => {
+      if (p.subscription_status === 'elite') return false; // Elite mai scaduto
+      if (p.subscription_status === 'expired') return true; // Esplicitamente scaduto
+      
+      // Controllo data per Trial e Pro
+      if (p.trial_ends_at) {
+          const endDate = new Date(p.trial_ends_at).getTime();
+          const now = Date.now();
+          // Se la data è passata, consideralo scaduto
+          return now > endDate;
+      }
+      return false;
+  };
+
   // --- RENDER LOGIC ---
 
   // SE SUPABASE NON È CONFIGURATO -> MOSTRA DATABASE SETUP SCREEN
@@ -231,8 +250,10 @@ function App() {
       );
   }
 
-  // 2. BLOCCO UTENTE SCADUTO (EXPIRED)
-  if (profile.subscription_status === 'expired') {
+  // 2. BLOCCO UTENTE SCADUTO (O DATA SUPERATA)
+  const isExpired = checkIsExpired(profile);
+
+  if (isExpired) {
       return (
           <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-center relative font-sans">
               <div className="bg-white p-10 rounded-2xl shadow-2xl max-w-lg w-full relative overflow-hidden">
