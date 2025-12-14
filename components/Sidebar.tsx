@@ -21,14 +21,14 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
       menuItems.push({ id: AppView.ADMIN_PANEL, label: 'Admin Panel', icon: Shield });
   }
 
-  // Helper per calcolare giorni rimanenti 
+  // Helper per calcolare giorni rimanenti REALI dal DB
   const getDaysLeft = () => {
       if (!userProfile) return 0;
       
       const endDate = new Date(userProfile.trial_ends_at).getTime();
       const now = Date.now();
       
-      // Calcolo giorni effettivi basati sul DB
+      // Calcolo diretto giorni rimanenti
       return Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
   };
 

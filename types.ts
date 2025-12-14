@@ -48,7 +48,7 @@ export interface UserProfile {
   // Aggiunto 'elite' ai possibili stati
   subscription_status: 'trial' | 'active' | 'pro' | 'elite' | 'expired';
   trial_ends_at: string;
-  created_at?: string; // Nuova proprietà per la data di registrazione
+  created_at?: string; // Data di registrazione
   is_approved: boolean;
   password?: string; // Solo per Mock Mode locale
 }

@@ -195,6 +195,9 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
 };
 
 export const createUserProfile = async (userId: string, email: string): Promise<UserProfile | null> => {
+    // Calcola la scadenza trial (60 giorni da oggi) una sola volta alla creazione
+    const trialEnds = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
+    
     if (!isSupabaseConfigured) {
         const profiles = getLocal(LOCAL_STORAGE_KEYS.PROFILES);
         const newProfile: UserProfile = {
@@ -202,8 +205,8 @@ export const createUserProfile = async (userId: string, email: string): Promise<
             email: email,
             role: 'admin', 
             subscription_status: 'trial',
-            trial_ends_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
-            created_at: new Date().toISOString(), // Mock creation date
+            trial_ends_at: trialEnds,
+            created_at: new Date().toISOString(),
             is_approved: true
         };
         profiles.push(newProfile);
@@ -211,13 +214,12 @@ export const createUserProfile = async (userId: string, email: string): Promise<
         return newProfile;
     }
 
-    // UPDATE: is_approved = true di default per accesso immediato
     const newProfile = {
         id: userId,
         email: email,
         role: 'user',
         subscription_status: 'trial',
-        trial_ends_at: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
+        trial_ends_at: trialEnds,
         is_approved: true
     };
 
@@ -229,14 +231,14 @@ export const createUserProfile = async (userId: string, email: string): Promise<
     
     if (error) {
         console.error("Error creating/upserting profile:", error);
+        // Se esiste già, ritornalo
         return getUserProfile(userId);
     }
     
-    if (!data) {
-        return getUserProfile(userId);
-    }
-
-    return data;
+    // Se è stato appena creato o ritornato
+    if (data) return data;
+    
+    return getUserProfile(userId);
 };
 
 export const getAllProfiles = async (): Promise<UserProfile[]> => {

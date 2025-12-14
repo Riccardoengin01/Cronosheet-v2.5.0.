@@ -10,8 +10,8 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
     const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
 
     const getTrialEndDate = () => {
-        // Se la data nel DB è valida, la usiamo così com'è. 
-        // Questo permette al conteggio di scendere realmente ogni giorno.
+        // Usa RIGOROSAMENTE la data dal DB. Non resettare mai a "oggi + 60".
+        if (!user.trial_ends_at) return new Date(); 
         return new Date(user.trial_ends_at);
     };
 
@@ -27,10 +27,12 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
     // Estrazione Username dall'email per visualizzazione User ID
     const username = user.email.split('@')[0];
 
-    // Data di creazione (se manca, usa un calcolo approssimativo basato sulla fine della trial - 60gg)
+    // Data di creazione. Se manca (vecchi utenti), usa un fallback su 'oggi' o calcolato, MAI 1970.
     const memberSinceDate = user.created_at 
         ? new Date(user.created_at) 
-        : new Date(new Date(user.trial_ends_at).getTime() - (60 * 24 * 60 * 60 * 1000));
+        : (user.trial_ends_at 
+            ? new Date(new Date(user.trial_ends_at).getTime() - (60 * 24 * 60 * 60 * 1000)) // Fallback: fine trial - 60gg
+            : new Date());
 
     // Definiamo i piani prima per poter accedere ai prezzi nell'handler
     const plans = [
@@ -119,15 +121,16 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user }) => {
                         <div className="space-y-4 text-sm">
                             <div className="flex justify-between items-center py-2 border-b border-gray-50">
                                 <span className="text-gray-500">User ID</span>
-                                {/* QUI MOSTRIAMO LO USERNAME INVECE DELL'ID UUID */}
+                                {/* MODIFICA: Mostra lo Username (email parte prima) invece dell'UUID */}
                                 <span className="font-mono text-gray-700 text-sm font-bold bg-gray-100 px-2 py-1 rounded truncate max-w-[140px]" title={user.id}>
                                     {username}
                                 </span>
                             </div>
                             <div className="flex justify-between items-center py-2 border-b border-gray-50">
                                 <span className="text-gray-500">Membro dal</span>
-                                {/* QUI MOSTRIAMO LA DATA DI CREAZIONE ACCOUNT */}
-                                <span className="text-gray-700 font-medium">{memberSinceDate.toLocaleDateString('it-IT')}</span> 
+                                <span className="text-gray-700 font-medium">
+                                    {memberSinceDate.toLocaleDateString('it-IT')}
+                                </span> 
                             </div>
                             <div className="pt-2">
                                 <button className="text-indigo-600 hover:text-indigo-800 text-xs font-bold flex items-center gap-1 w-full justify-center py-2 border border-indigo-100 rounded-lg hover:bg-indigo-50 transition-colors">
