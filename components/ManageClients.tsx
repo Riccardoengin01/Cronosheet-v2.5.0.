@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Project, Shift } from '../types';
 import { generateId, COLORS, formatCurrency } from '../utils';
 import { Trash2, Plus, Save, X, Briefcase, Pencil, Clock } from 'lucide-react';
+import { useLanguage } from '../lib/i18n';
 
 interface ManageClientsProps {
   projects: Project[];
@@ -11,6 +12,7 @@ interface ManageClientsProps {
 
 const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelete }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const { t } = useLanguage();
   
   // Form State
   const [editId, setEditId] = useState<string | null>(null);
@@ -85,15 +87,15 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
     <div className="animate-fade-in space-y-6">
       <div className="flex justify-between items-center">
         <div>
-            <h2 className="text-2xl font-bold text-gray-800">Registro Progetti</h2>
-            <p className="text-gray-500">Visualizza e gestisci la lista di tutti i clienti, cantieri e progetti.</p>
+            <h2 className="text-2xl font-bold text-gray-800">{t('clients.title')}</h2>
+            <p className="text-gray-500">{t('clients.subtitle')}</p>
         </div>
         {!isEditing && (
             <button 
                 onClick={() => startEdit()}
                 className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors shadow-md"
             >
-                <Plus size={18} /> Nuovo Cliente
+                <Plus size={18} /> {t('clients.new_client')}
             </button>
         )}
       </div>
@@ -102,12 +104,12 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
         <form onSubmit={handleSave} className="bg-white p-6 rounded-xl border-2 border-indigo-100 shadow-xl mb-8 animate-slide-up">
             <h3 className="text-xl font-bold mb-6 text-indigo-900 flex items-center gap-2">
                 {editId ? <Pencil size={20}/> : <Plus size={20}/>}
-                {editId ? 'Modifica Cliente' : 'Nuovo Cliente'}
+                {editId ? t('clients.edit_client') : t('clients.new_client')}
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Nome Cliente / Cantiere</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">{t('clients.name')}</label>
                     <input 
                         type="text" 
                         required
@@ -118,7 +120,7 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Tariffa Base (€/h)</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">{t('clients.rate')}</label>
                     <input 
                         type="number" 
                         step="0.5"
@@ -130,7 +132,7 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Colore Etichetta</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">{t('clients.color')}</label>
                     <div className="flex gap-2 flex-wrap">
                         {COLORS.map(c => (
                             <button
@@ -148,9 +150,9 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
             {/* Shift Management Section */}
             <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6">
                 <label className="block text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                    <Clock size={16} /> Configurazione Turni (Opzionale)
+                    <Clock size={16} /> {t('clients.shifts')}
                 </label>
-                <p className="text-xs text-gray-500 mb-4">Aggiungi qui i turni standard per questo cliente (es. Mattina 06-14). Compariranno come pulsanti rapidi.</p>
+                <p className="text-xs text-gray-500 mb-4">{t('clients.shifts_desc')}</p>
                 
                 {/* List of added shifts */}
                 <div className="space-y-2 mb-4">
@@ -207,7 +209,7 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
                         disabled={!shiftName || !shiftStart || !shiftEnd}
                         className="w-full md:w-auto px-4 py-2 bg-slate-800 disabled:bg-slate-300 text-white rounded-lg text-sm font-medium hover:bg-slate-900"
                     >
-                        Aggiungi Turno
+                        Aggiungi
                     </button>
                 </div>
             </div>
@@ -218,13 +220,13 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
                     onClick={() => setIsEditing(false)}
                     className="px-5 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                    Annulla
+                    {t('clients.cancel')}
                 </button>
                 <button 
                     type="submit" 
                     className="px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-md flex items-center gap-2"
                 >
-                    <Save size={18} /> {editId ? 'Salva Modifiche' : 'Crea Cliente'}
+                    <Save size={18} /> {t('clients.save')}
                 </button>
             </div>
         </form>
@@ -283,7 +285,7 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
           
           {projects.length === 0 && (
               <div className="col-span-full text-center py-12 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
-                  Nessun cliente definito. Crea un nuovo cliente per iniziare.
+                  {t('clients.no_clients')}
               </div>
           )}
       </div>

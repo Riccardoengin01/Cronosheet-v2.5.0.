@@ -41,6 +41,10 @@ begin
   if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'auto_renew') then
     alter table public.profiles add column auto_renew boolean default true;
   end if;
+  -- Aggiunta colonna fatturato
+  if not exists (select 1 from information_schema.columns where table_name = 'time_entries' and column_name = 'is_billed') then
+    alter table public.time_entries add column is_billed boolean default false;
+  end if;
 end $$;
 
 -- 4. Sicurezza (RLS)
@@ -79,6 +83,7 @@ create table if not exists public.time_entries (
   hourly_rate numeric,
   expenses jsonb,
   is_night_shift boolean default false,
+  is_billed boolean default false,
   created_at timestamptz default now()
 );
 alter table public.time_entries enable row level security;

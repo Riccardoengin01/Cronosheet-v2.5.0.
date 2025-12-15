@@ -31,7 +31,8 @@ export interface TimeEntry {
   hourlyRate?: number;
   expenses?: Expense[];
   isNightShift?: boolean;
-  user_id?: string; 
+  user_id?: string;
+  is_billed?: boolean; // Nuovo campo per stato fatturazione
 }
 
 export interface DayGroup {

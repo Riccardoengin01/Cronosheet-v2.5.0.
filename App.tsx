@@ -13,11 +13,13 @@ import DatabaseSetup from './components/DatabaseSetup';
 import * as DB from './services/db';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { Plus, Lock, LogOut, Loader2, AlertOctagon, CreditCard, PieChart, ArrowRight } from 'lucide-react';
+import { useLanguage } from './lib/i18n';
 
 function App() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
+  const { t } = useLanguage();
 
   // Default view cambiata a CLIENTS (Registro Progetti)
   const [view, setView] = useState<AppView>(AppView.CLIENTS);
@@ -219,7 +221,7 @@ function App() {
   if (loadingAuth) {
       return <div className="h-screen flex items-center justify-center bg-gray-50 text-indigo-600 flex-col gap-4">
           <Loader2 className="animate-spin w-10 h-10"/>
-          <p className="text-sm font-medium animate-pulse">Caricamento Cronosheet...</p>
+          <p className="text-sm font-medium animate-pulse">{t('app.loading')}</p>
       </div>;
   }
   
@@ -235,8 +237,8 @@ function App() {
                   <div className="bg-amber-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Lock className="text-amber-600 w-8 h-8" />
                   </div>
-                  <h1 className="text-2xl font-bold text-gray-900 mb-2">Account in attesa</h1>
-                  <p className="text-gray-600 mb-6">Il tuo account è stato creato ed è in attesa di approvazione.</p>
+                  <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('app.account_pending')}</h1>
+                  <p className="text-gray-600 mb-6">{t('app.account_pending_msg')}</p>
                   <div className="bg-indigo-50 p-4 rounded-lg text-xs text-left mb-6 text-indigo-800">
                       <strong>ID Utente:</strong> <span className="font-mono">{profile.id}</span><br/>
                       <strong>Stato:</strong> In attesa di verifica manuale.
@@ -260,10 +262,9 @@ function App() {
                       <AlertOctagon className="text-red-600 w-10 h-10" />
                   </div>
                   
-                  <h1 className="text-3xl font-bold text-gray-900 mb-3">Abbonamento Scaduto</h1>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-3">{t('app.expired')}</h1>
                   <p className="text-gray-500 mb-8 text-lg">
-                      Il periodo di prova o il tuo abbonamento sono terminati. <br/>
-                      Rinnova ora per riaccedere ai tuoi dati.
+                      {t('app.expired_msg')}
                   </p>
                   
                   <div className="space-y-4">
@@ -271,14 +272,14 @@ function App() {
                           onClick={handleRenewSubscription}
                           className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-bold text-lg shadow-xl shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2"
                       >
-                          <CreditCard size={20} /> Rinnova con PayPal
+                          <CreditCard size={20} /> {t('app.renew_paypal')}
                       </button>
                       
                       <button 
                           onClick={handleLogout}
                           className="w-full bg-white border-2 border-gray-200 text-gray-500 py-3 rounded-xl font-bold hover:bg-gray-50 transition-colors"
                       >
-                          Esci dall'account
+                          {t('app.logout')}
                       </button>
                   </div>
               </div>
@@ -297,14 +298,14 @@ function App() {
           <div className="space-y-8 animate-fade-in">
              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-800">Registro Servizi</h1>
-                    {demoMode && <span className="inline-block mt-1 px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-bold rounded border border-orange-200">MODALITÀ DEMO</span>}
+                    <h1 className="text-3xl font-bold text-gray-800">{t('menu.timesheet')}</h1>
+                    {demoMode && <span className="inline-block mt-1 px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-bold rounded border border-orange-200">{t('app.demo_mode')}</span>}
                 </div>
                 <button 
                     onClick={handleManualEntryClick}
                     className="flex items-center justify-center gap-2 text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-700 px-6 py-3 rounded-xl transition-all shadow-lg shadow-indigo-200 active:scale-95"
                 >
-                    <Plus size={20} /> Aggiungi Servizio
+                    <Plus size={20} /> {t('app.add_service')}
                 </button>
              </div>
              <TimeLogTable entries={entries} projects={projects} onDelete={handleDeleteEntry} onEdit={(e) => { setEditingEntry(e); setIsModalOpen(true); }} />
@@ -313,7 +314,14 @@ function App() {
       case AppView.CLIENTS:
           return <ManageClients projects={projects} onSave={handleSaveProject} onDelete={handleDeleteProject} />;
       case AppView.BILLING:
-          return <Billing entries={entries} projects={projects} userProfile={profile} />;
+          return (
+              <Billing 
+                entries={entries} 
+                projects={projects} 
+                userProfile={profile} 
+                onEntriesChange={() => fetchData(profile.id)} // Passata funzione refresh
+              />
+          );
       case AppView.REPORTS:
         // CHECK BLOCCO STATISTICHE PER UTENTI FREE/TRIAL
         if (profile.subscription_status === 'trial' && profile.role !== 'admin') {

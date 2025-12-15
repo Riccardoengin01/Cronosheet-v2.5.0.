@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { AppView, UserProfile, AppTheme } from '../types';
-import { Table2, PieChart, ShieldCheck, Users, Receipt, Shield, Github, Crown, Star, Clock, ChevronRight, UserCog } from 'lucide-react';
+import { Table2, PieChart, ShieldCheck, Users, Receipt, Shield, Github, Crown, Star, Clock, ChevronRight, UserCog, Globe } from 'lucide-react';
 import * as DB from '../services/db';
+import { useLanguage } from '../lib/i18n';
 
 interface SidebarProps {
   currentView: AppView;
@@ -11,6 +12,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfile }) => {
   const [theme, setTheme] = useState<AppTheme>(DB.DEFAULT_THEME);
+  const { t, language, setLanguage } = useLanguage();
   
   // Load Theme on Mount
   useEffect(() => {
@@ -28,15 +30,15 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
   }, [userProfile, theme]);
 
   const menuItems = [
-    { id: AppView.TIMESHEET, label: 'Registro Ore', icon: Table2 },
-    { id: AppView.CLIENTS, label: 'Registro Progetti', icon: Users },
-    { id: AppView.BILLING, label: 'Riepilogo', icon: Receipt },
-    { id: AppView.REPORTS, label: 'Statistiche', icon: PieChart },
-    { id: AppView.SETTINGS, label: 'Il mio Profilo', icon: UserCog },
+    { id: AppView.TIMESHEET, label: t('menu.timesheet'), icon: Table2 },
+    { id: AppView.CLIENTS, label: t('menu.projects'), icon: Users },
+    { id: AppView.BILLING, label: t('menu.billing'), icon: Receipt },
+    { id: AppView.REPORTS, label: t('menu.reports'), icon: PieChart },
+    { id: AppView.SETTINGS, label: t('menu.profile'), icon: UserCog },
   ];
 
   if (userProfile?.role === 'admin') {
-      menuItems.push({ id: AppView.ADMIN_PANEL, label: 'Admin Panel', icon: Shield });
+      menuItems.push({ id: AppView.ADMIN_PANEL, label: t('menu.admin'), icon: Shield });
   }
 
   const getDaysLeft = () => {
@@ -63,7 +65,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
       }
       
       if (userProfile.subscription_status === 'pro') {
-          const renewDate = new Date(userProfile.trial_ends_at).toLocaleDateString('it-IT');
+          const renewDate = new Date(userProfile.trial_ends_at).toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US');
           const isAutoRenew = userProfile.auto_renew !== false; 
           
           return (
@@ -74,8 +76,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
                   </div>
                   <div className={`text-[10px] mt-0.5 ${isAutoRenew ? textColor : 'text-amber-500 font-medium'}`}>
                       {daysLeft < 0 
-                        ? 'Scaduto' 
-                        : (isAutoRenew ? `Rinnovo: ${renewDate}` : `Scadenza: ${renewDate}`)
+                        ? (language === 'it' ? 'Scaduto' : 'Expired') 
+                        : (isAutoRenew ? (language === 'it' ? `Rinnovo: ${renewDate}` : `Renews: ${renewDate}`) : (language === 'it' ? `Scadenza: ${renewDate}` : `Expires: ${renewDate}`))
                       }
                   </div>
               </div>
@@ -83,6 +85,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
       }
 
       const isExpired = daysLeft < 0;
+      const daysText = language === 'it' 
+        ? (isExpired ? `Scaduto da ${Math.abs(daysLeft)} gg` : `${daysLeft} giorni rimanenti`)
+        : (isExpired ? `Expired by ${Math.abs(daysLeft)} days` : `${daysLeft} days left`);
+
       return (
           <div className="mt-1">
              <div className={`flex items-center gap-2 ${isExpired ? 'text-red-400' : ''}`} style={!isExpired ? { color: currentTheme.accentColor } : {}}>
@@ -90,7 +96,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
                   <span className="text-xs font-bold uppercase tracking-wider">Trial</span>
               </div>
               <div className={`text-[10px] mt-0.5 ${isExpired ? 'text-red-500 font-bold' : textColor}`}>
-                  {isExpired ? `Scaduto da ${Math.abs(daysLeft)} gg` : `${daysLeft} giorni rimanenti`}
+                  {daysText}
               </div>
           </div>
       );
@@ -117,7 +123,19 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
 
       {/* Navigation */}
       <nav className="flex-1 py-6 space-y-1 px-3 overflow-y-auto custom-scrollbar">
-        <p className="hidden lg:block px-4 text-xs font-bold uppercase tracking-wider mb-2" style={{ color: currentTheme.itemColor, opacity: 0.7 }}>Menu</p>
+        <div className="hidden lg:flex justify-between items-center px-4 mb-2">
+            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: currentTheme.itemColor, opacity: 0.7 }}>Menu</p>
+            {/* Language Switcher */}
+            <button 
+                onClick={() => setLanguage(language === 'it' ? 'en' : 'it')}
+                className="text-[10px] font-bold uppercase px-2 py-0.5 rounded border border-white/10 hover:bg-white/10 transition-colors flex items-center gap-1"
+                style={{ color: currentTheme.itemColor }}
+            >
+                <Globe size={10} />
+                {language === 'it' ? 'IT' : 'EN'}
+            </button>
+        </div>
+
         {menuItems.map(item => {
           const isActive = currentView === item.id;
           return (
@@ -144,7 +162,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
             >
               <item.icon 
                 className="w-5 h-5 transition-colors" 
-                style={{ color: isActive ? currentTheme.activeText : (undefined) }} // Let inherits or specific
+                style={{ color: isActive ? currentTheme.activeText : (undefined) }} 
               />
               <span className="hidden lg:block ml-3 font-medium text-sm">{item.label}</span>
               
@@ -190,11 +208,19 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
              >
                 {userProfile?.email.charAt(0).toUpperCase()}
              </div>
+             <button 
+                onClick={() => setLanguage(language === 'it' ? 'en' : 'it')}
+                className="text-[10px] font-bold uppercase p-1 rounded border border-white/10 hover:bg-white/10 transition-colors"
+                style={{ color: currentTheme.itemColor }}
+             >
+                {language === 'it' ? 'IT' : 'EN'}
+            </button>
         </div>
         
+        {/* Footer Links & Version */}
         <div className="flex flex-col gap-2">
             <div className="flex justify-center lg:justify-between items-center px-1">
-                <p className="hidden lg:block text-[10px]" style={{ color: currentTheme.itemColor }}>v2.6.0</p>
+                <p className="hidden lg:block text-[10px]" style={{ color: currentTheme.itemColor }}>{t('version')}</p>
                 <a 
                     href="https://github.com/Riccardoengin01/Cronosheet" 
                     target="_blank" 
@@ -206,6 +232,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
                 </a>
             </div>
         </div>
+
+        {/* COPYRIGHT FOOTER PROFESSIONAL */}
+        <div className="hidden lg:block pt-4 mt-2 border-t border-white/10 text-left">
+            <p className="text-[10px] font-medium leading-tight mb-1" style={{ color: currentTheme.itemColor, opacity: 0.6 }}>
+                © {new Date().getFullYear()} Ing. Riccardo Righini
+            </p>
+            <p className="text-[9px] uppercase tracking-wide opacity-40" style={{ color: currentTheme.itemColor }}>
+                {t('copyright')}
+            </p>
+        </div>
+
       </div>
     </aside>
   );

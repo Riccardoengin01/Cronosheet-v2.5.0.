@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { ShieldCheck, Mail, Lock, Loader2, CheckCircle, FileText, AlertTriangle } from 'lucide-react';
 import { UserProfile } from '../types';
+import { useLanguage } from '../lib/i18n';
 
 interface AuthProps {
     onLoginSuccess: (user: UserProfile) => void;
@@ -14,6 +15,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [message, setMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
   const [showPolicy, setShowPolicy] = useState(false);
+  const { t } = useLanguage();
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,13 +67,13 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                     <ShieldCheck className="w-16 h-16 text-white" />
                 </div>
                 <h1 className="text-3xl font-bold text-white mb-2">Cronosheet SaaS</h1>
-                <p className="text-indigo-200">Gestione orari Cloud & Sicura</p>
+                <p className="text-indigo-200">{t('auth.title')}</p>
             </div>
         </div>
 
         <div className="p-8">
             <h2 className="text-xl font-bold text-gray-800 mb-6 text-center">
-                {isSignUp ? 'Crea il tuo profilo' : 'Accedi al tuo profilo'}
+                {isSignUp ? t('auth.create_profile') : t('auth.login_profile')}
             </h2>
 
             {message && (
@@ -83,7 +85,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
 
             <form onSubmit={handleAuth} className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('auth.email')}</label>
                     <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                         <input 
@@ -97,7 +99,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                     </div>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('auth.password')}</label>
                     <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                         <input 
@@ -118,23 +120,23 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                     className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 flex justify-center items-center gap-2"
                 >
                     {loading && <Loader2 className="animate-spin" size={18} />}
-                    {isSignUp ? 'Registrati' : 'Accedi'}
+                    {isSignUp ? t('auth.signup_btn') : t('auth.login_btn')}
                 </button>
             </form>
 
             <div className="mt-6 text-center border-t border-gray-100 pt-6">
                 <p className="text-gray-600 text-sm">
-                    {isSignUp ? 'Hai già un account?' : 'Non hai un profilo?'}
+                    {isSignUp ? t('auth.have_account') : t('auth.no_account')}
                     <button 
                         onClick={() => { setIsSignUp(!isSignUp); setMessage(null); }}
                         className="text-indigo-600 font-bold ml-2 hover:underline"
                     >
-                        {isSignUp ? 'Accedi' : 'Registrati ora'}
+                        {isSignUp ? t('auth.login_btn') : t('auth.signup_btn')}
                     </button>
                 </p>
                 {isSignUp && (
                     <p className="text-xs text-gray-400 mt-2">
-                        60 giorni di prova inclusi.
+                        {t('auth.trial_note')}
                     </p>
                 )}
                 <div className="mt-4">
@@ -142,11 +144,11 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
                         onClick={() => setShowPolicy(true)}
                         className="text-xs text-gray-400 hover:text-gray-600 flex items-center justify-center gap-1 w-full"
                     >
-                        <FileText size={12} /> Privacy & Policy Dati
+                        <FileText size={12} /> {t('auth.privacy')}
                     </button>
                 </div>
                 <div className="mt-4 pt-4 border-t border-gray-100 text-[10px] text-gray-400 font-medium">
-                     © {new Date().getFullYear()} Engineer Riccardo Righini
+                     © {new Date().getFullYear()} Ing. Riccardo Righini
                 </div>
             </div>
         </div>

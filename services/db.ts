@@ -155,7 +155,8 @@ export const getEntries = async (userId?: string): Promise<TimeEntry[]> => {
     hourlyRate: parseFloat(e.hourly_rate),
     expenses: e.expenses,
     isNightShift: e.is_night_shift,
-    user_id: e.user_id
+    user_id: e.user_id,
+    is_billed: e.is_billed || false // Mappa campo fatturato
   }));
 };
 
@@ -163,7 +164,7 @@ export const saveEntry = async (entry: TimeEntry, userId: string): Promise<TimeE
   if (!isSupabaseConfigured) {
       await new Promise(r => setTimeout(r, MOCK_DELAY));
       const all = getLocal(LOCAL_STORAGE_KEYS.ENTRIES);
-      const newEntry = { ...entry, user_id: userId };
+      const newEntry = { ...entry, user_id: userId, is_billed: entry.is_billed || false };
       const idx = all.findIndex((e: any) => e.id === entry.id);
       if (idx >= 0) all[idx] = newEntry;
       else all.push(newEntry);
@@ -181,7 +182,8 @@ export const saveEntry = async (entry: TimeEntry, userId: string): Promise<TimeE
     duration: entry.duration,
     hourly_rate: entry.hourlyRate,
     expenses: entry.expenses,
-    is_night_shift: entry.isNightShift
+    is_night_shift: entry.isNightShift,
+    is_billed: entry.is_billed
   };
 
   const { data, error } = await supabase
@@ -196,6 +198,54 @@ export const saveEntry = async (entry: TimeEntry, userId: string): Promise<TimeE
   }
   
   return entry;
+};
+
+// Funzione Bulk per segnare come fatturato
+export const markEntriesAsBilled = async (entryIds: string[]) => {
+    if (!entryIds || entryIds.length === 0) return;
+
+    if (!isSupabaseConfigured) {
+        const all = getLocal(LOCAL_STORAGE_KEYS.ENTRIES);
+        const updated = all.map((e: any) => {
+            if (entryIds.includes(e.id)) {
+                return { ...e, is_billed: true };
+            }
+            return e;
+        });
+        setLocal(LOCAL_STORAGE_KEYS.ENTRIES, updated);
+        return;
+    }
+
+    const { error } = await supabase
+        .from('time_entries')
+        .update({ is_billed: true })
+        .in('id', entryIds);
+
+    if (error) throw error;
+};
+
+// Funzione Bulk per ripristinare (opzionale, utile per rollback)
+export const markEntriesAsUnbilled = async (entryIds: string[]) => {
+    if (!entryIds || entryIds.length === 0) return;
+
+    if (!isSupabaseConfigured) {
+        const all = getLocal(LOCAL_STORAGE_KEYS.ENTRIES);
+        const updated = all.map((e: any) => {
+            if (entryIds.includes(e.id)) {
+                return { ...e, is_billed: false };
+            }
+            return e;
+        });
+        setLocal(LOCAL_STORAGE_KEYS.ENTRIES, updated);
+        return;
+    }
+
+    const { error } = await supabase
+        .from('time_entries')
+        .update({ is_billed: false })
+        .in('id', entryIds);
+
+    if (error) throw error;
 };
 
 export const deleteEntry = async (id: string) => {
