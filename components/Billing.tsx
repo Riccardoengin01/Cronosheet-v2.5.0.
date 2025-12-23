@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Project, TimeEntry, UserProfile } from '../types';
 import { formatCurrency, formatDuration, calculateEarnings, formatTime } from '../utils';
-import { Printer, Calendar, CheckSquare, Square, MapPin, ChevronDown, Search, FileDown, Lock, Archive, CheckCircle2, History, AlertCircle } from 'lucide-react';
+import { Printer, Calendar, CheckSquare, Square, MapPin, ChevronDown, Search, FileDown, Lock, Archive, CheckCircle2, History, AlertCircle, Check, Pencil } from 'lucide-react';
 import * as DB from '../services/db';
 import { useLanguage } from '../lib/i18n';
 
@@ -23,6 +23,10 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   
   // Selection State for Bulk Actions
   const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(new Set());
+
+  // Inline Edit State
+  const [editingRateId, setEditingRateId] = useState<string | null>(null);
+  const [tempRate, setTempRate] = useState<string>('');
 
   // UI States
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
@@ -186,6 +190,22 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       } finally {
           setIsProcessing(false);
       }
+  };
+
+  const handleUpdateRate = async (entry: TimeEntry) => {
+    const newRate = parseFloat(tempRate);
+    if (isNaN(newRate)) return;
+
+    setIsProcessing(true);
+    try {
+        await DB.saveEntry({ ...entry, hourlyRate: newRate }, userProfile?.id || '');
+        if (onEntriesChange) onEntriesChange();
+        setEditingRateId(null);
+    } catch (e) {
+        alert("Errore nell'aggiornamento della tariffa.");
+    } finally {
+        setIsProcessing(false);
+    }
   };
 
   const handlePrint = () => {
@@ -430,7 +450,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                 className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm border transition-all capitalize ${
                                     isSelected 
                                     ? 'bg-amber-50 border-amber-200 text-amber-800 font-medium' 
-                                    : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                                    : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
                                 }`}
                             >
                                 {isSelected ? <CheckSquare size={14} /> : <Square size={14} />}
@@ -505,12 +525,11 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
               </div>
           </div>
 
-          {/* Table */}
-          {/* IMPORTANT: Removed overflow-x-auto for print to allow full page table rendering */}
-          <div className="overflow-x-auto print:overflow-visible">
-              <table className="w-full text-sm text-left print:table">
-                  <thead className="print:table-header-group">
-                      <tr className="bg-gray-100 text-gray-700 uppercase text-xs font-bold tracking-wider print:bg-gray-100">
+          {/* Table Container with Vertical Scroll */}
+          <div className="overflow-x-auto overflow-y-auto max-h-[500px] print:max-h-none border border-gray-100 rounded-lg custom-scrollbar">
+              <table className="w-full text-sm text-left print:table min-w-[800px]">
+                  <thead className="bg-gray-100 text-gray-700 uppercase text-xs font-bold tracking-wider sticky top-0 z-20 print:static print:bg-gray-100">
+                      <tr>
                           <th className="px-4 py-3 rounded-l-lg print:rounded-none w-10 print:hidden">
                               <button onClick={toggleSelectAll} className="flex items-center text-gray-500 hover:text-indigo-600">
                                   {selectedEntryIds.size > 0 && selectedEntryIds.size === filteredEntries.length ? <CheckSquare size={16} /> : <Square size={16} />}
@@ -532,6 +551,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                           const expensesTotal = entry.expenses ? entry.expenses.reduce((s, x) => s + x.amount, 0) : 0;
                           const project = projects.find(p => p.id === entry.projectId);
                           const isSelected = selectedEntryIds.has(entry.id);
+                          const isEditingRate = editingRateId === entry.id;
 
                           return (
                               <tr 
@@ -559,14 +579,56 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                   </td>
                                   <td className="px-4 py-3 text-slate-600 max-w-xs truncate print:whitespace-normal print:overflow-visible">
                                       {entry.description || '-'}
-                                      {entry.isNightShift && <span className="ml-2 text-xs bg-slate-200 px-1 rounded">Notte</span>}
+                                      {entry.isNightShift && <span className="ml-2 text-xs bg-slate-200 px-1 rounded font-bold">N</span>}
                                   </td>
                                   <td className="px-4 py-3 text-right font-mono">
                                       {formatDuration(entry.duration).slice(0, 5)}
                                   </td>
-                                  <td className="px-4 py-3 text-right text-slate-600">
-                                      {formatCurrency(entry.hourlyRate || 0)}
+                                  
+                                  {/* Editable Rate Column */}
+                                  <td 
+                                    className="px-4 py-3 text-right"
+                                    onClick={(e) => {
+                                        if (viewMode === 'pending') {
+                                            e.stopPropagation();
+                                            setEditingRateId(entry.id);
+                                            setTempRate(entry.hourlyRate?.toString() || '0');
+                                        }
+                                    }}
+                                  >
+                                      {isEditingRate ? (
+                                          <div className="flex items-center justify-end gap-1">
+                                              <input 
+                                                type="number" 
+                                                step="0.01"
+                                                autoFocus
+                                                className="w-16 px-1 py-0.5 border border-indigo-400 rounded text-right font-mono text-xs outline-none shadow-sm"
+                                                value={tempRate}
+                                                onChange={e => setTempRate(e.target.value)}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter') handleUpdateRate(entry);
+                                                    if (e.key === 'Escape') setEditingRateId(null);
+                                                }}
+                                              />
+                                              <button 
+                                                onClick={() => handleUpdateRate(entry)}
+                                                className="p-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+                                              >
+                                                  <Check size={10} />
+                                              </button>
+                                          </div>
+                                      ) : (
+                                          <div className="flex items-center justify-end gap-1 group/rate">
+                                              <span className="text-slate-600 font-mono">
+                                                {formatCurrency(entry.hourlyRate || 0)}
+                                              </span>
+                                              {viewMode === 'pending' && (
+                                                <Pencil size={10} className="text-gray-300 opacity-0 group-hover/rate:opacity-100 transition-opacity" />
+                                              )}
+                                          </div>
+                                      )}
                                   </td>
+
                                   <td className="px-4 py-3 text-right text-slate-600">
                                       {expensesTotal > 0 ? formatCurrency(expensesTotal) : '-'}
                                   </td>
