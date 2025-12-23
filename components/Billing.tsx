@@ -104,7 +104,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   const baseTotalAmount = filteredEntries.reduce((acc, curr) => acc + calculateEarnings(curr), 0);
   const totalHours = filteredEntries.reduce((acc, curr) => acc + (curr.duration || 0), 0) / 3600;
 
-  // --- CALCOLO TASSE NUOVA LOGICA ---
+  // --- CALCOLO TASSE ---
   const bolloAmount = applyBollo ? 2.00 : 0;
   const subtotalWithBollo = baseTotalAmount + bolloAmount;
   
@@ -242,7 +242,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                      </label>
                      <label className={`flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer transition-colors ${!canApplySurcharge ? 'opacity-40 grayscale' : 'hover:bg-gray-100'}`}>
                         <input type="checkbox" disabled={!canApplySurcharge} className="w-4 h-4 rounded text-indigo-600" checked={applySurcharge && canApplySurcharge} onChange={e => setApplySurcharge(e.target.checked)} />
-                        <div className="flex flex-col"><span className="text-sm font-bold text-gray-700">Rivalsa/Contanti (4%)</span><span className="text-[10px] text-gray-400">Solo se > € 100</span></div>
+                        <div className="flex flex-col"><span className="text-sm font-bold text-gray-700">Rivalsa/Contanti (4%)</span><span className="text-[10px] text-gray-400">Solo se &gt; € 100</span></div>
                      </label>
                  </div>
                  {applySurcharge && canApplySurcharge && (
