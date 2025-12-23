@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Project, TimeEntry, UserProfile } from '../types';
 import { formatCurrency, formatDuration, calculateEarnings, formatTime } from '../utils';
-import { Printer, Calendar, CheckSquare, Square, MapPin, ChevronDown, Search, FileDown, Lock, Archive, CheckCircle2, History, AlertCircle, Check, Pencil } from 'lucide-react';
+import { Printer, Calendar, CheckSquare, Square, MapPin, ChevronDown, Search, FileDown, Lock, Archive, CheckCircle2, History, AlertCircle, Check, Pencil, DollarSign, X } from 'lucide-react';
 import * as DB from '../services/db';
 import { useLanguage } from '../lib/i18n';
 
@@ -24,9 +24,11 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   // Selection State for Bulk Actions
   const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(new Set());
 
-  // Inline Edit State
+  // Inline & Bulk Edit State
   const [editingRateId, setEditingRateId] = useState<string | null>(null);
   const [tempRate, setTempRate] = useState<string>('');
+  const [showBulkRateInput, setShowBulkRateInput] = useState(false);
+  const [bulkRateValue, setBulkRateValue] = useState<string>('');
 
   // UI States
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
@@ -82,6 +84,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   // Reset selection when filtering changes
   useEffect(() => {
       setSelectedEntryIds(new Set());
+      setShowBulkRateInput(false);
   }, [viewMode, selectedProjectIds, selectedMonths, selectedYear]);
 
   // --- HANDLERS ---
@@ -208,6 +211,27 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
     }
   };
 
+  const handleBulkUpdateRate = async () => {
+      const newRate = parseFloat(bulkRateValue);
+      if (isNaN(newRate)) return;
+      if (selectedEntryIds.size === 0) return;
+
+      if (!confirm(`Aggiornare la tariffa a ${formatCurrency(newRate)} per ${selectedEntryIds.size} servizi?`)) return;
+
+      setIsProcessing(true);
+      try {
+          await DB.updateEntriesRate(Array.from(selectedEntryIds), newRate);
+          if (onEntriesChange) onEntriesChange();
+          setSelectedEntryIds(new Set());
+          setShowBulkRateInput(false);
+          setBulkRateValue('');
+      } catch (e) {
+          alert("Errore nell'aggiornamento delle tariffe.");
+      } finally {
+          setIsProcessing(false);
+      }
+  };
+
   const handlePrint = () => {
       window.print();
   };
@@ -312,18 +336,45 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
            
            {/* Bulk Action Buttons */}
            {selectedEntryIds.size > 0 && (
-               <div className="animate-slide-up flex items-center gap-2 bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-xl shadow-sm">
+               <div className="animate-slide-up flex flex-wrap items-center gap-2 bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-xl shadow-sm">
                    <span className="text-xs font-bold text-indigo-800">{selectedEntryIds.size} {t('billing.selected')}</span>
-                   <div className="h-4 w-px bg-indigo-200 mx-1"></div>
+                   <div className="h-4 w-px bg-indigo-200 mx-1 hidden sm:block"></div>
                    
                    {viewMode === 'pending' ? (
-                       <button 
-                            onClick={handleMarkAsBilled}
-                            disabled={isProcessing}
-                            className="text-xs font-bold bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-1 shadow-sm"
-                        >
-                            {isProcessing ? '...' : <><Archive size={14}/> {t('billing.mark_billed')}</>}
-                       </button>
+                       <>
+                           {!showBulkRateInput ? (
+                               <button 
+                                    onClick={() => setShowBulkRateInput(true)}
+                                    className="text-xs font-bold bg-white border border-indigo-200 text-indigo-600 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors flex items-center gap-1 shadow-sm"
+                                >
+                                    <Pencil size={14}/> {t('billing.bulk_edit_rate')}
+                               </button>
+                           ) : (
+                               <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-indigo-300">
+                                   <div className="pl-2 pr-1 text-gray-400"><DollarSign size={12}/></div>
+                                   <input 
+                                        type="number" 
+                                        step="0.01"
+                                        autoFocus
+                                        className="w-16 text-xs font-mono outline-none border-0"
+                                        placeholder="0.00"
+                                        value={bulkRateValue}
+                                        onChange={e => setBulkRateValue(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleBulkUpdateRate()}
+                                   />
+                                   <button onClick={handleBulkUpdateRate} className="bg-indigo-600 text-white p-1 rounded hover:bg-indigo-700"><Check size={14}/></button>
+                                   <button onClick={() => setShowBulkRateInput(false)} className="text-gray-400 p-1 hover:text-red-500"><X size={14}/></button>
+                               </div>
+                           )}
+
+                           <button 
+                                onClick={handleMarkAsBilled}
+                                disabled={isProcessing}
+                                className="text-xs font-bold bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-1 shadow-sm"
+                            >
+                                {isProcessing ? '...' : <><Archive size={14}/> {t('billing.mark_billed')}</>}
+                           </button>
+                       </>
                    ) : (
                        <button 
                             onClick={handleRestoreToPending}
@@ -497,13 +548,13 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
             </div>
             
             <p className="text-xs text-center text-gray-400 mt-3">
-                {viewMode === 'pending' ? "Seleziona le voci per archiviarle." : "Storico delle voci già elaborate."}
+                {viewMode === 'pending' ? "Seleziona le voci per archiviarle o modificarne la tariffa." : "Storico delle voci già elaborate."}
             </p>
         </div>
       </div>
 
       {/* The Bill / Summary Document */}
-      <div className="bg-white p-10 rounded-none md:rounded-xl shadow-lg print:shadow-none print:border-none print:w-full print:p-0 min-h-[800px] print:h-auto print:min-h-0 print:overflow-visible">
+      <div className="bg-white p-6 md:p-10 rounded-none md:rounded-xl shadow-lg print:shadow-none print:border-none print:w-full print:p-0 min-h-[600px] print:h-auto print:min-h-0">
           
           {/* Header */}
           <div className="border-b-2 border-slate-800 pb-6 mb-8 flex justify-between items-start">
@@ -525,138 +576,140 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
               </div>
           </div>
 
-          {/* Table Container with Vertical Scroll */}
-          <div className="overflow-x-auto overflow-y-auto max-h-[500px] print:max-h-none border border-gray-100 rounded-lg custom-scrollbar">
-              <table className="w-full text-sm text-left print:table min-w-[800px]">
-                  <thead className="bg-gray-100 text-gray-700 uppercase text-xs font-bold tracking-wider sticky top-0 z-20 print:static print:bg-gray-100">
-                      <tr>
-                          <th className="px-4 py-3 rounded-l-lg print:rounded-none w-10 print:hidden">
-                              <button onClick={toggleSelectAll} className="flex items-center text-gray-500 hover:text-indigo-600">
-                                  {selectedEntryIds.size > 0 && selectedEntryIds.size === filteredEntries.length ? <CheckSquare size={16} /> : <Square size={16} />}
-                              </button>
-                          </th>
-                          <th className="px-4 py-3">{t('billing.date')}</th>
-                          {showProjectColumn && <th className="px-4 py-3">{t('billing.client')}</th>}
-                          <th className="px-4 py-3">{t('billing.time')}</th>
-                          <th className="px-4 py-3">{t('billing.description')}</th>
-                          <th className="px-4 py-3 text-right">{t('billing.hours')}</th>
-                          <th className="px-4 py-3 text-right">{t('billing.rate_col')}</th>
-                          <th className="px-4 py-3 text-right">{t('billing.extra')}</th>
-                          <th className="px-4 py-3 text-right rounded-r-lg print:rounded-none">{t('billing.total')}</th>
-                      </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                      {filteredEntries.map(entry => {
-                          const earnings = calculateEarnings(entry);
-                          const expensesTotal = entry.expenses ? entry.expenses.reduce((s, x) => s + x.amount, 0) : 0;
-                          const project = projects.find(p => p.id === entry.projectId);
-                          const isSelected = selectedEntryIds.has(entry.id);
-                          const isEditingRate = editingRateId === entry.id;
+          {/* Table Container with Vertical Scroll - FIX: Ensure scrollbar is always available */}
+          <div className="border border-gray-100 rounded-lg overflow-hidden flex flex-col">
+            <div className="overflow-x-auto overflow-y-auto max-h-[700px] print:max-h-none print:overflow-visible custom-scrollbar">
+                <table className="w-full text-sm text-left print:table min-w-[850px]">
+                    <thead className="bg-gray-100 text-gray-700 uppercase text-xs font-bold tracking-wider sticky top-0 z-20 print:static print:bg-gray-100">
+                        <tr>
+                            <th className="px-4 py-3 rounded-l-lg print:rounded-none w-10 print:hidden">
+                                <button onClick={toggleSelectAll} className="flex items-center text-gray-500 hover:text-indigo-600">
+                                    {selectedEntryIds.size > 0 && selectedEntryIds.size === filteredEntries.length ? <CheckSquare size={16} /> : <Square size={16} />}
+                                </button>
+                            </th>
+                            <th className="px-4 py-3">{t('billing.date')}</th>
+                            {showProjectColumn && <th className="px-4 py-3">{t('billing.client')}</th>}
+                            <th className="px-4 py-3">{t('billing.time')}</th>
+                            <th className="px-4 py-3">{t('billing.description')}</th>
+                            <th className="px-4 py-3 text-right">{t('billing.hours')}</th>
+                            <th className="px-4 py-3 text-right">{t('billing.rate_col')}</th>
+                            <th className="px-4 py-3 text-right">{t('billing.extra')}</th>
+                            <th className="px-4 py-3 text-right rounded-r-lg print:rounded-none">{t('billing.total')}</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                        {filteredEntries.map(entry => {
+                            const earnings = calculateEarnings(entry);
+                            const expensesTotal = entry.expenses ? entry.expenses.reduce((s, x) => s + x.amount, 0) : 0;
+                            const project = projects.find(p => p.id === entry.projectId);
+                            const isSelected = selectedEntryIds.has(entry.id);
+                            const isEditingRate = editingRateId === entry.id;
 
-                          return (
-                              <tr 
-                                key={entry.id} 
-                                className={`hover:bg-gray-50 transition-colors print:break-inside-avoid print:page-break-inside-avoid cursor-pointer ${isSelected ? 'bg-indigo-50/50' : ''}`}
-                                onClick={() => toggleEntrySelection(entry.id)}
-                              >
-                                  <td className="px-4 py-3 print:hidden" onClick={(e) => e.stopPropagation()}>
-                                      <button onClick={() => toggleEntrySelection(entry.id)} className={`flex items-center ${isSelected ? 'text-indigo-600' : 'text-gray-300 hover:text-gray-400'}`}>
-                                           {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
-                                      </button>
-                                  </td>
-                                  <td className="px-4 py-3 font-medium text-slate-800 whitespace-nowrap">
-                                      {new Date(entry.startTime).toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US', { day: '2-digit', month: '2-digit' })}
-                                  </td>
-                                  
-                                  {showProjectColumn && (
-                                     <td className="px-4 py-3 text-indigo-600 font-semibold text-xs uppercase tracking-wide">
-                                         {project?.name || '-'}
-                                     </td>
-                                  )}
+                            return (
+                                <tr 
+                                    key={entry.id} 
+                                    className={`hover:bg-gray-50 transition-colors print:break-inside-avoid print:page-break-inside-avoid cursor-pointer ${isSelected ? 'bg-indigo-50/50' : ''}`}
+                                    onClick={() => toggleEntrySelection(entry.id)}
+                                >
+                                    <td className="px-4 py-3 print:hidden" onClick={(e) => e.stopPropagation()}>
+                                        <button onClick={() => toggleEntrySelection(entry.id)} className={`flex items-center ${isSelected ? 'text-indigo-600' : 'text-gray-300 hover:text-gray-400'}`}>
+                                            {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+                                        </button>
+                                    </td>
+                                    <td className="px-4 py-3 font-medium text-slate-800 whitespace-nowrap">
+                                        {new Date(entry.startTime).toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US', { day: '2-digit', month: '2-digit' })}
+                                    </td>
+                                    
+                                    {showProjectColumn && (
+                                        <td className="px-4 py-3 text-indigo-600 font-semibold text-xs uppercase tracking-wide">
+                                            {project?.name || '-'}
+                                        </td>
+                                    )}
 
-                                  <td className="px-4 py-3 font-mono text-slate-600 whitespace-nowrap">
-                                      {formatTime(entry.startTime)} - {entry.endTime ? formatTime(entry.endTime) : '...'}
-                                  </td>
-                                  <td className="px-4 py-3 text-slate-600 max-w-xs truncate print:whitespace-normal print:overflow-visible">
-                                      {entry.description || '-'}
-                                      {entry.isNightShift && <span className="ml-2 text-xs bg-slate-200 px-1 rounded font-bold">N</span>}
-                                  </td>
-                                  <td className="px-4 py-3 text-right font-mono">
-                                      {formatDuration(entry.duration).slice(0, 5)}
-                                  </td>
-                                  
-                                  {/* Editable Rate Column */}
-                                  <td 
-                                    className="px-4 py-3 text-right"
-                                    onClick={(e) => {
-                                        if (viewMode === 'pending') {
-                                            e.stopPropagation();
-                                            setEditingRateId(entry.id);
-                                            setTempRate(entry.hourlyRate?.toString() || '0');
-                                        }
-                                    }}
-                                  >
-                                      {isEditingRate ? (
-                                          <div className="flex items-center justify-end gap-1">
-                                              <input 
-                                                type="number" 
-                                                step="0.01"
-                                                autoFocus
-                                                className="w-16 px-1 py-0.5 border border-indigo-400 rounded text-right font-mono text-xs outline-none shadow-sm"
-                                                value={tempRate}
-                                                onChange={e => setTempRate(e.target.value)}
-                                                onKeyDown={e => {
-                                                    if (e.key === 'Enter') handleUpdateRate(entry);
-                                                    if (e.key === 'Escape') setEditingRateId(null);
-                                                }}
-                                              />
-                                              <button 
-                                                onClick={() => handleUpdateRate(entry)}
-                                                className="p-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
-                                              >
-                                                  <Check size={10} />
-                                              </button>
-                                          </div>
-                                      ) : (
-                                          <div className="flex items-center justify-end gap-1 group/rate">
-                                              <span className="text-slate-600 font-mono">
-                                                {formatCurrency(entry.hourlyRate || 0)}
-                                              </span>
-                                              {viewMode === 'pending' && (
-                                                <Pencil size={10} className="text-gray-300 opacity-0 group-hover/rate:opacity-100 transition-opacity" />
-                                              )}
-                                          </div>
-                                      )}
-                                  </td>
+                                    <td className="px-4 py-3 font-mono text-slate-600 whitespace-nowrap">
+                                        {formatTime(entry.startTime)} - {entry.endTime ? formatTime(entry.endTime) : '...'}
+                                    </td>
+                                    <td className="px-4 py-3 text-slate-600 max-w-xs truncate print:whitespace-normal print:overflow-visible">
+                                        {entry.description || '-'}
+                                        {entry.isNightShift && <span className="ml-2 text-xs bg-slate-200 px-1 rounded font-bold">N</span>}
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-mono">
+                                        {formatDuration(entry.duration).slice(0, 5)}
+                                    </td>
+                                    
+                                    {/* Editable Rate Column */}
+                                    <td 
+                                        className="px-4 py-3 text-right"
+                                        onClick={(e) => {
+                                            if (viewMode === 'pending') {
+                                                e.stopPropagation();
+                                                setEditingRateId(entry.id);
+                                                setTempRate(entry.hourlyRate?.toString() || '0');
+                                            }
+                                        }}
+                                    >
+                                        {isEditingRate ? (
+                                            <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.01"
+                                                    autoFocus
+                                                    className="w-16 px-1 py-0.5 border border-indigo-400 rounded text-right font-mono text-xs outline-none shadow-sm"
+                                                    value={tempRate}
+                                                    onChange={e => setTempRate(e.target.value)}
+                                                    onKeyDown={e => {
+                                                        if (e.key === 'Enter') handleUpdateRate(entry);
+                                                        if (e.key === 'Escape') setEditingRateId(null);
+                                                    }}
+                                                />
+                                                <button 
+                                                    onClick={() => handleUpdateRate(entry)}
+                                                    className="p-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+                                                >
+                                                    <Check size={10} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center justify-end gap-1 group/rate">
+                                                <span className="text-slate-600 font-mono">
+                                                    {formatCurrency(entry.hourlyRate || 0)}
+                                                </span>
+                                                {viewMode === 'pending' && (
+                                                    <Pencil size={10} className="text-gray-300 opacity-0 group-hover/rate:opacity-100 transition-opacity" />
+                                                )}
+                                            </div>
+                                        )}
+                                    </td>
 
-                                  <td className="px-4 py-3 text-right text-slate-600">
-                                      {expensesTotal > 0 ? formatCurrency(expensesTotal) : '-'}
-                                  </td>
-                                  <td className="px-4 py-3 text-right font-bold text-slate-800">
-                                      {formatCurrency(earnings)}
-                                  </td>
-                              </tr>
-                          );
-                      })}
-                      {filteredEntries.length === 0 && (
-                          <tr>
-                              <td colSpan={showProjectColumn ? 9 : 8} className="px-4 py-12 text-center text-gray-400 italic">
-                                  {viewMode === 'pending' ? (
-                                      <div className="flex flex-col items-center gap-2">
-                                          <CheckCircle2 size={32} className="opacity-20" />
-                                          <p>{t('billing.empty_pending')}</p>
-                                      </div>
-                                  ) : (
-                                      <div className="flex flex-col items-center gap-2">
-                                          <Archive size={32} className="opacity-20" />
-                                          <p>{t('billing.empty_archive')}</p>
-                                      </div>
-                                  )}
-                              </td>
-                          </tr>
-                      )}
-                  </tbody>
-              </table>
+                                    <td className="px-4 py-3 text-right text-slate-600">
+                                        {expensesTotal > 0 ? formatCurrency(expensesTotal) : '-'}
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-bold text-slate-800">
+                                        {formatCurrency(earnings)}
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                        {filteredEntries.length === 0 && (
+                            <tr>
+                                <td colSpan={showProjectColumn ? 9 : 8} className="px-4 py-12 text-center text-gray-400 italic">
+                                    {viewMode === 'pending' ? (
+                                        <div className="flex flex-col items-center gap-2">
+                                            <CheckCircle2 size={32} className="opacity-20" />
+                                            <p>{t('billing.empty_pending')}</p>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center gap-2">
+                                            <Archive size={32} className="opacity-20" />
+                                            <p>{t('billing.empty_archive')}</p>
+                                        </div>
+                                    )}
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
           </div>
 
           {/* Footer Totals */}

@@ -224,6 +224,30 @@ export const markEntriesAsBilled = async (entryIds: string[]) => {
     if (error) throw error;
 };
 
+// Funzione Bulk per aggiornare la tariffa oraria
+export const updateEntriesRate = async (entryIds: string[], newRate: number) => {
+    if (!entryIds || entryIds.length === 0) return;
+
+    if (!isSupabaseConfigured) {
+        const all = getLocal(LOCAL_STORAGE_KEYS.ENTRIES);
+        const updated = all.map((e: any) => {
+            if (entryIds.includes(e.id)) {
+                return { ...e, hourlyRate: newRate };
+            }
+            return e;
+        });
+        setLocal(LOCAL_STORAGE_KEYS.ENTRIES, updated);
+        return;
+    }
+
+    const { error } = await supabase
+        .from('time_entries')
+        .update({ hourly_rate: newRate })
+        .in('id', entryIds);
+
+    if (error) throw error;
+};
+
 // Funzione Bulk per ripristinare (opzionale, utile per rollback)
 export const markEntriesAsUnbilled = async (entryIds: string[]) => {
     if (!entryIds || entryIds.length === 0) return;

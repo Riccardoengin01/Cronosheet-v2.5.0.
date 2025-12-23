@@ -144,6 +144,8 @@ const translations = {
     'billing.empty_pending': 'Tutto in ordine! Nessuna voce da fatturare.',
     'billing.empty_archive': 'Nessuna voce in archivio per questo periodo.',
     'billing.generated_by': 'Generato con Cronosheet',
+    'billing.bulk_edit_rate': 'Modifica Tariffa',
+    'billing.apply': 'Applica',
   },
   en: {
     // Sidebar & Footer
@@ -280,6 +282,8 @@ const translations = {
     'billing.empty_pending': 'All clear! No items to bill.',
     'billing.empty_archive': 'No items in archive for this period.',
     'billing.generated_by': 'Generated with Cronosheet',
+    'billing.bulk_edit_rate': 'Edit Rate',
+    'billing.apply': 'Apply',
   }
 };
 
