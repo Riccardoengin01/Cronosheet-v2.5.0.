@@ -10,7 +10,7 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap');
       body {
         font-family: 'Inter', sans-serif;
       }
@@ -31,7 +31,7 @@
         background: #94a3b8;
       }
       
-      /* PRINT OPTIMIZATION */
+      /* PRINT OPTIMIZATION - CRITICAL FOR MULTI-PAGE */
       @media print {
         @page {
           margin: 15mm;
@@ -41,6 +41,8 @@
           height: auto !important;
           overflow: visible !important;
           background: white !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
         .no-print {
           display: none !important;
@@ -48,8 +50,9 @@
         main {
             overflow: visible !important;
             height: auto !important;
+            padding: 0 !important;
         }
-        .overflow-x-auto, .overflow-y-auto, .overflow-visible {
+        .overflow-x-auto, .overflow-y-auto, .overflow-visible, .overflow-y-scroll {
           overflow: visible !important;
           height: auto !important;
           max-height: none !important;
@@ -59,6 +62,7 @@
             width: 100% !important;
             border-collapse: collapse !important;
             page-break-inside: auto !important;
+            table-layout: auto !important;
         }
         thead {
             display: table-header-group !important;
@@ -67,9 +71,18 @@
             page-break-inside: avoid !important;
             page-break-after: auto !important;
         }
-        .shadow-lg, .shadow-xl, .rounded-xl {
+        .shadow-lg, .shadow-xl, .shadow-2xl, .shadow-sm, .rounded-xl {
             box-shadow: none !important;
-            border: none !important;
+            border-radius: 0 !important;
+        }
+        aside {
+            display: none !important;
+        }
+        .max-w-7xl, .max-w-5xl {
+            max-width: none !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
       }
     </style>

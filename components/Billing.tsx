@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Project, TimeEntry, UserProfile } from '../types';
 import { formatCurrency, formatDuration, calculateEarnings, formatTime } from '../utils';
-import { Printer, Calendar, CheckSquare, Square, MapPin, ChevronDown, Search, FileDown, Lock, Archive, CheckCircle2, History, AlertCircle, Check, Pencil, DollarSign, X, Settings2, ListFilter, Download, ToggleRight, ToggleLeft } from 'lucide-react';
+import { Printer, Calendar, CheckSquare, Square, MapPin, ChevronDown, Archive, CheckCircle2, History, Check, Pencil, X, Settings2, ListFilter, Download, ToggleRight, ToggleLeft } from 'lucide-react';
 import * as DB from '../services/db';
 import { useLanguage } from '../lib/i18n';
 
@@ -21,7 +21,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
   
-  // Fiscal Toggles
+  // Fiscal Toggles (Manual override requested)
   const [applyBollo, setApplyBollo] = useState(false);
   const [applyInarcassa, setApplyInarcassa] = useState(true);
 
@@ -73,7 +73,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   const baseTotalAmount = useMemo(() => filteredEntries.reduce((acc, curr) => acc + calculateEarnings(curr), 0), [filteredEntries]);
   const totalHours = useMemo(() => filteredEntries.reduce((acc, curr) => acc + (curr.duration || 0), 0) / 3600, [filteredEntries]);
 
-  // Auto-suggestion for Bollo
+  // Auto-suggestion for Bollo (but user can override)
   useEffect(() => {
       if (baseTotalAmount > 100) setApplyBollo(true);
       else setApplyBollo(false);
@@ -204,7 +204,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   return (
     <div className="space-y-6 animate-fade-in max-w-5xl mx-auto pb-10">
       
-      {/* ACTIONS */}
+      {/* ACTIONS - NO PRINT */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print">
            <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-200">
                <button onClick={() => setViewMode('pending')} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${viewMode === 'pending' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}>
@@ -240,10 +240,10 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
            )}
       </div>
 
-      {/* CONTROLS */}
+      {/* CONTROLS - NO PRINT */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 no-print grid grid-cols-1 lg:grid-cols-3 gap-6 relative overflow-hidden">
         <div className="lg:col-span-2 space-y-5">
-            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><Calendar className="text-indigo-600" /> Configura Documento</h2>
+            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><Settings2 className="text-indigo-600" /> Configura Documento</h2>
             
             <div className="flex flex-col sm:flex-row gap-3">
                  <div className="flex items-center bg-gray-100 p-1 rounded-lg shrink-0">
@@ -295,7 +295,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                 </div>
             </div>
             
-            {/* FISCAL SETTINGS */}
+            {/* FISCAL SETTINGS - MANUAL SELECTION */}
             <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 space-y-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -309,14 +309,14 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                         className={`flex items-center justify-between p-3 rounded-lg border transition-all ${applyBollo ? 'bg-white border-indigo-200 shadow-sm' : 'bg-transparent border-gray-200 opacity-60'}`}
                     >
                         <span className="text-xs font-medium text-gray-700">Applica Bollo (€ 2,00)</span>
-                        {applyBollo ? <ToggleRight className="text-indigo-600" /> : <ToggleLeft className="text-gray-400" />}
+                        {applyBollo ? <ToggleRight className="text-indigo-600" size={24} /> : <ToggleLeft className="text-gray-400" size={24} />}
                     </button>
                     <button 
                         onClick={() => setApplyInarcassa(!applyInarcassa)}
                         className={`flex items-center justify-between p-3 rounded-lg border transition-all ${applyInarcassa ? 'bg-white border-indigo-200 shadow-sm' : 'bg-transparent border-gray-200 opacity-60'}`}
                     >
                         <span className="text-xs font-medium text-gray-700">Applica Inarcassa (4%)</span>
-                        {applyInarcassa ? <ToggleRight className="text-indigo-600" /> : <ToggleLeft className="text-gray-400" />}
+                        {applyInarcassa ? <ToggleRight className="text-indigo-600" size={24} /> : <ToggleLeft className="text-gray-400" size={24} />}
                     </button>
                 </div>
             </div>
@@ -339,30 +339,40 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
         </div>
       </div>
 
-      {/* DOCUMENT */}
-      <div className="bg-white p-6 md:p-10 rounded-none md:rounded-xl shadow-lg print:shadow-none print:w-full print:p-0 min-h-screen">
+      {/* DOCUMENT - PRINTABLE SECTION */}
+      <div className="bg-white p-6 md:p-10 rounded-none md:rounded-xl shadow-lg print:shadow-none print:w-full print:p-0 min-h-screen overflow-visible">
+          {/* Document Header matching screenshot */}
           <div className="border-b-2 border-slate-800 pb-6 mb-8 flex justify-between items-start">
-              <div><h1 className="text-3xl font-bold text-slate-900 uppercase tracking-wide">{viewMode === 'pending' ? 'Riepilogo Servizi' : 'Archivio Fatture'}</h1><p className="text-slate-500 mt-2">Documento informativo prestazioni professionali</p></div>
-              <div className="text-right max-w-sm"><h3 className="text-xl font-bold text-indigo-600 truncate">{selectedProjectIds.length === 1 ? projects.find(p => p.id === selectedProjectIds[0])?.name : 'Riepilogo Multi-Cliente'}</h3><p className="text-slate-600 font-medium capitalize mt-1 text-sm">Periodo: {periodString}</p></div>
+              <div>
+                  <h1 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">RIEPILOGO SERVIZI</h1>
+                  <p className="text-slate-500 mt-1 text-sm">Documento informativo prestazioni professionali</p>
+              </div>
+              <div className="text-right">
+                  <h3 className="text-xl font-bold text-indigo-600">
+                    {selectedProjectIds.length === 1 ? projects.find(p => p.id === selectedProjectIds[0])?.name : 'Riepilogo Multi-Cliente'}
+                  </h3>
+                  <p className="text-slate-600 font-medium capitalize mt-1 text-sm">Periodo: {periodString}</p>
+              </div>
           </div>
 
-          <div className="border border-gray-100 rounded-lg overflow-visible flex flex-col">
+          {/* Table matching screenshot */}
+          <div className="border-t border-gray-100 rounded-lg overflow-visible flex flex-col">
             <div className="overflow-x-auto print:overflow-visible">
-                <table className="w-full text-sm text-left print:table min-w-[850px] border-collapse">
-                    <thead className="bg-gray-50 text-gray-700 uppercase text-[10px] font-bold tracking-wider sticky top-0 z-20 print:static print:bg-gray-100">
+                <table className="w-full text-[11px] md:text-xs text-left print:table min-w-[850px] border-collapse">
+                    <thead className="bg-gray-50/80 text-gray-400 uppercase text-[10px] font-bold tracking-widest border-b border-gray-100 sticky top-0 z-20 print:static">
                         <tr>
-                            <th className="px-4 py-3 w-10 print:hidden"></th>
-                            <th className="px-4 py-3">Data</th>
-                            {showProjectColumn && <th className="px-4 py-3">Cliente</th>}
-                            <th className="px-4 py-3">Orario</th>
-                            <th className="px-4 py-3">Descrizione</th>
-                            <th className="px-4 py-3 text-right">Ore</th>
-                            <th className="px-4 py-3 text-right">Tariffa</th>
-                            <th className="px-4 py-3 text-right">Extra</th>
-                            <th className="px-4 py-3 text-right">Totale</th>
+                            <th className="px-4 py-4 w-10 print:hidden"></th>
+                            <th className="px-4 py-4">DATA</th>
+                            <th className="px-4 py-4">CLIENTE</th>
+                            <th className="px-4 py-4">ORARIO</th>
+                            <th className="px-4 py-4">DESCRIZIONE</th>
+                            <th className="px-4 py-4 text-center">ORE</th>
+                            <th className="px-4 py-4 text-center">TARIFFA</th>
+                            <th className="px-4 py-4 text-center">EXTRA</th>
+                            <th className="px-4 py-4 text-right">TOTALE</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100 bg-white">
+                    <tbody className="divide-y divide-gray-50 bg-white">
                         {filteredEntries.map(entry => {
                             const earnings = calculateEarnings(entry);
                             const expensesTotal = entry.expenses?.reduce((s, x) => s + x.amount, 0) || 0;
@@ -370,28 +380,49 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                             const isEditingRate = editingRateId === entry.id;
 
                             return (
-                                <tr key={entry.id} className={`hover:bg-indigo-50/30 transition-colors print:break-inside-avoid ${selectedEntryIds.has(entry.id) ? 'bg-indigo-50/50' : ''}`}>
-                                    <td className="px-4 py-3 print:hidden"><button onClick={() => setSelectedEntryIds(prev => { const n = new Set(prev); if(n.has(entry.id)) n.delete(entry.id); else n.add(entry.id); return n; })} className={`flex items-center ${selectedEntryIds.has(entry.id) ? 'text-indigo-600' : 'text-gray-300'}`}>{selectedEntryIds.has(entry.id) ? <CheckSquare size={16} /> : <Square size={16} />}</button></td>
-                                    <td className="px-4 py-3 font-medium text-slate-800">{new Date(entry.startTime).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })}</td>
-                                    {showProjectColumn && <td className="px-4 py-3 text-indigo-600 font-semibold text-xs uppercase">{project?.name || '-'}</td>}
-                                    <td className="px-4 py-3 font-mono text-slate-600 text-xs">{formatTime(entry.startTime)} - {entry.endTime ? formatTime(entry.endTime) : '...'}</td>
-                                    <td className="px-4 py-3 text-slate-600 max-w-xs truncate text-xs">{entry.description || '-'}</td>
-                                    <td className="px-4 py-3 text-right font-mono text-xs">{formatDuration(entry.duration).slice(0, 5)}</td>
-                                    <td className="px-4 py-3 text-right bg-indigo-50/20 group/cell" onClick={() => { if (viewMode === 'pending') { setEditingRateId(entry.id); setTempRate(entry.hourlyRate?.toString() || '0'); } }}>
+                                <tr key={entry.id} className={`hover:bg-indigo-50/20 transition-colors print:break-inside-avoid ${selectedEntryIds.has(entry.id) ? 'bg-indigo-50/40' : ''}`}>
+                                    <td className="px-4 py-4 print:hidden">
+                                        <button 
+                                            onClick={() => setSelectedEntryIds(prev => { const n = new Set(prev); if(n.has(entry.id)) n.delete(entry.id); else n.add(entry.id); return n; })} 
+                                            className={`flex items-center transition-colors ${selectedEntryIds.has(entry.id) ? 'text-indigo-600' : 'text-gray-300 hover:text-gray-400'}`}
+                                        >
+                                            {selectedEntryIds.has(entry.id) ? <CheckSquare size={18} /> : <Square size={18} />}
+                                        </button>
+                                    </td>
+                                    <td className="px-4 py-4 font-bold text-slate-800">
+                                        {new Date(entry.startTime).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })}
+                                    </td>
+                                    <td className="px-4 py-4 text-indigo-600 font-bold uppercase truncate max-w-[150px]">
+                                        {project?.name || '-'}
+                                    </td>
+                                    <td className="px-4 py-4 font-medium text-slate-500 font-mono text-[10px]">
+                                        {formatTime(entry.startTime)} - {entry.endTime ? formatTime(entry.endTime) : '...'}
+                                    </td>
+                                    <td className="px-4 py-4 text-slate-400 italic">
+                                        {entry.description || '-'}
+                                    </td>
+                                    <td className="px-4 py-4 text-center font-bold text-slate-800 font-mono">
+                                        {formatDuration(entry.duration).slice(0, 5)}
+                                    </td>
+                                    <td className="px-4 py-4 text-center bg-gray-50/30 group/cell" onClick={() => { if (viewMode === 'pending') { setEditingRateId(entry.id); setTempRate(entry.hourlyRate?.toString() || '0'); } }}>
                                         {isEditingRate ? (
-                                            <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-                                                <input type="number" step="0.01" autoFocus className="w-16 px-1 py-0.5 border border-indigo-400 rounded text-right font-mono text-xs shadow-sm" value={tempRate} onChange={e => setTempRate(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleUpdateRate(entry)} />
-                                                <button onClick={() => handleUpdateRate(entry)} className="p-1 bg-indigo-600 text-white rounded"><Check size={10} /></button>
+                                            <div className="flex items-center justify-center gap-1" onClick={e => e.stopPropagation()}>
+                                                <input type="number" step="0.01" autoFocus className="w-16 px-1 py-0.5 border border-indigo-400 rounded text-right font-mono text-xs shadow-sm outline-none" value={tempRate} onChange={e => setTempRate(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleUpdateRate(entry)} />
+                                                <button onClick={() => handleUpdateRate(entry)} className="p-1 bg-indigo-600 text-white rounded"><Check size={12} /></button>
                                             </div>
                                         ) : (
-                                            <div className="flex items-center justify-end gap-1 cursor-pointer">
-                                                <span className="text-slate-600 font-mono text-xs">{formatCurrency(entry.hourlyRate || 0)}</span>
-                                                <Pencil size={10} className="text-indigo-400 opacity-50 group-hover/cell:opacity-100 transition-opacity no-print" />
+                                            <div className="flex items-center justify-center gap-1 cursor-pointer">
+                                                <span className="text-slate-500 font-mono">{formatCurrency(entry.hourlyRate || 0)}</span>
+                                                <Pencil size={10} className="text-indigo-400 opacity-0 group-hover/cell:opacity-100 transition-opacity no-print" />
                                             </div>
                                         )}
                                     </td>
-                                    <td className="px-4 py-3 text-right text-slate-600 text-xs">{expensesTotal > 0 ? formatCurrency(expensesTotal) : '-'}</td>
-                                    <td className="px-4 py-3 text-right font-bold text-slate-800 text-xs">{formatCurrency(earnings)}</td>
+                                    <td className="px-4 py-4 text-center text-slate-400 font-mono">
+                                        {expensesTotal > 0 ? formatCurrency(expensesTotal) : '-'}
+                                    </td>
+                                    <td className="px-4 py-4 text-right font-black text-slate-900">
+                                        {formatCurrency(earnings)}
+                                    </td>
                                 </tr>
                             );
                         })}
@@ -400,30 +431,41 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
             </div>
           </div>
 
-          <div className="mt-8 border-t-2 border-slate-200 pt-6 flex justify-end print:break-inside-avoid">
-              <div className="w-full md:w-1/2 lg:w-1/3 space-y-2">
-                  <div className="flex justify-between text-slate-500 text-xs uppercase font-bold"><span>Imponibile Servizi:</span><span className="font-mono">{formatCurrency(baseTotalAmount)}</span></div>
+          {/* Footer matching screenshot */}
+          <div className="mt-12 border-t border-gray-100 pt-8 flex justify-end print:break-inside-avoid">
+              <div className="w-full md:w-1/2 lg:w-2/5 space-y-3">
+                  <div className="flex justify-between text-slate-400 text-[10px] uppercase font-bold tracking-widest">
+                      <span>IMPONIBILE SERVIZI:</span>
+                      <span className="font-mono text-slate-800">{formatCurrency(baseTotalAmount)}</span>
+                  </div>
                   
                   {applyBollo && (
-                      <div className="flex justify-between text-slate-600 text-sm italic">
-                          <span>Imposta di Bollo:</span>
-                          <span className="font-mono">{formatCurrency(bolloAmount)}</span>
+                      <div className="flex justify-between text-slate-400 text-[10px] uppercase font-bold tracking-widest">
+                          <span className="italic normal-case font-medium">Imposta di Bollo:</span>
+                          <span className="font-mono text-slate-800">{formatCurrency(bolloAmount)}</span>
                       </div>
                   )}
 
                   {applyInarcassa && (
-                      <div className="flex justify-between text-slate-600 text-sm italic">
-                          <span>Contributo Integrativo Inarcassa (4%):</span>
-                          <span className="font-mono">{formatCurrency(cassaAmount)}</span>
+                      <div className="flex justify-between text-slate-400 text-[10px] uppercase font-bold tracking-widest">
+                          <span className="italic normal-case font-medium">Contributo Integrativo Inarcassa (4%):</span>
+                          <span className="font-mono text-slate-800">{formatCurrency(cassaAmount)}</span>
                       </div>
                   )}
 
-                  <div className="flex justify-between items-center text-2xl font-bold text-slate-900 pt-4 border-t border-slate-200 mt-2"><span>TOTALE:</span><span className="text-indigo-700">{formatCurrency(grandTotalAmount)}</span></div>
-                  <div className="pt-4 text-[10px] text-slate-400 font-bold uppercase flex justify-between"><span>Totale Ore: {totalHours.toFixed(2)} h</span><span>Voci: {filteredEntries.length}</span></div>
+                  <div className="flex justify-between items-center text-3xl font-black text-slate-900 pt-6 border-t border-gray-100 mt-4">
+                      <span>TOTALE:</span>
+                      <span className="text-indigo-600">{formatCurrency(grandTotalAmount)}</span>
+                  </div>
+                  
+                  <div className="pt-4 text-[9px] text-slate-300 font-bold uppercase tracking-widest flex justify-between">
+                      <span>TOTALE ORE: {totalHours.toFixed(2)} H</span>
+                      <span>VOCI: {filteredEntries.length}</span>
+                  </div>
               </div>
           </div>
 
-          <div className="mt-12 text-center text-[10px] text-gray-400 border-t pt-4 border-dashed border-gray-200 print:mt-20">
+          <div className="mt-16 text-center text-[10px] text-gray-300 border-t border-dashed border-gray-200 pt-6 print:mt-24">
               Documento generato da Cronosheet • © {new Date().getFullYear()} Ing. Riccardo Righini - Soluzioni Software per Ingegneri
           </div>
       </div>
