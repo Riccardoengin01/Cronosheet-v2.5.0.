@@ -28,6 +28,24 @@
       body {
         font-family: 'Inter', sans-serif;
       }
+
+      /* CUSTOM SCROLLBARS FOR BETTER VISIBILITY */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #c7d2fe;
+        border-radius: 10px;
+        border: 2px solid #f1f1f1;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #818cf8;
+      }
       
       /* PRINT OPTIMIZATION */
       @media print {
@@ -48,15 +66,15 @@
           print-color-adjust: exact !important;
         }
 
+        .no-print {
+          display: none !important;
+        }
+
         /* Forza la visibilità del contenuto scrollabile */
         .overflow-y-auto, .overflow-x-auto, .h-screen {
           overflow: visible !important;
           height: auto !important;
-        }
-
-        /* Nasconde elementi UI non necessari */
-        .no-print {
-          display: none !important;
+          max-height: none !important;
         }
       }
     </style>

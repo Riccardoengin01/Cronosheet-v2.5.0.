@@ -363,7 +363,7 @@ function App() {
     <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
       <Sidebar currentView={view} onChangeView={setView} userProfile={profile} />
       <main className="flex-1 overflow-y-auto relative scroll-smooth bg-gray-50/50">
-          <div className="absolute top-4 right-4 z-50 flex items-center gap-4">
+          <div className="absolute top-4 right-4 z-50 flex items-center gap-4 no-print">
                <button onClick={handleLogout} className="bg-white p-2 rounded-lg shadow-sm text-slate-400 hover:text-red-500 transition-colors border border-gray-100" title="Disconnetti">
                    <LogOut size={18} />
                </button>

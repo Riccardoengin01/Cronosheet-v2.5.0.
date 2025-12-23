@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Project, TimeEntry, UserProfile } from '../types';
 import { formatCurrency, formatDuration, calculateEarnings, formatTime } from '../utils';
-import { Printer, Calendar, CheckSquare, Square, MapPin, ChevronDown, Search, FileDown, Lock, Archive, CheckCircle2, History, AlertCircle, Check, Pencil, DollarSign, X } from 'lucide-react';
+import { Printer, Calendar, CheckSquare, Square, MapPin, ChevronDown, Search, FileDown, Lock, Archive, CheckCircle2, History, AlertCircle, Check, Pencil, DollarSign, X, Settings2 } from 'lucide-react';
 import * as DB from '../services/db';
 import { useLanguage } from '../lib/i18n';
 
@@ -29,6 +29,11 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   const [tempRate, setTempRate] = useState<string>('');
   const [showBulkRateInput, setShowBulkRateInput] = useState(false);
   const [bulkRateValue, setBulkRateValue] = useState<string>('');
+
+  // Tax Logic States
+  const [applyBollo, setApplyBollo] = useState(false);
+  const [applySurcharge, setApplySurcharge] = useState(false);
+  const [surchargeLabel, setSurchargeLabel] = useState('Cassa Professionale (4%)');
 
   // UI States
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
@@ -139,8 +144,17 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
     }).sort((a, b) => a.startTime - b.startTime);
   }, [entries, selectedProjectIds, selectedMonths, viewMode]);
 
-  const totalAmount = filteredEntries.reduce((acc, curr) => acc + calculateEarnings(curr), 0);
+  const baseTotalAmount = filteredEntries.reduce((acc, curr) => acc + calculateEarnings(curr), 0);
   const totalHours = filteredEntries.reduce((acc, curr) => acc + (curr.duration || 0), 0) / 3600;
+
+  // --- CALCOLO TASSE ---
+  const bolloAmount = applyBollo ? 2.00 : 0;
+  const subtotalWithBollo = baseTotalAmount + bolloAmount;
+  
+  // Se subtotal > 100, aggiungiamo il 4% se richiesto
+  const canApplySurcharge = subtotalWithBollo > 100;
+  const surchargeAmount = (applySurcharge && canApplySurcharge) ? (subtotalWithBollo * 0.04) : 0;
+  const grandTotalAmount = subtotalWithBollo + surchargeAmount;
 
   // --- SELECTION HANDLERS ---
   const toggleEntrySelection = (id: string) => {
@@ -480,7 +494,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                 </div>
             </div>
             
-            {/* 2. Months Row (Scrollable) */}
+            {/* 2. Months Row */}
             <div className="pt-2 border-t border-gray-100">
                 <div className="flex items-center justify-between mb-2">
                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('billing.months_available')}</span>
@@ -511,6 +525,62 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                     })}
                 </div>
             </div>
+
+            {/* 3. Opzioni Fiscali */}
+            <div className="pt-4 border-t border-gray-100 bg-gray-50/50 p-4 rounded-xl space-y-3">
+                 <div className="flex items-center gap-2 mb-2 text-xs font-bold text-indigo-900 uppercase">
+                     <Settings2 size={14} /> Opzioni Fiscali Documento
+                 </div>
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     <label className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors group">
+                         <div className="relative">
+                            <input 
+                                type="checkbox" 
+                                className="sr-only"
+                                checked={applyBollo}
+                                onChange={e => setApplyBollo(e.target.checked)}
+                            />
+                            <div className={`w-10 h-6 rounded-full transition-colors ${applyBollo ? 'bg-indigo-600' : 'bg-gray-300'}`}></div>
+                            <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${applyBollo ? 'translate-x-4' : ''}`}></div>
+                         </div>
+                         <div className="flex flex-col">
+                             <span className="text-sm font-bold text-gray-700">Aggiungi Bollo</span>
+                             <span className="text-[10px] text-gray-400 uppercase">+ € 2,00</span>
+                         </div>
+                     </label>
+
+                     <label className={`flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors group ${!canApplySurcharge ? 'opacity-50 grayscale' : ''}`}>
+                         <div className="relative">
+                            <input 
+                                type="checkbox" 
+                                className="sr-only"
+                                disabled={!canApplySurcharge}
+                                checked={applySurcharge && canApplySurcharge}
+                                onChange={e => setApplySurcharge(e.target.checked)}
+                            />
+                            <div className={`w-10 h-6 rounded-full transition-colors ${applySurcharge && canApplySurcharge ? 'bg-indigo-600' : 'bg-gray-300'}`}></div>
+                            <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${applySurcharge && canApplySurcharge ? 'translate-x-4' : ''}`}></div>
+                         </div>
+                         <div className="flex flex-col flex-grow">
+                             <span className="text-sm font-bold text-gray-700">Rivalsa/Cassa (4%)</span>
+                             <span className="text-[10px] text-gray-400 uppercase">Solo se > € 100</span>
+                         </div>
+                     </label>
+                 </div>
+                 
+                 {applySurcharge && canApplySurcharge && (
+                     <div className="animate-slide-down flex flex-col gap-1">
+                         <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Descrizione Voce 4%</label>
+                         <input 
+                            type="text" 
+                            className="w-full px-3 py-1.5 text-xs border border-indigo-200 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 font-medium"
+                            value={surchargeLabel}
+                            onChange={e => setSurchargeLabel(e.target.value)}
+                            placeholder="Es. Gestione Separata INPS 4%"
+                         />
+                     </div>
+                 )}
+            </div>
         </div>
 
         <div className="lg:col-span-1 border-t lg:border-t-0 lg:border-l border-gray-100 pt-6 lg:pt-0 lg:pl-6 flex flex-col justify-end relative z-10">
@@ -519,7 +589,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                     {viewMode === 'pending' ? t('billing.total_pending') : t('billing.total_archived')}
                 </p>
                 <p className={`text-3xl font-bold ${viewMode === 'pending' ? 'text-indigo-600' : 'text-gray-600'}`}>
-                    {formatCurrency(totalAmount)}
+                    {formatCurrency(grandTotalAmount)}
                 </p>
                 <p className="text-sm text-gray-600 mt-1">{filteredEntries.length} servizi</p>
             </div>
@@ -546,10 +616,6 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                     {isPro ? t('billing.export') : 'Export CSV (Pro)'}
                 </button>
             </div>
-            
-            <p className="text-xs text-center text-gray-400 mt-3">
-                {viewMode === 'pending' ? "Seleziona le voci per archiviarle o modificarne la tariffa." : "Storico delle voci già elaborate."}
-            </p>
         </div>
       </div>
 
@@ -570,17 +636,17 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                         ? projects.find(p => p.id === selectedProjectIds[0])?.name 
                         : 'Riepilogo Multi-Cliente'}
                   </h3>
-                  <p className="text-slate-600 font-medium capitalize mt-1">
+                  <p className="text-slate-600 font-medium capitalize mt-1 text-sm">
                       Periodo: {periodString}
                   </p>
               </div>
           </div>
 
-          {/* Table Container with Vertical Scroll - FIX: Ensure scrollbar is always available */}
+          {/* Table Container with Vertical Scroll */}
           <div className="border border-gray-100 rounded-lg overflow-hidden flex flex-col">
-            <div className="overflow-x-auto overflow-y-auto max-h-[700px] print:max-h-none print:overflow-visible custom-scrollbar">
+            <div className="overflow-x-auto overflow-y-auto max-h-[500px] print:max-h-none print:overflow-visible custom-scrollbar">
                 <table className="w-full text-sm text-left print:table min-w-[850px]">
-                    <thead className="bg-gray-100 text-gray-700 uppercase text-xs font-bold tracking-wider sticky top-0 z-20 print:static print:bg-gray-100">
+                    <thead className="bg-gray-50 text-gray-700 uppercase text-[10px] font-bold tracking-wider sticky top-0 z-20 print:static print:bg-gray-100">
                         <tr>
                             <th className="px-4 py-3 rounded-l-lg print:rounded-none w-10 print:hidden">
                                 <button onClick={toggleSelectAll} className="flex items-center text-gray-500 hover:text-indigo-600">
@@ -626,14 +692,14 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                         </td>
                                     )}
 
-                                    <td className="px-4 py-3 font-mono text-slate-600 whitespace-nowrap">
+                                    <td className="px-4 py-3 font-mono text-slate-600 whitespace-nowrap text-xs">
                                         {formatTime(entry.startTime)} - {entry.endTime ? formatTime(entry.endTime) : '...'}
                                     </td>
-                                    <td className="px-4 py-3 text-slate-600 max-w-xs truncate print:whitespace-normal print:overflow-visible">
+                                    <td className="px-4 py-3 text-slate-600 max-w-xs truncate print:whitespace-normal print:overflow-visible text-xs">
                                         {entry.description || '-'}
-                                        {entry.isNightShift && <span className="ml-2 text-xs bg-slate-200 px-1 rounded font-bold">N</span>}
+                                        {entry.isNightShift && <span className="ml-2 text-[10px] bg-slate-200 px-1 rounded font-bold">N</span>}
                                     </td>
-                                    <td className="px-4 py-3 text-right font-mono">
+                                    <td className="px-4 py-3 text-right font-mono text-xs">
                                         {formatDuration(entry.duration).slice(0, 5)}
                                     </td>
                                     
@@ -671,7 +737,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                             </div>
                                         ) : (
                                             <div className="flex items-center justify-end gap-1 group/rate">
-                                                <span className="text-slate-600 font-mono">
+                                                <span className="text-slate-600 font-mono text-xs">
                                                     {formatCurrency(entry.hourlyRate || 0)}
                                                 </span>
                                                 {viewMode === 'pending' && (
@@ -681,32 +747,15 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                         )}
                                     </td>
 
-                                    <td className="px-4 py-3 text-right text-slate-600">
+                                    <td className="px-4 py-3 text-right text-slate-600 text-xs">
                                         {expensesTotal > 0 ? formatCurrency(expensesTotal) : '-'}
                                     </td>
-                                    <td className="px-4 py-3 text-right font-bold text-slate-800">
+                                    <td className="px-4 py-3 text-right font-bold text-slate-800 text-xs">
                                         {formatCurrency(earnings)}
                                     </td>
                                 </tr>
                             );
                         })}
-                        {filteredEntries.length === 0 && (
-                            <tr>
-                                <td colSpan={showProjectColumn ? 9 : 8} className="px-4 py-12 text-center text-gray-400 italic">
-                                    {viewMode === 'pending' ? (
-                                        <div className="flex flex-col items-center gap-2">
-                                            <CheckCircle2 size={32} className="opacity-20" />
-                                            <p>{t('billing.empty_pending')}</p>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col items-center gap-2">
-                                            <Archive size={32} className="opacity-20" />
-                                            <p>{t('billing.empty_archive')}</p>
-                                        </div>
-                                    )}
-                                </td>
-                            </tr>
-                        )}
                     </tbody>
                 </table>
             </div>
@@ -714,25 +763,48 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
 
           {/* Footer Totals */}
           <div className="mt-8 border-t-2 border-slate-200 pt-6 flex justify-end break-inside-avoid print:break-inside-avoid">
-              <div className="w-full md:w-1/2 lg:w-1/3 space-y-3">
-                  <div className="flex justify-between text-slate-600">
-                      <span>Totale Ore Lavorate:</span>
-                      <span className="font-mono font-medium">{totalHours.toFixed(2)} h</span>
+              <div className="w-full md:w-1/2 lg:w-1/3 space-y-2">
+                  <div className="flex justify-between text-slate-500 text-xs uppercase font-bold tracking-wider">
+                      <span>Imponibile Servizi:</span>
+                      <span className="font-mono">{formatCurrency(baseTotalAmount)}</span>
                   </div>
-                  <div className="flex justify-between text-slate-600">
-                      <span>Totale Voci:</span>
-                      <span className="font-mono font-medium">{filteredEntries.length}</span>
+                  
+                  {applyBollo && (
+                      <div className="flex justify-between text-slate-600 text-sm italic">
+                          <span>Imposta di Bollo:</span>
+                          <span className="font-mono">{formatCurrency(2.00)}</span>
+                      </div>
+                  )}
+
+                  {applySurcharge && canApplySurcharge && (
+                      <div className="flex justify-between text-slate-600 text-sm italic">
+                          <span>{surchargeLabel}:</span>
+                          <span className="font-mono">{formatCurrency(surchargeAmount)}</span>
+                      </div>
+                  )}
+
+                  <div className="flex justify-between items-center text-2xl font-bold text-slate-900 pt-4 border-t border-slate-200 mt-2">
+                      <span className="text-lg">TOTALE:</span>
+                      <span className="text-indigo-700">{formatCurrency(grandTotalAmount)}</span>
                   </div>
-                  <div className="flex justify-between items-center text-xl font-bold text-slate-900 pt-4 border-t border-slate-200 mt-2">
-                      <span>{viewMode === 'pending' ? t('billing.total_pending') : t('billing.total_archived')}</span>
-                      <span className="text-indigo-700">{formatCurrency(totalAmount)}</span>
+
+                  <div className="pt-4 space-y-1">
+                    <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase">
+                        <span>Totale Ore:</span>
+                        <span>{totalHours.toFixed(2)} h</span>
+                    </div>
+                    <div className="flex justify-between text-[10px] text-slate-400 font-bold uppercase">
+                        <span>Totale Voci:</span>
+                        <span>{filteredEntries.length}</span>
+                    </div>
                   </div>
               </div>
           </div>
 
           {/* Footer Note */}
-          <div className="mt-12 text-center text-xs text-gray-400 print:fixed print:bottom-4 print:left-0 print:w-full">
-              {t('billing.generated_by')} • © {new Date().getFullYear()} Engineer Riccardo Righini
+          <div className="mt-12 text-center text-[10px] text-gray-400 print:fixed print:bottom-4 print:left-0 print:w-full border-t pt-4 border-dashed border-gray-100">
+              {t('billing.generated_by')} • Documento Prodotto il {new Date().toLocaleDateString('it-IT')} <br/>
+              © {new Date().getFullYear()} Ing. Riccardo Righini - All Rights Reserved.
           </div>
       </div>
     </div>
