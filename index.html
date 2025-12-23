@@ -2,10 +2,10 @@
 <html lang="it">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/favicon.svg" />
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
+    <link rel="apple-touch-icon" href="/favicon.svg?v=2" />
+    <link rel="manifest" href="/manifest.json?v=2" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     
     <!-- iOS PWA meta tags -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -14,15 +14,15 @@
     
     <title>Cronosheet | Gestione Ore & Fatturazione AI</title>
     <meta name="description" content="La piattaforma SaaS per professionisti. Gestisci turni, clienti e fatturazione con l'aiuto dell'Intelligenza Artificiale." />
-    <meta name="theme-color" content="#4f46e5" />
+    <meta name="theme-color" content="#0f172a" />
 
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap');
       body {
         font-family: 'Inter', sans-serif;
-        /* Ottimizzazione per notch iPhone in modalità PWA */
         padding-top: env(safe-area-inset-top);
+        background-color: #0f172a; /* Sincronizzato con l'icona per lo splash screen */
       }
 
       /* CUSTOM SCROLLBARS */
@@ -41,65 +41,10 @@
         background: #94a3b8;
       }
       
-      /* PRINT OPTIMIZATION - FORZA MULTI-PAGINA */
       @media print {
-        @page {
-          margin: 10mm 15mm;
-          size: A4 portrait;
-        }
-
-        html, body, #root, div, main, section, article {
-          height: auto !important;
-          min-height: 0 !important;
-          max-height: none !important;
-          overflow: visible !important;
-          position: static !important;
-          float: none !important;
-          display: block !important;
-          margin: 0 !important;
-          padding: 0 !important;
-        }
-
-        body {
-          background-color: white !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-
-        .no-print {
-          display: none !important;
-        }
-
-        table {
-          width: 100% !important;
-          border-collapse: collapse !important;
-          page-break-inside: auto !important;
-          display: table !important;
-        }
-
-        thead {
-          display: table-header-group !important;
-        }
-
-        tr {
-          page-break-inside: avoid !important;
-          page-break-after: auto !important;
-        }
-
-        td, th {
-          page-break-inside: avoid !important;
-        }
-
-        .shadow-lg, .shadow-xl, .shadow-2xl, .shadow-sm, .rounded-xl, .rounded-2xl {
-          box-shadow: none !important;
-          border-radius: 0 !important;
-          border: none !important;
-        }
-
-        .print\:w-full {
-          width: 100% !important;
-          max-width: 100% !important;
-        }
+        @page { margin: 10mm 15mm; size: A4 portrait; }
+        .no-print { display: none !important; }
+        body { background-color: white !important; }
       }
     </style>
   <script type="importmap">
