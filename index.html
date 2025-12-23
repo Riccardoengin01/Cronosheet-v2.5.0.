@@ -3,7 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- iOS PWA meta tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Cronosheet" />
+    
     <title>Cronosheet | Gestione Ore & Fatturazione AI</title>
     <meta name="description" content="La piattaforma SaaS per professionisti. Gestisci turni, clienti e fatturazione con l'aiuto dell'Intelligenza Artificiale." />
     <meta name="theme-color" content="#4f46e5" />
@@ -13,6 +21,8 @@
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap');
       body {
         font-family: 'Inter', sans-serif;
+        /* Ottimizzazione per notch iPhone in modalità PWA */
+        padding-top: env(safe-area-inset-top);
       }
 
       /* CUSTOM SCROLLBARS */
@@ -38,7 +48,6 @@
           size: A4 portrait;
         }
 
-        /* Forza tutti i contenitori a espandersi verticalmente */
         html, body, #root, div, main, section, article {
           height: auto !important;
           min-height: 0 !important;
@@ -51,7 +60,6 @@
           padding: 0 !important;
         }
 
-        /* Mantieni lo sfondo bianco per risparmio inchiostro ma preserva i colori degli accenti */
         body {
           background-color: white !important;
           -webkit-print-color-adjust: exact !important;
@@ -62,7 +70,6 @@
           display: none !important;
         }
 
-        /* Tabella: Consenti il break tra le pagine */
         table {
           width: 100% !important;
           border-collapse: collapse !important;
@@ -70,12 +77,10 @@
           display: table !important;
         }
 
-        /* Ripeti l'header della tabella in ogni pagina */
         thead {
           display: table-header-group !important;
         }
 
-        /* Evita che una riga venga spezzata a metà tra due pagine */
         tr {
           page-break-inside: avoid !important;
           page-break-after: auto !important;
@@ -85,14 +90,12 @@
           page-break-inside: avoid !important;
         }
 
-        /* Rimuovi ombre e arrotondamenti che in stampa non servono o creano artefatti */
         .shadow-lg, .shadow-xl, .shadow-2xl, .shadow-sm, .rounded-xl, .rounded-2xl {
           box-shadow: none !important;
           border-radius: 0 !important;
           border: none !important;
         }
 
-        /* Assicurati che il contenitore del documento sia largo quanto la pagina */
         .print\:w-full {
           width: 100% !important;
           max-width: 100% !important;
