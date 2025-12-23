@@ -41,11 +41,11 @@
         background: #818cf8;
       }
       
-      /* PRINT OPTIMIZATION */
+      /* PRINT OPTIMIZATION - MULTI-PAGE FIX */
       @media print {
         @page {
-          margin: 10mm;
-          size: auto;
+          margin: 15mm;
+          size: A4 portrait;
         }
         body, html, #root {
           height: auto !important;
@@ -55,17 +55,32 @@
         .no-print {
           display: none !important;
         }
-        .overflow-y-auto, .overflow-x-auto, .overflow-y-scroll {
+        /* Rimuove i vincoli di altezza per permettere la stampa di tutti i servizi */
+        .overflow-y-auto, .overflow-x-auto, .overflow-y-scroll, .max-h-\[650px\] {
           overflow: visible !important;
           max-height: none !important;
           height: auto !important;
+          position: static !important;
+        }
+        main {
+            overflow: visible !important;
+            height: auto !important;
         }
         table {
-            page-break-inside: auto;
+            width: 100% !important;
+            border-collapse: collapse !important;
+            page-break-inside: auto !important;
+        }
+        thead {
+            display: table-header-group !important;
         }
         tr {
-            page-break-inside: avoid;
-            page-break-after: auto;
+            page-break-inside: avoid !important;
+            page-break-after: auto !important;
+        }
+        .shadow-lg, .shadow-xl, .rounded-xl {
+            box-shadow: none !important;
+            border: none !important;
         }
       }
     </style>

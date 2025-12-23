@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Project, TimeEntry, UserProfile } from '../types';
 import { formatCurrency, formatDuration, calculateEarnings, formatTime } from '../utils';
-import { Printer, Calendar, CheckSquare, Square, MapPin, ChevronDown, Search, FileDown, Lock, Archive, CheckCircle2, History, AlertCircle, Check, Pencil, DollarSign, X, Settings2, ListFilter } from 'lucide-react';
+import { Printer, Calendar, CheckSquare, Square, MapPin, ChevronDown, Search, FileDown, Lock, Archive, CheckCircle2, History, AlertCircle, Check, Pencil, DollarSign, X, Settings2, ListFilter, Download } from 'lucide-react';
 import * as DB from '../services/db';
 import { useLanguage } from '../lib/i18n';
 
@@ -137,6 +137,38 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       } catch (e) { alert("Errore"); } finally { setIsProcessing(false); }
   };
 
+  const handleExportCSV = () => {
+      if (filteredEntries.length === 0) return;
+      
+      const headers = ["Data", "Cliente", "Orario", "Descrizione", "Durata (h)", "Tariffa (€/h)", "Extra (€)", "Totale (€)"];
+      const rows = filteredEntries.map(e => {
+          const project = projects.find(p => p.id === e.projectId);
+          const durationH = (e.duration || 0) / 3600;
+          const expenses = e.expenses?.reduce((sum, ex) => sum + ex.amount, 0) || 0;
+          const earnings = calculateEarnings(e);
+          return [
+              new Date(e.startTime).toLocaleDateString('it-IT'),
+              `"${project?.name || ''}"`,
+              `${formatTime(e.startTime)} - ${e.endTime ? formatTime(e.endTime) : ''}`,
+              `"${e.description || ''}"`,
+              durationH.toFixed(2).replace('.', ','),
+              (e.hourlyRate || 0).toFixed(2).replace('.', ','),
+              expenses.toFixed(2).replace('.', ','),
+              earnings.toFixed(2).replace('.', ',')
+          ];
+      });
+
+      const csvContent = [headers, ...rows].map(r => r.join(";")).join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `riepilogo_${selectedYear}_${selectedMonths.join("_")}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+  };
+
   // --- FILTERING ---
   const filteredEntries = useMemo(() => {
     return entries.filter(e => {
@@ -156,7 +188,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   // 1. Bollo di 2€ se imponibile > 100€
   const bolloAmount = baseTotalAmount > 100 ? 2.00 : 0;
   
-  // 2. Cassa Ingegneri (Inarcassa) al 4% calcolata su (Imponibile + Bollo)
+  // 2. Cassa Inarcassa al 4% calcolata su (Imponibile + Bollo)
   const cassaAmount = (baseTotalAmount + bolloAmount) * 0.04;
   
   // 3. Totale complessivo
@@ -173,7 +205,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   const showProjectColumn = selectedProjectIds.length > 1;
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-5xl mx-auto">
+    <div className="space-y-6 animate-fade-in max-w-5xl mx-auto pb-10">
       
       {/* ACTIONS */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print">
@@ -243,7 +275,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                 </div>
             </div>
 
-            {/* MONTH SELECTOR */}
+            {/* MONTH SELECTOR - RIPRISTINATO */}
             <div className="pt-2 border-t border-gray-100">
                 <div className="flex items-center justify-between mb-2">
                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1"><ListFilter size={14}/> Mesi Disponibili</span>
@@ -269,8 +301,8 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
             <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 flex items-center gap-3">
                 <Settings2 size={20} className="text-indigo-600" />
                 <div className="text-xs text-indigo-900 leading-relaxed">
-                    <p className="font-bold">Calcolo Fiscale Ingegneri:</p>
-                    <p>Bollo di € 2,00 se Totale &gt; € 100,00. Rivalsa Inarcassa al 4% applicata su Imponibile + Bollo.</p>
+                    <p className="font-bold">Dettaglio Fiscale Ingegneri:</p>
+                    <p>Bollo di € 2,00 se Totale &gt; € 100,00. Contributo Integrativo Inarcassa al 4% calcolato su Imponibile + Bollo.</p>
                 </div>
             </div>
         </div>
@@ -279,25 +311,28 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
             <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 w-full mb-4">
                 <p className="text-sm text-gray-500 mb-1">Totale Documento</p>
                 <p className="text-3xl font-bold text-indigo-600">{formatCurrency(grandTotalAmount)}</p>
-                <p className="text-sm text-gray-600 mt-1">{filteredEntries.length} servizi selezionati</p>
+                <p className="text-sm text-gray-600 mt-1">{filteredEntries.length} servizi inclusi</p>
             </div>
             <div className="flex flex-col gap-3">
                 <button onClick={() => window.print()} disabled={filteredEntries.length === 0} className="w-full flex justify-center items-center gap-2 bg-slate-800 disabled:bg-slate-300 text-white px-6 py-3 rounded-lg hover:bg-slate-900 shadow-lg active:scale-95">
                     <Printer size={20} /> {t('billing.print')}
+                </button>
+                <button onClick={handleExportCSV} disabled={filteredEntries.length === 0} className="w-full flex justify-center items-center gap-2 bg-white border border-gray-200 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-50 shadow-sm active:scale-95 transition-all">
+                    <Download size={20} /> Export Excel / CSV
                 </button>
             </div>
         </div>
       </div>
 
       {/* DOCUMENT */}
-      <div className="bg-white p-6 md:p-10 rounded-none md:rounded-xl shadow-lg print:shadow-none print:w-full print:p-0 min-h-[600px] overflow-hidden">
+      <div className="bg-white p-6 md:p-10 rounded-none md:rounded-xl shadow-lg print:shadow-none print:w-full print:p-0 min-h-screen overflow-visible">
           <div className="border-b-2 border-slate-800 pb-6 mb-8 flex justify-between items-start">
-              <div><h1 className="text-3xl font-bold text-slate-900 uppercase tracking-wide">{viewMode === 'pending' ? 'Riepilogo Servizi' : 'Archivio Fatture'}</h1><p className="text-slate-500 mt-2">Documento informativo prestazioni</p></div>
+              <div><h1 className="text-3xl font-bold text-slate-900 uppercase tracking-wide">{viewMode === 'pending' ? 'Riepilogo Servizi' : 'Archivio Fatture'}</h1><p className="text-slate-500 mt-2">Documento informativo prestazioni professionali</p></div>
               <div className="text-right max-w-sm"><h3 className="text-xl font-bold text-indigo-600 truncate">{selectedProjectIds.length === 1 ? projects.find(p => p.id === selectedProjectIds[0])?.name : 'Riepilogo Multi-Cliente'}</h3><p className="text-slate-600 font-medium capitalize mt-1 text-sm">Periodo: {periodString}</p></div>
           </div>
 
-          <div className="border border-gray-100 rounded-lg overflow-hidden flex flex-col">
-            <div className="overflow-x-auto overflow-y-scroll max-h-[650px] print:overflow-visible print:max-h-none custom-scrollbar">
+          <div className="border border-gray-100 rounded-lg overflow-visible flex flex-col">
+            <div className="overflow-x-auto print:overflow-visible">
                 <table className="w-full text-sm text-left print:table min-w-[850px] border-collapse">
                     <thead className="bg-gray-50 text-gray-700 uppercase text-[10px] font-bold tracking-wider sticky top-0 z-20 print:static print:bg-gray-100">
                         <tr>
@@ -350,7 +385,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
             </div>
           </div>
 
-          <div className="mt-8 border-t-2 border-slate-200 pt-6 flex justify-end">
+          <div className="mt-8 border-t-2 border-slate-200 pt-6 flex justify-end print:break-inside-avoid">
               <div className="w-full md:w-1/2 lg:w-1/3 space-y-2">
                   <div className="flex justify-between text-slate-500 text-xs uppercase font-bold"><span>Imponibile Servizi:</span><span className="font-mono">{formatCurrency(baseTotalAmount)}</span></div>
                   
@@ -371,8 +406,8 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
               </div>
           </div>
 
-          <div className="mt-12 text-center text-[10px] text-gray-400 border-t pt-4 border-dashed border-gray-200">
-              Generato con Cronosheet • © {new Date().getFullYear()} Ing. Riccardo Righini - All Rights Reserved.
+          <div className="mt-12 text-center text-[10px] text-gray-400 border-t pt-4 border-dashed border-gray-200 print:mt-20">
+              Documento generato da Cronosheet • © {new Date().getFullYear()} Ing. Riccardo Righini - Soluzioni Software per Ingegneri
           </div>
       </div>
     </div>
