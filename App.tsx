@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { AppView, TimeEntry, Project, UserProfile } from './types';
 import Sidebar from './components/Sidebar';
@@ -29,6 +30,7 @@ function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | undefined>(undefined);
 
+  // Inizializzazione Demo o Configurazione Supabase
   useEffect(() => {
     if (!isSupabaseConfigured && !demoMode) {
         setLoadingAuth(false);
@@ -48,6 +50,7 @@ function App() {
       setLoadingAuth(false);
   };
 
+  // Listener Autenticazione Supabase
   useEffect(() => {
     if (!isSupabaseConfigured || demoMode) return;
 
@@ -76,44 +79,38 @@ function App() {
       if (!p && user.email) {
           p = await DB.createUserProfile(user.id, user.email);
       }
-      if (!p) {
-          setLoadingAuth(false);
-          return;
-      }
       setProfile(p);
       setLoadingAuth(false);
   };
 
   useEffect(() => {
       if (profile && profile.is_approved) {
-          const isExpired = checkIsExpired(profile);
-          if (!isExpired) {
-             fetchData(profile.id);
-          }
+          fetchData(profile.id);
       }
   }, [profile]);
 
   const fetchData = async (userId: string) => {
       setLoadingData(true);
-      const [p, e] = await Promise.all([DB.getProjects(userId), DB.getEntries(userId)]);
-      setProjects(p);
-      setEntries(e);
-      setLoadingData(false);
+      try {
+          const [p, e] = await Promise.all([DB.getProjects(userId), DB.getEntries(userId)]);
+          setProjects(p);
+          setEntries(e);
+      } catch (err) {
+          console.error("Error fetching data:", err);
+      } finally {
+          setLoadingData(false);
+      }
   };
 
   const handleLogout = async () => {
       if (demoMode) {
           setDemoMode(false);
           setProfile(null);
-          setEntries([]);
-          setProjects([]);
           return;
       }
       await supabase.auth.signOut();
       setProfile(null);
-      setEntries([]);
-      setProjects([]);
-      setView(AppView.TIMESHEET);
+      setView(AppView.CLIENTS);
   };
 
   const handleDeleteEntry = async (id: string) => {
@@ -127,11 +124,6 @@ function App() {
     if (projects.length === 0) {
         alert("Devi prima creare almeno una postazione/cliente.");
         setView(AppView.CLIENTS);
-        return;
-    }
-    if (profile?.subscription_status === 'trial' && entries.length >= 15) {
-        const confirmUpgrade = window.confirm("⚠️ Limite Raggiunto\n\nPassa a Pro per inserimenti illimitati.");
-        if (confirmUpgrade) setView(AppView.SETTINGS);
         return;
     }
     setEditingEntry(undefined);
@@ -157,15 +149,6 @@ function App() {
           await DB.deleteProject(id);
           if (profile) fetchData(profile.id);
       }
-  };
-
-  const checkIsExpired = (p: UserProfile) => {
-      if (p.subscription_status === 'elite') return false;
-      if (p.subscription_status === 'expired') return true;
-      if (p.trial_ends_at) {
-          return Date.now() > new Date(p.trial_ends_at).getTime();
-      }
-      return false;
   };
 
   const renderContent = () => {
@@ -194,30 +177,9 @@ function App() {
       case AppView.CLIENTS:
           return <ManageClients projects={projects} onSave={handleSaveProject} onDelete={handleDeleteProject} />;
       case AppView.BILLING:
-          return (
-              <Billing 
-                entries={entries} 
-                projects={projects} 
-                userProfile={profile} 
-                onEntriesChange={() => profile && fetchData(profile.id)} 
-              />
-          );
+          return <Billing entries={entries} projects={projects} userProfile={profile} onEntriesChange={() => profile && fetchData(profile.id)} />;
       case AppView.REPORTS:
-        if (profile?.subscription_status === 'trial' && profile?.role !== 'admin') {
-            return (
-                <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in">
-                    <PieChart className="w-16 h-16 text-indigo-400 mb-6" />
-                    <h2 className="text-3xl font-bold text-gray-800 mb-3">Statistiche Avanzate</h2>
-                    <button onClick={() => setView(AppView.SETTINGS)} className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold">Passa a Pro</button>
-                </div>
-            );
-        }
-        return (
-            <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-gray-800">Analisi Produttività</h2>
-                <Reports entries={entries} projects={projects} />
-            </div>
-        );
+        return <Reports entries={entries} projects={projects} />;
       case AppView.ADMIN_PANEL:
           return <AdminPanel />;
       case AppView.SETTINGS:
@@ -227,10 +189,52 @@ function App() {
     }
   };
 
+  // 1. Schermata di Caricamento Iniziale
+  if (loadingAuth) {
+      return (
+          <div className="h-screen w-screen flex flex-col items-center justify-center bg-gray-50">
+              <Loader2 className="animate-spin text-indigo-600 mb-4" size={48} />
+              <p className="text-gray-500 font-medium">{t('app.loading')}</p>
+          </div>
+      );
+  }
+
+  // 2. Schermata Setup se Supabase non è configurato e non siamo in Demo
+  if (!isSupabaseConfigured && !demoMode) {
+      return (
+          <div className="h-screen w-screen flex flex-col">
+              <div className="bg-amber-50 p-4 text-amber-800 text-center text-sm font-medium border-b border-amber-200">
+                  ⚠️ Database Cloud non configurato. <button onClick={() => setDemoMode(true)} className="underline font-bold">Prova la Demo Locale</button>
+              </div>
+              <DatabaseSetup />
+          </div>
+      );
+  }
+
+  // 3. Schermata Login se non c'è un profilo
+  if (!profile) {
+      return (
+          <div className="relative">
+             {demoMode && (
+                 <div className="fixed top-0 left-0 w-full bg-indigo-600 text-white text-[10px] font-bold text-center py-1 z-50">
+                     MODALITÀ DEMO ATTIVA
+                 </div>
+             )}
+             <Auth onLoginSuccess={(p) => setProfile(p)} />
+          </div>
+      );
+  }
+
+  // 4. App Principale
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
       <Sidebar currentView={view} onChangeView={setView} userProfile={profile} />
       <main className="flex-1 overflow-y-auto relative scroll-smooth bg-gray-50/50">
+          {demoMode && (
+              <div className="bg-indigo-600 text-white text-[10px] font-bold text-center py-1 no-print">
+                  STAI USANDO LA VERSIONE DEMO - I DATI VERRANNO PERSI AL REFRESH
+              </div>
+          )}
           <div className="absolute top-4 right-4 z-50 flex items-center gap-4 no-print">
                <button onClick={handleLogout} className="bg-white p-2 rounded-lg shadow-sm text-slate-400 hover:text-red-500 transition-colors border border-gray-100" title="Disconnetti">
                    <LogOut size={18} />
