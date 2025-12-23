@@ -202,7 +202,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   const showProjectColumn = selectedProjectIds.length > 1;
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-5xl mx-auto pb-10">
+    <div className="space-y-6 animate-fade-in max-w-5xl mx-auto pb-10 print:pb-0">
       
       {/* ACTIONS - NO PRINT */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print">
@@ -340,7 +340,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       </div>
 
       {/* DOCUMENT - PRINTABLE SECTION */}
-      <div className="bg-white p-6 md:p-10 rounded-none md:rounded-xl shadow-lg print:shadow-none print:w-full print:p-0 min-h-screen overflow-visible">
+      <div className="bg-white p-6 md:p-10 rounded-none md:rounded-xl shadow-lg print:shadow-none print:w-full print:p-0 overflow-visible">
           {/* Document Header matching screenshot */}
           <div className="border-b-2 border-slate-800 pb-6 mb-8 flex justify-between items-start">
               <div>
@@ -359,7 +359,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
           <div className="border-t border-gray-100 rounded-lg overflow-visible flex flex-col">
             <div className="overflow-x-auto print:overflow-visible">
                 <table className="w-full text-[11px] md:text-xs text-left print:table min-w-[850px] border-collapse">
-                    <thead className="bg-gray-50/80 text-gray-400 uppercase text-[10px] font-bold tracking-widest border-b border-gray-100 sticky top-0 z-20 print:static">
+                    <thead className="bg-gray-50/80 text-gray-400 uppercase text-[10px] font-bold tracking-widest border-b border-gray-100 sticky top-0 z-20 print:static print:table-header-group">
                         <tr>
                             <th className="px-4 py-4 w-10 print:hidden"></th>
                             <th className="px-4 py-4">DATA</th>

@@ -31,58 +31,71 @@
         background: #94a3b8;
       }
       
-      /* PRINT OPTIMIZATION - CRITICAL FOR MULTI-PAGE */
+      /* PRINT OPTIMIZATION - FORZA MULTI-PAGINA */
       @media print {
         @page {
-          margin: 15mm;
+          margin: 10mm 15mm;
           size: A4 portrait;
         }
-        body, html, #root {
+
+        /* Forza tutti i contenitori a espandersi verticalmente */
+        html, body, #root, div, main, section, article {
           height: auto !important;
+          min-height: 0 !important;
+          max-height: none !important;
           overflow: visible !important;
-          background: white !important;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
+          position: static !important;
+          float: none !important;
+          display: block !important;
+          margin: 0 !important;
+          padding: 0 !important;
         }
+
+        /* Mantieni lo sfondo bianco per risparmio inchiostro ma preserva i colori degli accenti */
+        body {
+          background-color: white !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+
         .no-print {
           display: none !important;
         }
-        main {
-            overflow: visible !important;
-            height: auto !important;
-            padding: 0 !important;
-        }
-        .overflow-x-auto, .overflow-y-auto, .overflow-visible, .overflow-y-scroll {
-          overflow: visible !important;
-          height: auto !important;
-          max-height: none !important;
-          position: static !important;
-        }
+
+        /* Tabella: Consenti il break tra le pagine */
         table {
-            width: 100% !important;
-            border-collapse: collapse !important;
-            page-break-inside: auto !important;
-            table-layout: auto !important;
+          width: 100% !important;
+          border-collapse: collapse !important;
+          page-break-inside: auto !important;
+          display: table !important;
         }
+
+        /* Ripeti l'header della tabella in ogni pagina */
         thead {
-            display: table-header-group !important;
+          display: table-header-group !important;
         }
+
+        /* Evita che una riga venga spezzata a metà tra due pagine */
         tr {
-            page-break-inside: avoid !important;
-            page-break-after: auto !important;
+          page-break-inside: avoid !important;
+          page-break-after: auto !important;
         }
-        .shadow-lg, .shadow-xl, .shadow-2xl, .shadow-sm, .rounded-xl {
-            box-shadow: none !important;
-            border-radius: 0 !important;
+
+        td, th {
+          page-break-inside: avoid !important;
         }
-        aside {
-            display: none !important;
+
+        /* Rimuovi ombre e arrotondamenti che in stampa non servono o creano artefatti */
+        .shadow-lg, .shadow-xl, .shadow-2xl, .shadow-sm, .rounded-xl, .rounded-2xl {
+          box-shadow: none !important;
+          border-radius: 0 !important;
+          border: none !important;
         }
-        .max-w-7xl, .max-w-5xl {
-            max-width: none !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
+
+        /* Assicurati che il contenitore del documento sia largo quanto la pagina */
+        .print\:w-full {
+          width: 100% !important;
+          max-width: 100% !important;
         }
       }
     </style>
