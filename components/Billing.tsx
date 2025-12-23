@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Project, TimeEntry, UserProfile } from '../types';
 import { formatCurrency, formatDuration, calculateEarnings, formatTime } from '../utils';
-import { Printer, Calendar, CheckSquare, Square, MapPin, ChevronDown, Search, FileDown, Lock, Archive, CheckCircle2, History, AlertCircle, Check, Pencil, DollarSign, X, Settings2 } from 'lucide-react';
+import { Printer, Calendar, CheckSquare, Square, MapPin, ChevronDown, Search, FileDown, Lock, Archive, CheckCircle2, History, AlertCircle, Check, Pencil, DollarSign, X, Settings2, ListFilter } from 'lucide-react';
 import * as DB from '../services/db';
 import { useLanguage } from '../lib/i18n';
 
@@ -30,14 +30,8 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   const [showBulkRateInput, setShowBulkRateInput] = useState(false);
   const [bulkRateValue, setBulkRateValue] = useState<string>('');
 
-  // Tax Logic States
-  const [applyBollo, setApplyBollo] = useState(false);
-  const [applySurcharge, setApplySurcharge] = useState(false);
-  const [surchargeLabel, setSurchargeLabel] = useState('IMS (4%)');
-
   // UI States
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
-  const [clientSearchTerm, setClientSearchTerm] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const clientDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -64,12 +58,13 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       if (projects.length > 0 && selectedProjectIds.length === 0) {
           setSelectedProjectIds(projects.map(p => p.id));
       }
+      // Auto-select current month if available
       if (availableMonthsInYear.length > 0 && selectedMonths.length === 0) {
            const currentMonth = new Date().toISOString().slice(0, 7);
            if (availableMonthsInYear.includes(currentMonth)) {
                setSelectedMonths([currentMonth]);
            } else {
-               setSelectedMonths(availableMonthsInYear.slice(0, 1));
+               setSelectedMonths([availableMonthsInYear[0]]);
            }
       }
   }, [projects, availableMonthsInYear]);
@@ -89,31 +84,23 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       setShowBulkRateInput(false);
   }, [viewMode, selectedProjectIds, selectedMonths, selectedYear]);
 
-  // --- FILTERING ---
-  const filteredEntries = useMemo(() => {
-    return entries.filter(e => {
-        const isBilled = !!e.is_billed;
-        if (viewMode === 'pending' && isBilled) return false;
-        if (viewMode === 'billed' && !isBilled) return false;
-        if (selectedProjectIds.length === 0 || selectedMonths.length === 0) return false;
-        const entryMonth = new Date(e.startTime).toISOString().slice(0, 7);
-        return selectedProjectIds.includes(e.projectId) && selectedMonths.includes(entryMonth);
-    }).sort((a, b) => a.startTime - b.startTime);
-  }, [entries, selectedProjectIds, selectedMonths, viewMode]);
-
-  const baseTotalAmount = filteredEntries.reduce((acc, curr) => acc + calculateEarnings(curr), 0);
-  const totalHours = filteredEntries.reduce((acc, curr) => acc + (curr.duration || 0), 0) / 3600;
-
-  // --- CALCOLO TASSE ---
-  const bolloAmount = applyBollo ? 2.00 : 0;
-  const subtotalWithBollo = baseTotalAmount + bolloAmount;
-  
-  // Applichiamo il 4% sul totale (Base + Bollo) se la somma supera € 100
-  const canApplySurcharge = subtotalWithBollo > 100;
-  const surchargeAmount = (applySurcharge && canApplySurcharge) ? (subtotalWithBollo * 0.04) : 0;
-  const grandTotalAmount = subtotalWithBollo + surchargeAmount;
-
   // --- HANDLERS ---
+  const toggleMonth = (month: string) => {
+      setSelectedMonths(prev => 
+          prev.includes(month) ? prev.filter(m => m !== month) : [...prev, month]
+      );
+  };
+
+  const toggleAllMonthsInYear = () => {
+      const allSelected = availableMonthsInYear.every(m => selectedMonths.includes(m));
+      if (allSelected) {
+          setSelectedMonths(prev => prev.filter(m => !availableMonthsInYear.includes(m)));
+      } else {
+          const toAdd = availableMonthsInYear.filter(m => !selectedMonths.includes(m));
+          setSelectedMonths(prev => [...prev, ...toAdd]);
+      }
+  };
+
   const handleMarkAsBilled = async () => {
       if (selectedEntryIds.size === 0) return;
       if (!confirm(`Segnare come fatturati ${selectedEntryIds.size} servizi?`)) return;
@@ -150,16 +137,40 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       } catch (e) { alert("Errore"); } finally { setIsProcessing(false); }
   };
 
+  // --- FILTERING ---
+  const filteredEntries = useMemo(() => {
+    return entries.filter(e => {
+        const isBilled = !!e.is_billed;
+        if (viewMode === 'pending' && isBilled) return false;
+        if (viewMode === 'billed' && !isBilled) return false;
+        if (selectedProjectIds.length === 0 || selectedMonths.length === 0) return false;
+        const entryMonth = new Date(e.startTime).toISOString().slice(0, 7);
+        return selectedProjectIds.includes(e.projectId) && selectedMonths.includes(entryMonth);
+    }).sort((a, b) => a.startTime - b.startTime);
+  }, [entries, selectedProjectIds, selectedMonths, viewMode]);
+
+  // --- FISCAL LOGIC (INGEGNERI) ---
+  const baseTotalAmount = filteredEntries.reduce((acc, curr) => acc + calculateEarnings(curr), 0);
+  const totalHours = filteredEntries.reduce((acc, curr) => acc + (curr.duration || 0), 0) / 3600;
+
+  // 1. Bollo di 2€ se imponibile > 100€
+  const bolloAmount = baseTotalAmount > 100 ? 2.00 : 0;
+  
+  // 2. Cassa Ingegneri (Inarcassa) al 4% calcolata su (Imponibile + Bollo)
+  const cassaAmount = (baseTotalAmount + bolloAmount) * 0.04;
+  
+  // 3. Totale complessivo
+  const grandTotalAmount = baseTotalAmount + bolloAmount + cassaAmount;
+
   const periodString = useMemo(() => {
       if (selectedMonths.length === 0) return '-';
-      return selectedMonths.map(m => {
+      return [...selectedMonths].sort().map(m => {
           const [y, mo] = m.split('-');
           return new Date(parseInt(y), parseInt(mo) - 1).toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US', { month: 'long', year: 'numeric' });
       }).join(', ');
-  }, [selectedMonths]);
+  }, [selectedMonths, language]);
 
   const showProjectColumn = selectedProjectIds.length > 1;
-  const isPro = userProfile?.subscription_status !== 'trial' || userProfile?.role === 'admin';
 
   return (
     <div className="space-y-6 animate-fade-in max-w-5xl mx-auto">
@@ -232,25 +243,35 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                 </div>
             </div>
 
-            {/* OPZIONI FISCALI */}
-            <div className="pt-4 border-t border-gray-100 bg-gray-50/50 p-4 rounded-xl space-y-4">
-                 <div className="flex items-center gap-2 text-xs font-bold text-indigo-900 uppercase"><Settings2 size={14} /> Opzioni Fiscali</div>
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                     <label className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                        <input type="checkbox" className="w-4 h-4 rounded text-indigo-600" checked={applyBollo} onChange={e => setApplyBollo(e.target.checked)} />
-                        <div className="flex flex-col"><span className="text-sm font-bold text-gray-700">Aggiungi Bollo</span><span className="text-[10px] text-gray-400">+ € 2,00</span></div>
-                     </label>
-                     <label className={`flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg cursor-pointer transition-colors ${!canApplySurcharge ? 'opacity-40 grayscale' : 'hover:bg-gray-100'}`}>
-                        <input type="checkbox" disabled={!canApplySurcharge} className="w-4 h-4 rounded text-indigo-600" checked={applySurcharge && canApplySurcharge} onChange={e => setApplySurcharge(e.target.checked)} />
-                        <div className="flex flex-col"><span className="text-sm font-bold text-gray-700">Rivalsa/Contanti (4%)</span><span className="text-[10px] text-gray-400">Solo se &gt; € 100</span></div>
-                     </label>
-                 </div>
-                 {applySurcharge && canApplySurcharge && (
-                     <div className="flex flex-col gap-1">
-                         <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Etichetta 4%</label>
-                         <input type="text" className="w-full px-3 py-1.5 text-xs border border-indigo-200 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500 font-medium" value={surchargeLabel} onChange={e => setSurchargeLabel(e.target.value)} />
-                     </div>
-                 )}
+            {/* MONTH SELECTOR */}
+            <div className="pt-2 border-t border-gray-100">
+                <div className="flex items-center justify-between mb-2">
+                     <span className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1"><ListFilter size={14}/> Mesi Disponibili</span>
+                     <button onClick={toggleAllMonthsInYear} className="text-xs text-indigo-600 font-bold hover:underline">
+                         {availableMonthsInYear.every(m => selectedMonths.includes(m)) ? 'Deseleziona' : 'Seleziona Tutti'}
+                     </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {availableMonthsInYear.length === 0 && <span className="text-sm text-gray-400 italic">Nessun dato.</span>}
+                    {availableMonthsInYear.map(m => {
+                        const isSelected = selectedMonths.includes(m);
+                        const [y, mo] = m.split('-');
+                        const label = new Date(parseInt(y), parseInt(mo)-1).toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US', { month: 'short' });
+                        return (
+                            <button key={m} onClick={() => toggleMonth(m)} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs border transition-all capitalize ${isSelected ? 'bg-amber-50 border-amber-200 text-amber-800 font-bold' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                                {isSelected ? <CheckSquare size={14} /> : <Square size={14} />} {label}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+            
+            <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 flex items-center gap-3">
+                <Settings2 size={20} className="text-indigo-600" />
+                <div className="text-xs text-indigo-900 leading-relaxed">
+                    <p className="font-bold">Calcolo Fiscale Ingegneri:</p>
+                    <p>Bollo di € 2,00 se Totale &gt; € 100,00. Rivalsa Inarcassa al 4% applicata su Imponibile + Bollo.</p>
+                </div>
             </div>
         </div>
 
@@ -258,7 +279,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
             <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 w-full mb-4">
                 <p className="text-sm text-gray-500 mb-1">Totale Documento</p>
                 <p className="text-3xl font-bold text-indigo-600">{formatCurrency(grandTotalAmount)}</p>
-                <p className="text-sm text-gray-600 mt-1">{filteredEntries.length} servizi</p>
+                <p className="text-sm text-gray-600 mt-1">{filteredEntries.length} servizi selezionati</p>
             </div>
             <div className="flex flex-col gap-3">
                 <button onClick={() => window.print()} disabled={filteredEntries.length === 0} className="w-full flex justify-center items-center gap-2 bg-slate-800 disabled:bg-slate-300 text-white px-6 py-3 rounded-lg hover:bg-slate-900 shadow-lg active:scale-95">
@@ -332,8 +353,19 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
           <div className="mt-8 border-t-2 border-slate-200 pt-6 flex justify-end">
               <div className="w-full md:w-1/2 lg:w-1/3 space-y-2">
                   <div className="flex justify-between text-slate-500 text-xs uppercase font-bold"><span>Imponibile Servizi:</span><span className="font-mono">{formatCurrency(baseTotalAmount)}</span></div>
-                  {applyBollo && <div className="flex justify-between text-slate-600 text-sm italic"><span>Imposta di Bollo:</span><span className="font-mono">{formatCurrency(2.00)}</span></div>}
-                  {applySurcharge && canApplySurcharge && <div className="flex justify-between text-slate-600 text-sm italic"><span>{surchargeLabel}:</span><span className="font-mono">{formatCurrency(surchargeAmount)}</span></div>}
+                  
+                  {bolloAmount > 0 && (
+                      <div className="flex justify-between text-slate-600 text-sm italic">
+                          <span>Imposta di Bollo (Imponibile &gt; € 100):</span>
+                          <span className="font-mono">{formatCurrency(bolloAmount)}</span>
+                      </div>
+                  )}
+
+                  <div className="flex justify-between text-slate-600 text-sm italic">
+                      <span>Contributo Integrativo Inarcassa (4%):</span>
+                      <span className="font-mono">{formatCurrency(cassaAmount)}</span>
+                  </div>
+
                   <div className="flex justify-between items-center text-2xl font-bold text-slate-900 pt-4 border-t border-slate-200 mt-2"><span>TOTALE:</span><span className="text-indigo-700">{formatCurrency(grandTotalAmount)}</span></div>
                   <div className="pt-4 text-[10px] text-slate-400 font-bold uppercase flex justify-between"><span>Totale Ore: {totalHours.toFixed(2)} h</span><span>Voci: {filteredEntries.length}</span></div>
               </div>
