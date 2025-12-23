@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Project, TimeEntry, UserProfile } from '../types';
 import { formatCurrency, formatDuration, calculateEarnings, formatTime } from '../utils';
-import { Printer, Calendar, CheckSquare, Square, MapPin, ChevronDown, Search, FileDown, Lock, Archive, CheckCircle2, History, AlertCircle, Check, Pencil, DollarSign, X, Settings2, ListFilter, Download } from 'lucide-react';
+import { Printer, Calendar, CheckSquare, Square, MapPin, ChevronDown, Search, FileDown, Lock, Archive, CheckCircle2, History, AlertCircle, Check, Pencil, DollarSign, X, Settings2, ListFilter, Download, ToggleRight, ToggleLeft } from 'lucide-react';
 import * as DB from '../services/db';
 import { useLanguage } from '../lib/i18n';
 
@@ -21,6 +21,10 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
   
+  // Fiscal Toggles
+  const [applyBollo, setApplyBollo] = useState(false);
+  const [applyInarcassa, setApplyInarcassa] = useState(true);
+
   // Selection State for Bulk Actions
   const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(new Set());
 
@@ -53,12 +57,37 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       return Array.from(months).sort().reverse();
   }, [entries, selectedYear]);
 
+  // --- FILTERING ---
+  const filteredEntries = useMemo(() => {
+    return entries.filter(e => {
+        const isBilled = !!e.is_billed;
+        if (viewMode === 'pending' && isBilled) return false;
+        if (viewMode === 'billed' && !isBilled) return false;
+        if (selectedProjectIds.length === 0 || selectedMonths.length === 0) return false;
+        const entryMonth = new Date(e.startTime).toISOString().slice(0, 7);
+        return selectedProjectIds.includes(e.projectId) && selectedMonths.includes(entryMonth);
+    }).sort((a, b) => a.startTime - b.startTime);
+  }, [entries, selectedProjectIds, selectedMonths, viewMode]);
+
+  // --- FISCAL LOGIC ---
+  const baseTotalAmount = useMemo(() => filteredEntries.reduce((acc, curr) => acc + calculateEarnings(curr), 0), [filteredEntries]);
+  const totalHours = useMemo(() => filteredEntries.reduce((acc, curr) => acc + (curr.duration || 0), 0) / 3600, [filteredEntries]);
+
+  // Auto-suggestion for Bollo
+  useEffect(() => {
+      if (baseTotalAmount > 100) setApplyBollo(true);
+      else setApplyBollo(false);
+  }, [baseTotalAmount]);
+
+  const bolloAmount = applyBollo ? 2.00 : 0;
+  const cassaAmount = applyInarcassa ? (baseTotalAmount + bolloAmount) * 0.04 : 0;
+  const grandTotalAmount = baseTotalAmount + bolloAmount + cassaAmount;
+
   // --- EFFECTS ---
   useEffect(() => {
       if (projects.length > 0 && selectedProjectIds.length === 0) {
           setSelectedProjectIds(projects.map(p => p.id));
       }
-      // Auto-select current month if available
       if (availableMonthsInYear.length > 0 && selectedMonths.length === 0) {
            const currentMonth = new Date().toISOString().slice(0, 7);
            if (availableMonthsInYear.includes(currentMonth)) {
@@ -78,11 +107,6 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       document.addEventListener("mousedown", handleClickOutside);
       return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  useEffect(() => {
-      setSelectedEntryIds(new Set());
-      setShowBulkRateInput(false);
-  }, [viewMode, selectedProjectIds, selectedMonths, selectedYear]);
 
   // --- HANDLERS ---
   const toggleMonth = (month: string) => {
@@ -139,7 +163,6 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
 
   const handleExportCSV = () => {
       if (filteredEntries.length === 0) return;
-      
       const headers = ["Data", "Cliente", "Orario", "Descrizione", "Durata (h)", "Tariffa (€/h)", "Extra (€)", "Totale (€)"];
       const rows = filteredEntries.map(e => {
           const project = projects.find(p => p.id === e.projectId);
@@ -157,42 +180,16 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
               earnings.toFixed(2).replace('.', ',')
           ];
       });
-
       const csvContent = [headers, ...rows].map(r => r.join(";")).join("\n");
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.setAttribute("href", url);
-      link.setAttribute("download", `riepilogo_${selectedYear}_${selectedMonths.join("_")}.csv`);
+      link.setAttribute("download", `export_cronosheet_${selectedYear}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
   };
-
-  // --- FILTERING ---
-  const filteredEntries = useMemo(() => {
-    return entries.filter(e => {
-        const isBilled = !!e.is_billed;
-        if (viewMode === 'pending' && isBilled) return false;
-        if (viewMode === 'billed' && !isBilled) return false;
-        if (selectedProjectIds.length === 0 || selectedMonths.length === 0) return false;
-        const entryMonth = new Date(e.startTime).toISOString().slice(0, 7);
-        return selectedProjectIds.includes(e.projectId) && selectedMonths.includes(entryMonth);
-    }).sort((a, b) => a.startTime - b.startTime);
-  }, [entries, selectedProjectIds, selectedMonths, viewMode]);
-
-  // --- FISCAL LOGIC (INGEGNERI) ---
-  const baseTotalAmount = filteredEntries.reduce((acc, curr) => acc + calculateEarnings(curr), 0);
-  const totalHours = filteredEntries.reduce((acc, curr) => acc + (curr.duration || 0), 0) / 3600;
-
-  // 1. Bollo di 2€ se imponibile > 100€
-  const bolloAmount = baseTotalAmount > 100 ? 2.00 : 0;
-  
-  // 2. Cassa Inarcassa al 4% calcolata su (Imponibile + Bollo)
-  const cassaAmount = (baseTotalAmount + bolloAmount) * 0.04;
-  
-  // 3. Totale complessivo
-  const grandTotalAmount = baseTotalAmount + bolloAmount + cassaAmount;
 
   const periodString = useMemo(() => {
       if (selectedMonths.length === 0) return '-';
@@ -275,7 +272,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                 </div>
             </div>
 
-            {/* MONTH SELECTOR - RIPRISTINATO */}
+            {/* MONTH SELECTOR */}
             <div className="pt-2 border-t border-gray-100">
                 <div className="flex items-center justify-between mb-2">
                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1"><ListFilter size={14}/> Mesi Disponibili</span>
@@ -298,11 +295,29 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                 </div>
             </div>
             
-            <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 flex items-center gap-3">
-                <Settings2 size={20} className="text-indigo-600" />
-                <div className="text-xs text-indigo-900 leading-relaxed">
-                    <p className="font-bold">Dettaglio Fiscale Ingegneri:</p>
-                    <p>Bollo di € 2,00 se Totale &gt; € 100,00. Contributo Integrativo Inarcassa al 4% calcolato su Imponibile + Bollo.</p>
+            {/* FISCAL SETTINGS */}
+            <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 space-y-3">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <Settings2 size={20} className="text-indigo-600" />
+                        <span className="text-sm font-bold text-indigo-900">Configurazione Fiscale Manuale</span>
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <button 
+                        onClick={() => setApplyBollo(!applyBollo)}
+                        className={`flex items-center justify-between p-3 rounded-lg border transition-all ${applyBollo ? 'bg-white border-indigo-200 shadow-sm' : 'bg-transparent border-gray-200 opacity-60'}`}
+                    >
+                        <span className="text-xs font-medium text-gray-700">Applica Bollo (€ 2,00)</span>
+                        {applyBollo ? <ToggleRight className="text-indigo-600" /> : <ToggleLeft className="text-gray-400" />}
+                    </button>
+                    <button 
+                        onClick={() => setApplyInarcassa(!applyInarcassa)}
+                        className={`flex items-center justify-between p-3 rounded-lg border transition-all ${applyInarcassa ? 'bg-white border-indigo-200 shadow-sm' : 'bg-transparent border-gray-200 opacity-60'}`}
+                    >
+                        <span className="text-xs font-medium text-gray-700">Applica Inarcassa (4%)</span>
+                        {applyInarcassa ? <ToggleRight className="text-indigo-600" /> : <ToggleLeft className="text-gray-400" />}
+                    </button>
                 </div>
             </div>
         </div>
@@ -325,7 +340,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       </div>
 
       {/* DOCUMENT */}
-      <div className="bg-white p-6 md:p-10 rounded-none md:rounded-xl shadow-lg print:shadow-none print:w-full print:p-0 min-h-screen overflow-visible">
+      <div className="bg-white p-6 md:p-10 rounded-none md:rounded-xl shadow-lg print:shadow-none print:w-full print:p-0 min-h-screen">
           <div className="border-b-2 border-slate-800 pb-6 mb-8 flex justify-between items-start">
               <div><h1 className="text-3xl font-bold text-slate-900 uppercase tracking-wide">{viewMode === 'pending' ? 'Riepilogo Servizi' : 'Archivio Fatture'}</h1><p className="text-slate-500 mt-2">Documento informativo prestazioni professionali</p></div>
               <div className="text-right max-w-sm"><h3 className="text-xl font-bold text-indigo-600 truncate">{selectedProjectIds.length === 1 ? projects.find(p => p.id === selectedProjectIds[0])?.name : 'Riepilogo Multi-Cliente'}</h3><p className="text-slate-600 font-medium capitalize mt-1 text-sm">Periodo: {periodString}</p></div>
@@ -355,14 +370,14 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                             const isEditingRate = editingRateId === entry.id;
 
                             return (
-                                <tr key={entry.id} className={`hover:bg-indigo-50/30 transition-colors print:break-inside-avoid ${selectedEntryIds.has(entry.id) ? 'bg-indigo-50/50' : ''}`} onClick={() => setSelectedEntryIds(prev => { const n = new Set(prev); if(n.has(entry.id)) n.delete(entry.id); else n.add(entry.id); return n; })}>
-                                    <td className="px-4 py-3 print:hidden" onClick={e => e.stopPropagation()}><button onClick={() => setSelectedEntryIds(prev => { const n = new Set(prev); if(n.has(entry.id)) n.delete(entry.id); else n.add(entry.id); return n; })} className={`flex items-center ${selectedEntryIds.has(entry.id) ? 'text-indigo-600' : 'text-gray-300'}`}>{selectedEntryIds.has(entry.id) ? <CheckSquare size={16} /> : <Square size={16} />}</button></td>
+                                <tr key={entry.id} className={`hover:bg-indigo-50/30 transition-colors print:break-inside-avoid ${selectedEntryIds.has(entry.id) ? 'bg-indigo-50/50' : ''}`}>
+                                    <td className="px-4 py-3 print:hidden"><button onClick={() => setSelectedEntryIds(prev => { const n = new Set(prev); if(n.has(entry.id)) n.delete(entry.id); else n.add(entry.id); return n; })} className={`flex items-center ${selectedEntryIds.has(entry.id) ? 'text-indigo-600' : 'text-gray-300'}`}>{selectedEntryIds.has(entry.id) ? <CheckSquare size={16} /> : <Square size={16} />}</button></td>
                                     <td className="px-4 py-3 font-medium text-slate-800">{new Date(entry.startTime).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })}</td>
                                     {showProjectColumn && <td className="px-4 py-3 text-indigo-600 font-semibold text-xs uppercase">{project?.name || '-'}</td>}
                                     <td className="px-4 py-3 font-mono text-slate-600 text-xs">{formatTime(entry.startTime)} - {entry.endTime ? formatTime(entry.endTime) : '...'}</td>
                                     <td className="px-4 py-3 text-slate-600 max-w-xs truncate text-xs">{entry.description || '-'}</td>
                                     <td className="px-4 py-3 text-right font-mono text-xs">{formatDuration(entry.duration).slice(0, 5)}</td>
-                                    <td className="px-4 py-3 text-right bg-indigo-50/20 group/cell" onClick={(e) => { e.stopPropagation(); if (viewMode === 'pending') { setEditingRateId(entry.id); setTempRate(entry.hourlyRate?.toString() || '0'); } }}>
+                                    <td className="px-4 py-3 text-right bg-indigo-50/20 group/cell" onClick={() => { if (viewMode === 'pending') { setEditingRateId(entry.id); setTempRate(entry.hourlyRate?.toString() || '0'); } }}>
                                         {isEditingRate ? (
                                             <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
                                                 <input type="number" step="0.01" autoFocus className="w-16 px-1 py-0.5 border border-indigo-400 rounded text-right font-mono text-xs shadow-sm" value={tempRate} onChange={e => setTempRate(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleUpdateRate(entry)} />
@@ -389,17 +404,19 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
               <div className="w-full md:w-1/2 lg:w-1/3 space-y-2">
                   <div className="flex justify-between text-slate-500 text-xs uppercase font-bold"><span>Imponibile Servizi:</span><span className="font-mono">{formatCurrency(baseTotalAmount)}</span></div>
                   
-                  {bolloAmount > 0 && (
+                  {applyBollo && (
                       <div className="flex justify-between text-slate-600 text-sm italic">
-                          <span>Imposta di Bollo (Imponibile &gt; € 100):</span>
+                          <span>Imposta di Bollo:</span>
                           <span className="font-mono">{formatCurrency(bolloAmount)}</span>
                       </div>
                   )}
 
-                  <div className="flex justify-between text-slate-600 text-sm italic">
-                      <span>Contributo Integrativo Inarcassa (4%):</span>
-                      <span className="font-mono">{formatCurrency(cassaAmount)}</span>
-                  </div>
+                  {applyInarcassa && (
+                      <div className="flex justify-between text-slate-600 text-sm italic">
+                          <span>Contributo Integrativo Inarcassa (4%):</span>
+                          <span className="font-mono">{formatCurrency(cassaAmount)}</span>
+                      </div>
+                  )}
 
                   <div className="flex justify-between items-center text-2xl font-bold text-slate-900 pt-4 border-t border-slate-200 mt-2"><span>TOTALE:</span><span className="text-indigo-700">{formatCurrency(grandTotalAmount)}</span></div>
                   <div className="pt-4 text-[10px] text-slate-400 font-bold uppercase flex justify-between"><span>Totale Ore: {totalHours.toFixed(2)} h</span><span>Voci: {filteredEntries.length}</span></div>

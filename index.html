@@ -15,33 +15,23 @@
         font-family: 'Inter', sans-serif;
       }
 
-      /* CUSTOM SCROLLBARS - ENHANCED VISIBILITY */
-      .custom-scrollbar {
-        scrollbar-width: auto;
-        scrollbar-color: #818cf8 #f1f1f1;
-        -webkit-overflow-scrolling: touch;
-      }
+      /* CUSTOM SCROLLBARS */
       .custom-scrollbar::-webkit-scrollbar {
-        width: 12px;
-        height: 12px;
-        display: block !important;
+        width: 10px;
+        height: 10px;
       }
       .custom-scrollbar::-webkit-scrollbar-track {
         background: #f8fafc;
-        border-radius: 4px;
-        border: 1px solid #e2e8f0;
       }
       .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #c7d2fe;
-        border-radius: 4px;
-        border: 2px solid #f8fafc;
-        box-shadow: inset 0 0 6px rgba(0,0,0,0.05);
+        background: #cbd5e1;
+        border-radius: 5px;
       }
       .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: #818cf8;
+        background: #94a3b8;
       }
       
-      /* PRINT OPTIMIZATION - MULTI-PAGE FIX */
+      /* PRINT OPTIMIZATION */
       @media print {
         @page {
           margin: 15mm;
@@ -55,16 +45,15 @@
         .no-print {
           display: none !important;
         }
-        /* Rimuove i vincoli di altezza per permettere la stampa di tutti i servizi */
-        .overflow-y-auto, .overflow-x-auto, .overflow-y-scroll, .max-h-\[650px\] {
-          overflow: visible !important;
-          max-height: none !important;
-          height: auto !important;
-          position: static !important;
-        }
         main {
             overflow: visible !important;
             height: auto !important;
+        }
+        .overflow-x-auto, .overflow-y-auto, .overflow-visible {
+          overflow: visible !important;
+          height: auto !important;
+          max-height: none !important;
+          position: static !important;
         }
         table {
             width: 100% !important;
