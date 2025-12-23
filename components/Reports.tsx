@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Project, TimeEntry } from '../types';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
+import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { formatDurationHuman, formatCurrency } from '../utils';
-import { Calendar, Filter, ArrowDownToLine, TrendingUp } from 'lucide-react';
+import { Calendar, Filter, TrendingUp, PieChart } from 'lucide-react';
+import { useLanguage } from '../lib/i18n';
 
 interface ReportsProps {
   entries: TimeEntry[];
@@ -12,6 +13,7 @@ interface ReportsProps {
 type TimeRange = '7d' | '14d' | 'month';
 
 const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
+  const { t, language } = useLanguage();
   const [range, setRange] = useState<TimeRange>('7d');
 
   // 1. Calcola intervallo date in base alla selezione
@@ -20,23 +22,21 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Midnight today
       let start = new Date(today);
       let daysCount = 7;
-      let label = 'Ultimi 7 Giorni';
+      let label = t('reports.7d');
 
       if (range === '14d') {
           start.setDate(today.getDate() - 13); // 14 days inclusive
           daysCount = 14;
-          label = 'Ultimi 14 Giorni';
+          label = t('reports.14d');
       } else if (range === 'month') {
           start = new Date(today.getFullYear(), today.getMonth(), 1); // 1st of current month
-          // Giorni passati nel mese corrente (incluso oggi)
           const diffTime = Math.abs(today.getTime() - start.getTime());
           daysCount = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
-          label = 'Mese Corrente';
+          label = t('reports.month');
       } else {
           start.setDate(today.getDate() - 6);
       }
 
-      // Genera array di date stringhe per il grafico (YYYY-MM-DD)
       const arr = [];
       for (let i = 0; i < daysCount; i++) {
           const d = new Date(start);
@@ -45,15 +45,13 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
       }
 
       return { startDate: start, daysArray: arr, rangeLabel: label };
-  }, [range]);
+  }, [range, t]);
 
-  // 2. Filtra le voci in base all'intervallo
   const filteredEntries = useMemo(() => {
       const startMs = startDate.getTime();
       return entries.filter(e => e.startTime >= startMs);
   }, [entries, startDate]);
 
-  // 3. Dati per Pie Chart (Progetti nel periodo selezionato)
   const projectData = useMemo(() => {
       return projects.map(project => {
         const totalSeconds = filteredEntries
@@ -71,7 +69,6 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
       }).filter(d => d.value > 0).sort((a,b) => b.value - a.value);
   }, [projects, filteredEntries]);
 
-  // 4. Dati per Bar Chart (Attività giornaliera)
   const dailyData = useMemo(() => {
       return daysArray.map(dateStr => {
         const dayEntries = filteredEntries.filter(e => {
@@ -85,8 +82,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
         }, 0) / 3600;
 
         const dateObj = new Date(dateStr);
-        // Label formattata: es. "Lun 15"
-        const label = dateObj.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric' });
+        const label = dateObj.toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US', { weekday: 'short', day: 'numeric' });
 
         return {
             date: label,
@@ -94,12 +90,10 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
             hours: hours
         };
       });
-  }, [daysArray, filteredEntries]);
+  }, [daysArray, filteredEntries, language]);
 
-  // 5. Calcoli Sommario
   const totalSeconds = filteredEntries.reduce((acc, curr) => acc + (curr.duration || 0), 0);
   const totalHours = totalSeconds / 3600;
-  // Media giornaliera basata sui giorni visualizzati nel grafico (non 30 fissi, ma giorni trascorsi)
   const avgDailyHours = daysArray.length > 0 ? totalHours / daysArray.length : 0;
 
   return (
@@ -111,7 +105,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
               <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
                   <Filter size={20} />
               </div>
-              <span>Periodo Analisi:</span>
+              <span>{t('reports.analysis_period')}:</span>
           </div>
           
           <div className="flex bg-gray-100 p-1 rounded-lg">
@@ -119,19 +113,19 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
                   onClick={() => setRange('7d')}
                   className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${range === '7d' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
               >
-                  7 Giorni
+                  {t('reports.7d')}
               </button>
               <button 
                   onClick={() => setRange('14d')}
                   className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${range === '14d' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
               >
-                  14 Giorni
+                  {t('reports.14d')}
               </button>
               <button 
                   onClick={() => setRange('month')}
                   className={`px-4 py-2 rounded-md text-sm font-bold transition-all flex items-center gap-2 ${range === 'month' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
               >
-                  <Calendar size={14} /> Mese Corrente
+                  <Calendar size={14} /> {t('reports.month')}
               </button>
           </div>
       </div>
@@ -139,31 +133,31 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Ore Totali ({rangeLabel})</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">{t('reports.total_hours_range')} ({rangeLabel})</p>
               <p className="text-3xl font-bold text-indigo-600">
                   {formatDurationHuman(totalSeconds)}
               </p>
           </div>
           <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Media Giornaliera</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">{t('reports.daily_avg')}</p>
               <div className="flex items-baseline gap-2">
                   <p className="text-3xl font-bold text-emerald-600">
                       {avgDailyHours.toFixed(1)}h
                   </p>
-                  <span className="text-xs text-gray-400">/ giorno</span>
+                  <span className="text-xs text-gray-400">/ day</span>
               </div>
           </div>
           <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Progetto Top</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">{t('reports.top_project')}</p>
               <p className="text-xl font-bold text-slate-800 truncate" title={projectData[0]?.name}>
                   {projectData[0]?.name || '-'}
               </p>
               <p className="text-xs text-slate-500 mt-1">
-                 {projectData[0] ? `${((projectData[0].value / totalHours) * 100).toFixed(0)}% del tempo` : ''}
+                 {projectData[0] ? `${((projectData[0].value / totalHours) * 100).toFixed(0)}% ${t('reports.of_time')}` : ''}
               </p>
           </div>
           <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Totale Voci</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">{t('log.entries')}</p>
               <p className="text-3xl font-bold text-slate-800">
                   {filteredEntries.length}
               </p>
@@ -175,12 +169,12 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
         {/* Pie Chart */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col">
           <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
-             <PieChart className="w-5 h-5 text-indigo-500"/> Ripartizione Progetti
+             <PieChart className="w-5 h-5 text-indigo-500"/> {t('reports.project_dist')}
           </h3>
           <div className="h-72 flex-grow">
             {projectData.length > 0 ? (
                <ResponsiveContainer width="100%" height="100%">
-               <PieChart>
+               <RePieChart>
                  <Pie
                    data={projectData}
                    cx="50%"
@@ -195,16 +189,16 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
                    ))}
                  </Pie>
                  <Tooltip 
-                   formatter={(value: number) => [`${value.toFixed(1)} ore`, 'Durata']}
+                   formatter={(value: number) => [`${value.toFixed(1)} hours`, 'Duration']}
                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                  />
                  <Legend verticalAlign="bottom" height={36} iconType="circle" />
-               </PieChart>
+               </RePieChart>
              </ResponsiveContainer>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-gray-300 gap-2">
                   <Filter size={48} className="opacity-20" />
-                  <p>Nessun dato nel periodo selezionato</p>
+                  <p>{t('reports.no_data_period')}</p>
               </div>
             )}
           </div>
@@ -213,7 +207,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
         {/* Bar Chart */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col">
           <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
-             <TrendingUp className="w-5 h-5 text-indigo-500"/> Andamento Giornaliero
+             <TrendingUp className="w-5 h-5 text-indigo-500"/> {t('reports.daily_trend')}
           </h3>
           <div className="h-72 flex-grow">
           {filteredEntries.length > 0 ? (
@@ -226,7 +220,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
                     tickLine={false} 
                     axisLine={false} 
                     tick={{ fill: '#6b7280' }}
-                    interval={range === 'month' ? 2 : 0} // Salta label se sono troppe (mese)
+                    interval={range === 'month' ? 2 : 0}
                 />
                 <YAxis 
                     fontSize={11} 
@@ -237,7 +231,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
                 />
                 <Tooltip 
                     cursor={{fill: '#f9fafb'}}
-                    formatter={(value: number) => [`${value.toFixed(1)} ore`, 'Lavorate']}
+                    formatter={(value: number) => [`${value.toFixed(1)} hours`, 'Worked']}
                     labelStyle={{ color: '#374151', fontWeight: 'bold' }}
                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                 />
@@ -245,14 +239,14 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
                     dataKey="hours" 
                     fill="#6366f1" 
                     radius={[6, 6, 0, 0]} 
-                    barSize={range === 'month' ? 12 : 32} // Barre più sottili se mostriamo un mese intero
+                    barSize={range === 'month' ? 12 : 32}
                 />
               </BarChart>
             </ResponsiveContainer>
              ) : (
                 <div className="h-full flex flex-col items-center justify-center text-gray-300 gap-2">
                     <TrendingUp size={48} className="opacity-20" />
-                    <p>Nessuna attività registrata</p>
+                    <p>{t('reports.no_data_period')}</p>
                 </div>
             )}
           </div>

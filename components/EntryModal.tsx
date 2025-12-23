@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, DollarSign, Clock, Calendar } from 'lucide-react';
 import { Project, TimeEntry, Expense } from '../types';
 import { generateId } from '../utils';
+import { useLanguage } from '../lib/i18n';
 
 interface EntryModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface EntryModalProps {
 }
 
 const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initialEntry, projects }) => {
+  const { t } = useLanguage();
   const [description, setDescription] = useState('');
   const [projectId, setProjectId] = useState('');
   const [dateStr, setDateStr] = useState(''); // YYYY-MM-DD
@@ -83,8 +85,6 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
       // Auto-detect night shift based on start/end
       const s = parseInt(start.split(':')[0]);
       const e = parseInt(end.split(':')[0]);
-      // If end is smaller than start (e.g. 06 < 22) or simply if it crosses midnight logic typically
-      // Simple logic: if start is late (>20) or end is early (<07)
       const isNight = s >= 20 || s <= 4 || e <= 7;
       setIsNightShift(isNight);
   };
@@ -138,7 +138,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
           <h2 className="text-xl font-bold text-gray-800">
-            {initialEntry ? 'Modifica Servizio' : 'Nuovo Servizio'}
+            {initialEntry ? t('entry.edit_title') : t('entry.new_title')}
           </h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
             <X size={20} className="text-gray-500" />
@@ -149,7 +149,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
           
           {/* 1. Selezione Postazione */}
           <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Cliente / Postazione</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">{t('entry.client_label')}</label>
               <select 
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-lg font-medium"
                   value={projectId}
@@ -161,7 +161,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
 
           {/* 2. Data */}
           <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Data Servizio</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">{t('entry.date_label')}</label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <input 
@@ -177,7 +177,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
           {/* 3. Preset Orari (Turni Dinamici) */}
           {selectedProject?.shifts && selectedProject.shifts.length > 0 && (
              <div>
-               <label className="block text-sm font-semibold text-gray-700 mb-2">Seleziona Turno</label>
+               <label className="block text-sm font-semibold text-gray-700 mb-2">{t('entry.shift_select')}</label>
                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                    {selectedProject.shifts.map(shift => (
                        <button 
@@ -201,7 +201,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
           {/* 4. Orari Manuali */}
           <div className="grid grid-cols-2 gap-4">
               <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Ora Inizio</label>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">{t('entry.start_time')}</label>
                   <input 
                       type="time" 
                       required
@@ -211,7 +211,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
                   />
               </div>
               <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Ora Fine</label>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">{t('entry.end_time')}</label>
                   <input 
                       type="time" 
                       required
@@ -225,7 +225,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
           {/* 5. Giorno/Notte & Paga */}
           <div className="flex gap-4 p-4 bg-gray-50 rounded-xl">
                <div className="flex-1">
-                   <label className="block text-sm font-medium text-gray-600 mb-1">Tipologia</label>
+                   <label className="block text-sm font-medium text-gray-600 mb-1">{t('entry.type')}</label>
                    <div className="flex items-center gap-2 mt-2">
                        <button 
                          type="button"
@@ -235,12 +235,12 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
                            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isNightShift ? 'translate-x-5' : 'translate-x-0'}`} />
                        </button>
                        <span className={`text-sm font-medium ${isNightShift ? 'text-indigo-900' : 'text-gray-500'}`}>
-                           {isNightShift ? 'Notturno' : 'Diurno'}
+                           {isNightShift ? t('entry.nocturnal') : t('entry.diurnal')}
                        </span>
                    </div>
                </div>
                <div className="flex-1">
-                   <label className="block text-sm font-medium text-gray-600 mb-1">Paga Oraria (€)</label>
+                   <label className="block text-sm font-medium text-gray-600 mb-1">{t('entry.rate')}</label>
                    <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
                         <span className="text-gray-400 font-bold">€</span>
@@ -248,7 +248,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
                       <input 
                         type="number" 
                         min="0"
-                        step="0.50"
+                        step="0.01"
                         className="w-full pl-6 pr-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
                         value={hourlyRate}
                         onChange={e => setHourlyRate(e.target.value)}
@@ -259,13 +259,13 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
 
           {/* Note Opzionali */}
           <div>
-               <label className="block text-sm font-medium text-gray-700 mb-1">Note (Opzionale)</label>
+               <label className="block text-sm font-medium text-gray-700 mb-1">{t('entry.notes')}</label>
                <input 
                  type="text" 
                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                  value={description}
                  onChange={e => setDescription(e.target.value)}
-                 placeholder="Dettagli attività..."
+                 placeholder={t('entry.notes_placeholder')}
                />
           </div>
 
@@ -273,20 +273,20 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
           <div className="border-t border-gray-100 pt-4">
              <div className="flex justify-between items-center mb-3">
                 <h3 className="font-medium text-gray-800 flex items-center gap-2">
-                    <DollarSign size={16} /> Spese Extra
+                    <DollarSign size={16} /> {t('entry.extra_expenses')}
                 </h3>
                 <button 
                   type="button"
                   onClick={handleAddExpense}
                   className="text-sm flex items-center gap-1 text-indigo-600 hover:text-indigo-700 font-medium"
                 >
-                    <Plus size={16} /> Aggiungi
+                    <Plus size={16} /> {t('entry.add')}
                 </button>
              </div>
              
              <div className="space-y-3">
                  {expenses.length === 0 && (
-                     <p className="text-sm text-gray-400 italic">Nessuna spesa extra.</p>
+                     <p className="text-sm text-gray-400 italic">{t('entry.no_extra')}</p>
                  )}
                  {expenses.map((exp) => (
                      <div key={exp.id} className="flex gap-2 items-center">
@@ -324,13 +324,13 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
                 onClick={onClose}
                 className="px-5 py-3 text-gray-600 font-medium hover:bg-gray-100 rounded-xl transition-colors"
              >
-                 Annulla
+                 {t('entry.cancel')}
              </button>
              <button 
                 type="submit" 
                 className="px-6 py-3 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
              >
-                 Salva Servizio
+                 {t('entry.save')}
              </button>
           </div>
         </form>

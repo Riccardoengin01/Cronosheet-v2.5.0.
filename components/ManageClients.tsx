@@ -123,7 +123,7 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
                     <label className="block text-sm font-semibold text-gray-700 mb-2">{t('clients.rate')}</label>
                     <input 
                         type="number" 
-                        step="0.5"
+                        step="0.01"
                         min="0"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                         placeholder="0.00"
@@ -172,7 +172,7 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
                         </div>
                     ))}
                     {newShifts.length === 0 && (
-                        <p className="text-sm text-gray-400 italic px-2">Nessun turno configurato.</p>
+                        <p className="text-sm text-gray-400 italic px-2">{t('clients.no_shifts')}</p>
                     )}
                 </div>
 
@@ -209,7 +209,7 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
                         disabled={!shiftName || !shiftStart || !shiftEnd}
                         className="w-full md:w-auto px-4 py-2 bg-slate-800 disabled:bg-slate-300 text-white rounded-lg text-sm font-medium hover:bg-slate-900"
                     >
-                        Aggiungi
+                        {t('entry.add')}
                     </button>
                 </div>
             </div>
@@ -246,7 +246,7 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
                           <div>
                               <h3 className="font-bold text-gray-800 text-lg leading-tight">{project.name}</h3>
                               <p className="text-sm text-gray-500 font-medium mt-1">
-                                  {formatCurrency(project.defaultHourlyRate)} / ora
+                                  {formatCurrency(project.defaultHourlyRate)} {t('clients.per_hour')}
                               </p>
                           </div>
                       </div>
@@ -262,7 +262,7 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
                               </div>
                           ))
                       ) : (
-                          <div className="text-xs text-gray-400 italic px-2">Nessun turno preimpostato</div>
+                          <div className="text-xs text-gray-400 italic px-2">{t('clients.no_shifts')}</div>
                       )}
                   </div>
 
@@ -271,13 +271,13 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
                         onClick={() => startEdit(project)}
                         className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors"
                       >
-                          <Pencil size={14} /> Modifica
+                          <Pencil size={14} /> {t('clients.edit_client')}
                       </button>
                       <button 
                         onClick={() => onDelete(project.id)}
                         className="flex items-center gap-1 text-sm text-gray-400 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
                       >
-                          <Trash2 size={14} /> Elimina
+                          <Trash2 size={14} /> {t('clients.delete')}
                       </button>
                   </div>
               </div>
