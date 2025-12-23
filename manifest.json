@@ -1,14 +1,14 @@
 {
   "name": "Cronosheet",
   "short_name": "Cronosheet",
-  "description": "Gestione Ore e Fatturazione AI per Ingegneri",
+  "description": "Gestione Ore e Fatturazione AI per Professionisti",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#0f172a",
   "icons": [
     {
-      "src": "/favicon.svg?v=5",
+      "src": "/favicon.svg?v=10",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
