@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Database, Copy, Check, RefreshCw, AlertTriangle } from 'lucide-react';
 
-const FULL_INIT_SCRIPT = `-- 🚀 FLUXLEDGER PROFESSIONAL - SQL V6
+const FULL_INIT_SCRIPT = `-- 🚀 FLUXLEDGER PROFESSIONAL - SQL V7
 
 -- 1. PROFILI
 create table if not exists public.profiles (
@@ -17,7 +17,7 @@ create table if not exists public.profiles (
   created_at timestamptz default now()
 );
 
--- 2. PROGETTI / CLIENTI (Aggiunta activity_types)
+-- 2. PROGETTI / CLIENTI
 create table if not exists public.projects (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
@@ -30,7 +30,7 @@ create table if not exists public.projects (
   created_at timestamptz default now()
 );
 
--- 3. TIME ENTRIES (Aggiunta activity_type_id)
+-- 3. TIME ENTRIES (Aggiunto invoice_number)
 create table if not exists public.time_entries (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
@@ -46,6 +46,7 @@ create table if not exists public.time_entries (
   is_night_shift boolean default false,
   is_billed boolean default false,
   is_paid boolean default false,
+  invoice_number text,
   created_at timestamptz default now()
 );
 
@@ -82,7 +83,7 @@ alter table public.time_entries enable row level security;
 alter table public.business_expenses enable row level security;
 alter table public.certifications enable row level security;
 
--- POLICIES (Sicure contro duplicati)
+-- POLICIES
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'manage_profiles') THEN
@@ -102,9 +103,12 @@ BEGIN
     END IF;
 END $$;
 
--- FIX COLONNE SE MANCANTI
+-- FIX COLONNE SE MANCANTI (MIGRATION)
 DO $$ 
 BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='time_entries' AND column_name='invoice_number') THEN
+    ALTER TABLE public.time_entries ADD COLUMN invoice_number text;
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='time_entries' AND column_name='activity_type_id') THEN
     ALTER TABLE public.time_entries ADD COLUMN activity_type_id uuid;
   END IF;
@@ -131,8 +135,8 @@ const DatabaseSetup = () => {
                     <div className="flex items-center gap-4">
                         <div className="bg-white/20 p-3 rounded-lg"><Database size={32} /></div>
                         <div>
-                            <h1 className="text-2xl font-bold uppercase tracking-tight">FluxLedger Setup V6</h1>
-                            <p className="opacity-90 text-xs">Transizione a Fasi di Progetto & Gestione Ritmi.</p>
+                            <h1 className="text-2xl font-bold uppercase tracking-tight">FluxLedger Repair V7</h1>
+                            <p className="opacity-90 text-xs">Aggiunta gestione Numerazione Fatture/Note.</p>
                         </div>
                     </div>
                 </div>
@@ -140,8 +144,8 @@ const DatabaseSetup = () => {
                     <div className="bg-amber-50 border-l-4 border-amber-500 p-4 flex gap-3">
                         <AlertTriangle className="text-amber-600 shrink-0" size={24}/>
                         <div>
-                            <p className="text-sm font-bold text-amber-800 tracking-tight">Manutenzione Necessaria</p>
-                            <p className="text-xs text-amber-700 leading-relaxed">Riccardo, copia il codice sotto, vai su <strong>Supabase {"→"} SQL Editor</strong>, incolla e premi <strong>RUN</strong>. Questo script abilita i "Ritmi" e rinomina la piattaforma in FluxLedger.</p>
+                            <p className="text-sm font-bold text-amber-800 tracking-tight">Migrazione Necessaria</p>
+                            <p className="text-xs text-amber-700 leading-relaxed">Copia lo script e premi <strong>RUN</strong> nell'SQL Editor di Supabase. Questo risolverà il problema del salvataggio del numero di fattura/nota di credito.</p>
                         </div>
                     </div>
                     <div className="relative">
@@ -151,7 +155,7 @@ const DatabaseSetup = () => {
                         <pre className="bg-slate-900 text-emerald-400 p-4 rounded-xl overflow-x-auto text-[10px] font-mono h-64 border-4 border-slate-100 shadow-inner"><code>{FULL_INIT_SCRIPT}</code></pre>
                     </div>
                     <button onClick={() => window.location.reload()} className="w-full bg-emerald-600 text-white py-4 rounded-xl font-black uppercase tracking-[0.2em] shadow-xl shadow-emerald-100 flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all active:scale-95">
-                        <RefreshCw size={20} /> Applica Modifiche FluxLedger
+                        <RefreshCw size={20} /> Applica & Ricarica
                     </button>
                 </div>
             </div>

@@ -104,16 +104,16 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
 
   // --- AZIONI ---
 
-  // Fix: Added handleExportCSV implementation to fix the missing name error
   const handleExportCSV = () => {
-    const headers = ["Data", "Cliente", "Descrizione", "Durata", "Importo", "Stato"];
+    const headers = ["Data", "Cliente", "Descrizione", "Durata", "Importo", "Stato", "Fattura"];
     const rows = filteredEntries.map(e => [
       new Date(e.startTime).toLocaleDateString(),
       projects.find(p => p.id === e.projectId)?.name || '',
       e.description || '',
       e.billingType === 'daily' ? '1 GG' : `${((e.duration || 0) / 3600).toFixed(1)}H`,
       calculateEarnings(e).toFixed(2),
-      e.is_paid ? 'Pagato' : 'Pendente'
+      e.is_paid ? 'Pagato' : 'Pendente',
+      e.invoice_number || '-'
     ]);
 
     const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
@@ -121,7 +121,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `export_${selectedYear}.csv`);
+    link.setAttribute("download", `export_fluxledger_${selectedYear}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -138,18 +138,29 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   };
 
   const handleMarkAsBilled = async () => {
-      if (selectedEntryIds.size === 0 || !invoiceNumber) return;
+      if (selectedEntryIds.size === 0) {
+          alert("Seleziona almeno un servizio.");
+          return;
+      }
+      if (!invoiceNumber.trim()) {
+          alert("Inserisci un numero di fattura o nota di credito.");
+          return;
+      }
       setIsProcessing(true);
       try {
-          await DB.markEntriesAsBilled([...selectedEntryIds], invoiceNumber);
+          await DB.markEntriesAsBilled([...selectedEntryIds], invoiceNumber.trim());
           setSelectedEntryIds(new Set());
           setInvoiceNumber('');
           if (onEntriesChange) await onEntriesChange();
-      } catch (e) { alert("Errore archiviazione"); } finally { setIsProcessing(false); }
+      } catch (e) { 
+          alert("Errore durante l'archiviazione. Verifica la connessione."); 
+      } finally { 
+          setIsProcessing(false); 
+      }
   };
 
   const handleMoveEntries = async () => {
-      const newNum = prompt("Inserisci il Numero Fattura di destinazione per i servizi selezionati:");
+      const newNum = prompt("Sposta i servizi selezionati nella Fattura / Nota n.:");
       if (!newNum || selectedEntryIds.size === 0) return;
       setIsProcessing(true);
       try {
@@ -171,10 +182,9 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   };
 
   const handleUnbillEntries = async () => {
-      if (!confirm(`Riportare i ${selectedEntryIds.size} servizi selezionati nello stato 'Da Fatturare'? verranno rimossi dall'archivio.`)) return;
+      if (!confirm(`Riportare i ${selectedEntryIds.size} servizi selezionati nello stato 'Da Fatturare'?`)) return;
       setIsProcessing(true);
       try {
-          // Usiamo null per rimuovere la fatturazione
           await DB.markEntriesAsBilled([...selectedEntryIds], undefined);
           setSelectedEntryIds(new Set());
           if (onEntriesChange) await onEntriesChange();
@@ -205,12 +215,12 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
            
            {selectedEntryIds.size > 0 && (
                <div className="animate-slide-up flex flex-wrap items-center gap-2 bg-indigo-900 text-white px-4 py-2 rounded-2xl shadow-2xl border border-indigo-700">
-                   <span className="text-[10px] font-black uppercase tracking-widest mr-2">{selectedEntryIds.size} Servizi Selezionati</span>
+                   <span className="text-[10px] font-black uppercase tracking-widest mr-2">{selectedEntryIds.size} Selezionati</span>
                    
                    {isArchiveView ? (
                        <div className="flex gap-2">
                            <button onClick={() => handleMarkPaid(true)} className="text-[10px] font-black bg-emerald-500 px-4 py-1.5 rounded-xl hover:bg-emerald-600 uppercase tracking-widest">Segna Incassati</button>
-                           <button onClick={handleMoveEntries} className="text-[10px] font-black bg-indigo-700 px-4 py-1.5 rounded-xl hover:bg-indigo-600 uppercase tracking-widest flex items-center gap-1.5"><MoveHorizontal size={14}/> Sposta in Fattura...</button>
+                           <button onClick={handleMoveEntries} className="text-[10px] font-black bg-indigo-700 px-4 py-1.5 rounded-xl hover:bg-indigo-600 uppercase tracking-widest flex items-center gap-1.5"><MoveHorizontal size={14}/> Sposta...</button>
                            <button onClick={handleUnbillEntries} className="text-[10px] font-black bg-red-500/20 text-red-300 px-4 py-1.5 rounded-xl hover:bg-red-500 hover:text-white uppercase tracking-widest flex items-center gap-1.5"><X size={14}/> Rimuovi</button>
                        </div>
                    ) : (
@@ -219,8 +229,8 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                <Hash className="absolute left-2.5 top-1/2 -translate-y-1/2 text-indigo-300" size={14} />
                                <input 
                                   type="text" 
-                                  placeholder="N. Fattura" 
-                                  className="pl-8 pr-4 py-1.5 bg-indigo-800 border border-indigo-700 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-white w-28 placeholder:text-indigo-400" 
+                                  placeholder="N. Fattura/Nota" 
+                                  className="pl-8 pr-4 py-1.5 bg-indigo-800 border border-indigo-700 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-white w-32 placeholder:text-indigo-400" 
                                   value={invoiceNumber}
                                   onChange={e => setInvoiceNumber(e.target.value)}
                                />
@@ -270,7 +280,6 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
           {isArchiveView ? (
               /* --- VISTA REGISTRO FATTURE --- */
               <div className="space-y-4">
-                  {/* Fix: Explicitly typed entries for Object.entries to resolve 'unknown' property issues in the map callback */}
                   {(Object.entries(groupedInvoices) as [string, TimeEntry[]][]).sort((a,b) => b[0].localeCompare(a[0])).map(([invNum, items]) => {
                       const invTotal = items.reduce((acc, i) => acc + calculateEarnings(i), 0);
                       const isExpanded = expandedInvoices.has(invNum);
@@ -279,7 +288,6 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
 
                       return (
                           <div key={invNum} className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden transition-all">
-                              {/* Header Fattura */}
                               <div className={`p-6 flex flex-wrap items-center justify-between gap-4 cursor-pointer hover:bg-slate-50/50 transition-colors ${isExpanded ? 'border-b border-slate-50' : ''}`} onClick={() => toggleInvoiceExpand(invNum)}>
                                   <div className="flex items-center gap-5">
                                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isFullyPaid ? 'bg-emerald-50 text-emerald-500' : 'bg-amber-50 text-amber-500'}`}>
@@ -287,7 +295,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                       </div>
                                       <div>
                                           <div className="flex items-center gap-3">
-                                              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Fattura n. {invNum}</h3>
+                                              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter">N. {invNum}</h3>
                                               <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border uppercase ${isFullyPaid ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>
                                                   {isFullyPaid ? 'Incassata' : 'In attesa'}
                                               </span>
@@ -302,20 +310,20 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                           <p className="text-xl font-black text-indigo-600 font-mono">{formatCurrency(invTotal)}</p>
                                       </div>
                                       <div className="flex items-center gap-2">
-                                          <button onClick={(e) => { e.stopPropagation(); handleRenameInvoice(invNum); }} className="p-2 text-slate-300 hover:text-indigo-600 transition-colors" title="Rinomina Fattura"><Pencil size={18}/></button>
+                                          <button onClick={(e) => { e.stopPropagation(); handleRenameInvoice(invNum); }} className="p-2 text-slate-300 hover:text-indigo-600 transition-colors" title="Rinomina"><Pencil size={18}/></button>
                                           {isExpanded ? <ChevronDownIcon size={20} className="text-slate-300" /> : <ChevronRight size={20} className="text-slate-300" />}
                                       </div>
                                   </div>
                               </div>
 
-                              {/* Dettaglio Servizi Fattura */}
                               {isExpanded && (
                                   <div className="p-2 bg-slate-50/30">
                                       <table className="w-full text-xs text-left">
                                           <thead className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
                                               <tr>
                                                   <th className="px-4 py-3 w-10">
-                                                      <button onClick={() => {
+                                                      <button onClick={(e) => {
+                                                          e.stopPropagation();
                                                           const allIds = items.map(i => i.id);
                                                           setSelectedEntryIds(prev => {
                                                               const n = new Set(prev);
@@ -334,11 +342,10 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                               </tr>
                                           </thead>
                                           <tbody className="divide-y divide-slate-100">
-                                              {/* Fix: items is correctly inferred as TimeEntry[] now due to type casting above */}
                                               {items.map(item => (
                                                   <tr key={item.id} className={`hover:bg-white transition-colors group ${selectedEntryIds.has(item.id) ? 'bg-indigo-50/50' : ''}`}>
                                                       <td className="px-4 py-3">
-                                                          <button onClick={() => setSelectedEntryIds(prev => { const n = new Set(prev); if(n.has(item.id)) n.delete(item.id); else n.add(item.id); return n; })} className={selectedEntryIds.has(item.id) ? 'text-indigo-600' : 'text-slate-200'}>
+                                                          <button onClick={(e) => { e.stopPropagation(); setSelectedEntryIds(prev => { const n = new Set(prev); if(n.has(item.id)) n.delete(item.id); else n.add(item.id); return n; })}} className={selectedEntryIds.has(item.id) ? 'text-indigo-600' : 'text-slate-200'}>
                                                               {selectedEntryIds.has(item.id) ? <CheckSquare size={18}/> : <Square size={18}/>}
                                                           </button>
                                                       </td>
@@ -347,7 +354,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                                       <td className="px-4 py-3 text-slate-500 italic truncate max-w-[200px]">{item.description}</td>
                                                       <td className="px-4 py-3 text-right font-black text-slate-900">{formatCurrency(calculateEarnings(item))}</td>
                                                       <td className="px-4 py-3 text-right">
-                                                           <div className={`inline-block w-2 h-2 rounded-full ${item.is_paid ? 'bg-emerald-500' : 'bg-amber-500'}`} title={item.is_paid ? 'Pagato' : 'Pendente'}></div>
+                                                           <div className={`inline-block w-2 h-2 rounded-full ${item.is_paid ? 'bg-emerald-500' : 'bg-amber-500'}`}></div>
                                                       </td>
                                                   </tr>
                                               ))}
@@ -408,7 +415,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                   return (
                                       <tr key={entry.id} className={`hover:bg-slate-50/50 transition-colors print:break-inside-avoid ${selectedEntryIds.has(entry.id) ? 'bg-indigo-50/30' : ''}`}>
                                           <td className="px-4 py-5 print:hidden">
-                                              <button onClick={() => setSelectedEntryIds(prev => { const n = new Set(prev); if(n.has(entry.id)) n.delete(entry.id); else n.add(entry.id); return n; })} className={selectedEntryIds.has(item.id) ? 'text-indigo-600' : 'text-slate-200'}>
+                                              <button onClick={() => setSelectedEntryIds(prev => { const n = new Set(prev); if(n.has(entry.id)) n.delete(entry.id); else n.add(entry.id); return n; })} className={selectedEntryIds.has(entry.id) ? 'text-indigo-600' : 'text-slate-200'}>
                                                   {selectedEntryIds.has(entry.id) ? <CheckSquare size={20}/> : <Square size={20}/>}
                                               </button>
                                           </td>
