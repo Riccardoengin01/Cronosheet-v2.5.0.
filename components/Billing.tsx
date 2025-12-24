@@ -94,7 +94,6 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       return groups;
   }, [filteredEntries, isArchiveView]);
 
-  // LOGICA TOTALI: Se ci sono elementi selezionati, calcola il totale solo per quelli. Altrimenti mostra il totale potenziale.
   const baseImponibile = useMemo(() => {
       const targetEntries = selectedEntryIds.size > 0 
         ? filteredEntries.filter(e => selectedEntryIds.has(e.id))
@@ -143,15 +142,16 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
 
   const handleMarkAsBilled = async () => {
       if (selectedEntryIds.size === 0) {
-          alert("Errore: Seleziona manualmente i servizi che vuoi archiviare cliccando sulle caselle.");
+          alert("Seleziona manualmente i servizi desiderati cliccando sulle caselle a sinistra.");
           return;
       }
       if (!invoiceNumber.trim()) {
-          alert("Inserisci un numero di riferimento (Fattura o Nota).");
+          alert("Inserisci un riferimento n. Fattura prima di archiviare.");
           return;
       }
       setIsProcessing(true);
       try {
+          // Archiviamo SOLO gli ID selezionati
           await DB.markEntriesAsBilled([...selectedEntryIds], invoiceNumber.trim());
           setSelectedEntryIds(new Set());
           setInvoiceNumber('');
@@ -161,12 +161,13 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
 
   const handleUnbillEntries = async () => {
       if (selectedEntryIds.size === 0) {
-          alert("Seleziona i servizi da rimuovere dall'archivio.");
+          alert("Seleziona i servizi specifici da rimuovere dall'archivio.");
           return;
       }
       if (!confirm(`Riportare i ${selectedEntryIds.size} servizi selezionati nello stato 'Da Fatturare'?`)) return;
       setIsProcessing(true);
       try {
+          // Ripristiniamo SOLO gli ID selezionati, scorporandoli dall'eventuale fattura
           await DB.markEntriesAsBilled([...selectedEntryIds], undefined);
           setSelectedEntryIds(new Set());
           if (onEntriesChange) await onEntriesChange();
@@ -201,7 +202,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                    {isArchiveView ? (
                        <div className="flex gap-2">
                            <button onClick={() => handleMarkPaid(true)} className="text-[10px] font-black bg-emerald-600 px-5 py-2 rounded-xl hover:bg-emerald-500 uppercase tracking-widest">Incassati</button>
-                           <button onClick={handleUnbillEntries} className="text-[10px] font-black bg-red-600/20 text-red-400 px-5 py-2 rounded-xl hover:bg-red-600 hover:text-white uppercase tracking-widest flex items-center gap-2"><Trash2 size={16}/> Rimuovi dall'Archivio</button>
+                           <button onClick={handleUnbillEntries} className="text-[10px] font-black bg-red-600/20 text-red-400 px-5 py-2 rounded-xl hover:bg-red-600 hover:text-white uppercase tracking-widest flex items-center gap-2"><Trash2 size={16}/> Rimuovi Selezionati</button>
                        </div>
                    ) : (
                        <div className="flex items-center gap-3">
@@ -216,7 +217,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                />
                            </div>
                            <button onClick={handleMarkAsBilled} disabled={isProcessing} className="text-[10px] font-black bg-white text-slate-900 px-5 py-2 rounded-xl hover:bg-indigo-50 uppercase tracking-widest">
-                                {isProcessing ? <Loader2 size={16} className="animate-spin" /> : "Archivia Ora"}
+                                {isProcessing ? <Loader2 size={16} className="animate-spin" /> : "Archivia Selezionati"}
                            </button>
                        </div>
                    )}
@@ -300,7 +301,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                   </div>
                                   <div className="flex items-center gap-10">
                                       <div className="text-right">
-                                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Totale</p>
+                                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Totale Documento</p>
                                           <p className="text-2xl font-black text-indigo-600 font-mono">{formatCurrency(invTotal)}</p>
                                       </div>
                                       {isExpanded ? <ChevronDownIcon size={24} className="text-slate-300" /> : <ChevronRight size={24} className="text-slate-300" />}
@@ -350,14 +351,14 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                       <div>
                           <h1 className="text-5xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-4 italic">Riepilogo Pro-Forma</h1>
                           <p className="text-indigo-600 font-black text-sm uppercase tracking-[0.3em] flex items-center gap-2">
-                             <Target size={18} /> Registro Analitico Commesse Professionali
+                             <Target size={18} /> Revisione Analitica Ledger • Engineer Riccardo Righini
                           </p>
                       </div>
                       <div className="text-left md:text-right">
                           <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">
-                            {selectedProjectIds.length === 1 ? projects.find(p => p.id === selectedProjectIds[0])?.name : 'Portfolio Clienti Combinato'}
+                            {selectedProjectIds.length === 1 ? projects.find(p => p.id === selectedProjectIds[0])?.name : 'Portfolio Professionale Combinato'}
                           </h3>
-                          <p className="text-slate-400 font-bold mt-2 text-base uppercase tracking-widest">Riferimento Fiscale {selectedYear}</p>
+                          <p className="text-slate-400 font-bold mt-2 text-base uppercase tracking-widest">Anno Fiscale {selectedYear}</p>
                       </div>
                   </div>
 
@@ -369,7 +370,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                       <button onClick={() => {
                                           if (selectedEntryIds.size === filteredEntries.length) setSelectedEntryIds(new Set());
                                           else setSelectedEntryIds(new Set(filteredEntries.map(e => e.id)));
-                                      }} className="text-slate-300 hover:text-indigo-600"><CheckSquare size={24}/></button>
+                                      }} className="text-slate-300 hover:text-indigo-600 cursor-pointer"><CheckSquare size={24}/></button>
                                   </th>
                                   <th className="px-6 py-6">DATA</th>
                                   <th className="px-6 py-6">CLIENTE</th>
@@ -430,7 +431,10 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       </div>
 
       <div className="pt-12 border-t border-slate-100 text-center no-print">
-          <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.6em]">Documento ad uso interno professionale • FluxLedger v1.6 • STUDIO ENGINEERING SYSTEMS</p>
+          <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.2em] leading-relaxed">
+              FluxLedger ERP • Protected Rights System • Developed by Engineer Riccardo Righini<br/>
+              © {new Date().getFullYear()} STUDIO ENGINEERING SYSTEMS • All Rights Reserved
+          </p>
       </div>
     </div>
   );
