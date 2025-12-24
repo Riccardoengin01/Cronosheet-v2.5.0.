@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Certification, UserProfile, CourseType } from '../types';
 import * as DB from '../services/db';
 import { generateId } from '../utils';
-import { Award, Plus, Calendar, Trash2, Pencil, Search, ShieldCheck, AlertTriangle, Clock, X, Save, Building, FileText, ExternalLink, Info, Upload, Loader2, Tag, ListFilter } from 'lucide-react';
+import { Award, Plus, Calendar, Trash2, Pencil, Search, ShieldCheck, AlertTriangle, Clock, X, Save, Building, FileText, ExternalLink, Info, Upload, Loader2, Tag, ListFilter, Eye, Maximize2 } from 'lucide-react';
 import { useLanguage } from '../lib/i18n';
 
 interface SecureTrainProps {
@@ -38,6 +38,7 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
     const [uploading, setUploading] = useState(false);
     
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [viewerUrl, setViewerUrl] = useState<string | null>(null);
     const [editCert, setEditCert] = useState<Certification | null>(null);
     const [courseType, setCourseType] = useState<CourseType>('CSP');
     const [customName, setCustomName] = useState('');
@@ -112,7 +113,6 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
             setIsModalOpen(false);
             fetchCerts();
         } else {
-            // Se c'è un errore, lo mostriamo chiaramente
             const errorMsg = result?.error || "Errore sconosciuto nel database.";
             alert(`ERRORE DI SALVATAGGIO: ${errorMsg}\n\nAssicurati di aver eseguito lo script SQL di ripristino.`);
         }
@@ -134,6 +134,11 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
             (c.details && c.details.toLowerCase().includes(searchTerm.toLowerCase()))
         );
     }, [certs, searchTerm]);
+
+    const isImage = (url: string) => {
+        const ext = url.split('?')[0].split('.').pop()?.toLowerCase();
+        return ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext || '');
+    };
 
     return (
         <div className="space-y-8 animate-fade-in max-w-6xl mx-auto">
@@ -212,14 +217,12 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
                                     </div>
                                     
                                     {cert.document_url ? (
-                                        <a 
-                                            href={cert.document_url} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
+                                        <button 
+                                            onClick={() => setViewerUrl(cert.document_url || null)}
                                             className="mt-6 w-full flex items-center justify-center gap-3 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-xl shadow-indigo-100"
                                         >
-                                            <FileText size={18} /> APRI PDF <ExternalLink size={14} />
-                                        </a>
+                                            <Eye size={18} /> VISUALIZZA TITOLO
+                                        </button>
                                     ) : (
                                         <div className="mt-6 w-full py-4 bg-slate-100 text-slate-400 rounded-2xl text-xs font-bold text-center border-2 border-dashed border-slate-200">
                                             NESSUN ALLEGATO
@@ -238,11 +241,55 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
                             </div>
                         );
                     })}
-                    {filteredCerts.length === 0 && (
-                        <div className="col-span-full py-20 text-center bg-white rounded-3xl border-2 border-dashed border-gray-100 text-gray-400 font-bold">
-                            Nessun certificato in archivio.
+                </div>
+            )}
+
+            {/* MODAL VIEWER INTEGRATO */}
+            {viewerUrl && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-xl animate-fade-in">
+                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden animate-slide-up">
+                        <div className="px-8 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-indigo-600 p-2 rounded-lg text-white">
+                                    <FileText size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="font-black text-slate-900 uppercase text-sm tracking-tight">Anteprima Documento</h3>
+                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Secure Cloud Storage</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <a 
+                                    href={viewerUrl} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="p-3 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-xl transition-all shadow-sm flex items-center gap-2 text-xs font-bold"
+                                    title="Apri a schermo intero"
+                                >
+                                    <Maximize2 size={18} /> Schermo Intero
+                                </a>
+                                <button 
+                                    onClick={() => setViewerUrl(null)} 
+                                    className="p-3 bg-red-50 text-red-500 hover:bg-red-100 rounded-xl transition-all shadow-sm"
+                                >
+                                    <X size={24} />
+                                </button>
+                            </div>
                         </div>
-                    )}
+                        <div className="flex-grow bg-slate-100 relative overflow-hidden">
+                            {isImage(viewerUrl) ? (
+                                <div className="w-full h-full flex items-center justify-center p-4">
+                                    <img src={viewerUrl} alt="Documento" className="max-w-full max-h-full object-contain shadow-2xl rounded-lg" />
+                                </div>
+                            ) : (
+                                <iframe 
+                                    src={viewerUrl} 
+                                    className="w-full h-full border-none"
+                                    title="PDF Viewer"
+                                />
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
 
