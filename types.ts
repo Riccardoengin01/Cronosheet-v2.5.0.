@@ -11,6 +11,7 @@ export interface Project {
   name: string;
   color: string;
   defaultHourlyRate: number; 
+  defaultBillingType?: 'hourly' | 'daily'; // Aggiunto: preferenza predefinita
   shifts?: Shift[];
   user_id?: string; 
 }
@@ -29,7 +30,7 @@ export interface TimeEntry {
   endTime: number | null; 
   duration: number;
   hourlyRate?: number;
-  billingType?: 'hourly' | 'daily'; // Aggiunto: hourly (default) o daily
+  billingType?: 'hourly' | 'daily';
   expenses?: Expense[];
   isNightShift?: boolean;
   user_id?: string;

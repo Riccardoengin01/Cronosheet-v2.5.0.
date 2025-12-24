@@ -15,35 +15,34 @@ const LOCAL_STORAGE_KEYS = {
 const getLocal = (key: string) => JSON.parse(localStorage.getItem(key) || '[]');
 const setLocal = (key: string, data: any) => localStorage.setItem(key, JSON.stringify(data));
 
-// DEFAULT THEME CONFIG
 export const DEFAULT_THEME: AppTheme = {
     trial: {
-        sidebarBg: '#0f172a', // slate-900
-        itemColor: '#94a3b8', // slate-400
-        activeBg: '#4f46e5', // indigo-600
+        sidebarBg: '#0f172a',
+        itemColor: '#94a3b8',
+        activeBg: '#4f46e5',
         activeText: '#ffffff',
-        accentColor: '#6366f1' // indigo-500
+        accentColor: '#6366f1'
     },
     pro: {
-        sidebarBg: '#1e1b4b', // indigo-950
-        itemColor: '#a5b4fc', // indigo-300
-        activeBg: '#4338ca', // indigo-700
+        sidebarBg: '#1e1b4b',
+        itemColor: '#a5b4fc',
+        activeBg: '#4338ca',
         activeText: '#ffffff',
-        accentColor: '#818cf8' // indigo-400
+        accentColor: '#818cf8'
     },
     elite: {
-        sidebarBg: '#0f172a', // slate-900
-        itemColor: '#cbd5e1', // slate-300
-        activeBg: '#d97706', // amber-600
+        sidebarBg: '#0f172a',
+        itemColor: '#cbd5e1',
+        activeBg: '#d97706',
         activeText: '#ffffff',
-        accentColor: '#f59e0b' // amber-500
+        accentColor: '#f59e0b'
     },
     admin: {
-        sidebarBg: '#020617', // slate-950
-        itemColor: '#94a3b8', // slate-400
-        activeBg: '#0f766e', // teal-700
+        sidebarBg: '#020617',
+        itemColor: '#94a3b8',
+        activeBg: '#0f766e',
         activeText: '#ffffff',
-        accentColor: '#14b8a6' // teal-500
+        accentColor: '#14b8a6'
     }
 };
 
@@ -54,9 +53,10 @@ export const getProjects = async (userId?: string): Promise<Project[]> => {
       await new Promise(r => setTimeout(r, MOCK_DELAY));
       const all = getLocal(LOCAL_STORAGE_KEYS.PROJECTS);
       if (all.length === 0) {
-          const defaults = [
-              { id: 'p1', user_id: userId, name: 'Demo Cliente A', color: COLORS[0], defaultHourlyRate: 20, shifts: [] },
-              { id: 'p2', user_id: userId, name: 'Demo Cantiere B', color: COLORS[2], defaultHourlyRate: 15, shifts: [] }
+          // Explicitly type the defaults array as Project[] to ensure defaultBillingType is treated as a literal
+          const defaults: Project[] = [
+              { id: 'p1', user_id: userId, name: 'Demo Cliente A', color: COLORS[0], defaultHourlyRate: 20, defaultBillingType: 'hourly', shifts: [] },
+              { id: 'p2', user_id: userId, name: 'Demo Cantiere B', color: COLORS[2], defaultHourlyRate: 15, defaultBillingType: 'daily', shifts: [] }
           ];
           setLocal(LOCAL_STORAGE_KEYS.PROJECTS, defaults);
           return defaults;
@@ -76,7 +76,8 @@ export const getProjects = async (userId?: string): Promise<Project[]> => {
 
   return data.map((p: any) => ({
     ...p,
-    defaultHourlyRate: p.default_hourly_rate
+    defaultHourlyRate: p.default_hourly_rate,
+    defaultBillingType: p.default_billing_type || 'hourly'
   }));
 };
 
@@ -98,6 +99,7 @@ export const saveProject = async (project: Project, userId: string): Promise<Pro
     name: project.name,
     color: project.color,
     default_hourly_rate: project.defaultHourlyRate,
+    default__billing_type: project.defaultBillingType || 'hourly',
     shifts: project.shifts
   };
 
@@ -114,7 +116,8 @@ export const saveProject = async (project: Project, userId: string): Promise<Pro
 
   return {
     ...data,
-    defaultHourlyRate: data.default_hourly_rate
+    defaultHourlyRate: data.default_hourly_rate,
+    defaultBillingType: data.default_billing_type
   };
 };
 
@@ -154,7 +157,7 @@ export const getEntries = async (userId?: string): Promise<TimeEntry[]> => {
     endTime: e.end_time ? parseInt(e.end_time) : null,
     duration: parseFloat(e.duration),
     hourlyRate: parseFloat(e.hourly_rate),
-    billingType: e.billing_type || 'hourly', // Mapping corretto
+    billingType: e.billing_type || 'hourly',
     expenses: e.expenses,
     isNightShift: e.is_night_shift,
     user_id: e.user_id,
@@ -183,7 +186,7 @@ export const saveEntry = async (entry: TimeEntry, userId: string): Promise<TimeE
     end_time: entry.endTime,
     duration: entry.duration,
     hourly_rate: entry.hourlyRate,
-    billing_type: entry.billingType || 'hourly', // Salvataggio campo nuovo
+    billing_type: entry.billingType || 'hourly',
     expenses: entry.expenses,
     is_night_shift: entry.isNightShift,
     is_billed: entry.is_billed || false
@@ -203,7 +206,6 @@ export const saveEntry = async (entry: TimeEntry, userId: string): Promise<TimeE
   return entry;
 };
 
-// Funzione Bulk per segnare come fatturato
 export const markEntriesAsBilled = async (entryIds: string[]) => {
     if (!entryIds || entryIds.length === 0) return;
 
@@ -225,12 +227,10 @@ export const markEntriesAsBilled = async (entryIds: string[]) => {
         .in('id', entryIds);
 
     if (error) {
-        console.error("Errore Supabase markEntriesAsBilled:", error);
         throw error;
     }
 };
 
-// Funzione Bulk per aggiornare la tariffa oraria
 export const updateEntriesRate = async (entryIds: string[], newRate: number) => {
     if (!entryIds || entryIds.length === 0) return;
 
@@ -254,30 +254,6 @@ export const updateEntriesRate = async (entryIds: string[], newRate: number) => 
     if (error) throw error;
 };
 
-// Funzione Bulk per ripristinare (opzionale, utile per rollback)
-export const markEntriesAsUnbilled = async (entryIds: string[]) => {
-    if (!entryIds || entryIds.length === 0) return;
-
-    if (!isSupabaseConfigured) {
-        const all = getLocal(LOCAL_STORAGE_KEYS.ENTRIES);
-        const updated = all.map((e: any) => {
-            if (entryIds.includes(e.id)) {
-                return { ...e, is_billed: false };
-            }
-            return e;
-        });
-        setLocal(LOCAL_STORAGE_KEYS.ENTRIES, updated);
-        return;
-    }
-
-    const { error } = await supabase
-        .from('time_entries')
-        .update({ is_billed: false })
-        .in('id', entryIds);
-
-    if (error) throw error;
-};
-
 export const deleteEntry = async (id: string) => {
   if (!isSupabaseConfigured) {
       const all = getLocal(LOCAL_STORAGE_KEYS.ENTRIES).filter((e: any) => e.id !== id);
@@ -287,8 +263,6 @@ export const deleteEntry = async (id: string) => {
   const { error } = await supabase.from('time_entries').delete().eq('id', id);
   if (error) console.error('Error deleting entry:', error);
 };
-
-// --- PROFILES / ADMIN ---
 
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
   if (!isSupabaseConfigured) {
@@ -349,13 +323,8 @@ export const createUserProfile = async (userId: string, email: string): Promise<
         .select()
         .single();
     
-    if (error) {
-        console.error("Error creating/upserting profile:", error);
-        return getUserProfile(userId);
-    }
-    
+    if (error) return getUserProfile(userId);
     if (data) return { ...data, billing_info: data.billing_info || {} };
-    
     return getUserProfile(userId);
 };
 
@@ -370,14 +339,11 @@ export const updateUserProfile = async (userId: string, updates: Partial<UserPro
         return;
     }
 
-    // SANITIZZAZIONE: Creiamo un oggetto pulito
     const dbUpdates: any = {};
     if (updates.full_name !== undefined) dbUpdates.full_name = updates.full_name;
     if (updates.billing_info !== undefined) dbUpdates.billing_info = updates.billing_info;
-    // IMPORTANTE: Questo assicura che false venga passato correttamente
     if (typeof updates.auto_renew === 'boolean') dbUpdates.auto_renew = updates.auto_renew;
 
-    // Se l'oggetto è vuoto, non fare nulla
     if (Object.keys(dbUpdates).length === 0) return;
 
     const { error } = await supabase
@@ -425,10 +391,7 @@ export const getAllProfiles = async (): Promise<UserProfile[]> => {
         return getLocal(LOCAL_STORAGE_KEYS.PROFILES);
     }
     const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-    if (error) {
-        console.error("Error fetching all profiles", error);
-        return [];
-    }
+    if (error) return [];
     return data.map((p: any) => ({
         ...p,
         billing_info: p.billing_info || {}
@@ -444,8 +407,6 @@ export const deleteUserAdmin = async (userId: string) => {
     const { error } = await supabase.from('profiles').delete().eq('id', userId);
     if (error) throw error;
 };
-
-// --- APP CONFIGURATION / THEMES ---
 
 export const getAppTheme = async (): Promise<AppTheme> => {
     if (!isSupabaseConfigured) {

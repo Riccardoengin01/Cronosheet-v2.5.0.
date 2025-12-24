@@ -51,7 +51,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
             .filter(e => new Date(e.startTime).getFullYear().toString() === selectedYear)
             .map(e => new Date(e.startTime).toISOString().slice(0, 7))
       );
-      return Array.from(months).sort().reverse();
+      return Array.from(months).sort().reverse() as string[];
   }, [entries, selectedYear]);
 
   const filteredEntries = useMemo(() => {
@@ -113,13 +113,14 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       );
   };
 
+  // Fixed toggleAllMonthsInYear to use explicit types for the functional update and avoid unknown[] inference
   const toggleAllMonthsInYear = () => {
       const allSelected = availableMonthsInYear.every(m => selectedMonths.includes(m));
       if (allSelected) {
-          setSelectedMonths(prev => prev.filter(m => !availableMonthsInYear.includes(m)));
+          setSelectedMonths((prev: string[]) => prev.filter(m => !availableMonthsInYear.includes(m)));
       } else {
-          const toAdd = availableMonthsInYear.filter(m => !selectedMonths.includes(m));
-          setSelectedMonths(prev => [...prev, ...toAdd]);
+          const toAdd: string[] = availableMonthsInYear.filter(m => !selectedMonths.includes(m));
+          setSelectedMonths((prev: string[]) => [...prev, ...toAdd]);
       }
   };
 
