@@ -1,4 +1,5 @@
 
+
 export interface Shift {
   id: string;
   name: string;
@@ -57,7 +58,7 @@ export interface TimeEntry {
   id: string;
   description: string; 
   projectId: string; 
-  activityTypeId?: string; // ID della fase/ritmo
+  activityTypeId?: string; 
   startTime: number;
   endTime: number | null; 
   duration: number;
@@ -68,6 +69,7 @@ export interface TimeEntry {
   user_id?: string;
   is_billed?: boolean; 
   is_paid?: boolean;
+  invoice_number?: string; // Nuova numerazione fattura
 }
 
 export interface DayGroup {
@@ -102,19 +104,21 @@ export interface UserProfile {
   billing_info?: BillingInfo;
 }
 
+// Added missing ThemeColors interface
 export interface ThemeColors {
-    sidebarBg: string;     
-    itemColor: string;     
-    activeBg: string;      
-    activeText: string;    
-    accentColor: string;   
+  sidebarBg: string;
+  itemColor: string;
+  activeBg: string;
+  activeText: string;
+  accentColor: string;
 }
 
+// Added missing AppTheme interface
 export interface AppTheme {
-    trial: ThemeColors;
-    pro: ThemeColors;
-    elite: ThemeColors;
-    admin: ThemeColors;
+  trial: ThemeColors;
+  pro: ThemeColors;
+  elite: ThemeColors;
+  admin: ThemeColors;
 }
 
 export enum AppView {

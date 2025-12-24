@@ -10,16 +10,13 @@ export const DEFAULT_THEME: AppTheme = {
     admin: { sidebarBg: '#020617', itemColor: '#64748b', activeBg: '#312e81', activeText: '#ffffff', accentColor: '#4f46e5' }
 };
 
-// --- BUSINESS EXPENSES ---
 export const getBusinessExpenses = async (userId: string): Promise<BusinessExpense[]> => {
     if (!isSupabaseConfigured) return [];
     try {
         const { data, error } = await supabase.from('business_expenses').select('*').eq('user_id', userId).order('date', { ascending: false });
         if (error) throw error;
         return data;
-    } catch (e) {
-        return [];
-    }
+    } catch (e) { return []; }
 };
 
 export const saveBusinessExpense = async (expense: BusinessExpense) => {
@@ -32,24 +29,6 @@ export const deleteBusinessExpense = async (id: string) => {
     await supabase.from('business_expenses').delete().eq('id', id);
 };
 
-// --- STORAGE ---
-export const uploadCertificate = async (file: File, userId: string): Promise<string | null> => {
-    if (!isSupabaseConfigured) return "https://placeholder.com/demo.pdf";
-    try {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${userId}/${generateId()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage
-            .from('certifications')
-            .upload(fileName, file, { cacheControl: '3600', upsert: true, contentType: file.type });
-        if (uploadError) return null;
-        const { data } = supabase.storage.from('certifications').getPublicUrl(fileName);
-        return data.publicUrl;
-    } catch (error) {
-        return null;
-    }
-};
-
-// --- CERTIFICATIONS ---
 export const getCertifications = async (userId: string): Promise<Certification[]> => {
     if (!isSupabaseConfigured) return [];
     try {
@@ -60,9 +39,7 @@ export const getCertifications = async (userId: string): Promise<Certification[]
             organization: c.organization, issueDate: c.issue_date, expiryDate: c.expiry_date,
             document_url: c.document_url, details: c.details
         }));
-    } catch (e) {
-        return [];
-    }
+    } catch (e) { return []; }
 };
 
 export const saveCertification = async (cert: Certification, userId: string): Promise<any> => {
@@ -82,9 +59,7 @@ export const saveCertification = async (cert: Certification, userId: string): Pr
         const { data, error } = await supabase.from('certifications').upsert(dbCert).select().single();
         if (error) return { error: error.message };
         return data;
-    } catch (e: any) {
-        return { error: e.message };
-    }
+    } catch (e: any) { return { error: e.message }; }
 };
 
 export const deleteCertification = async (id: string) => {
@@ -92,7 +67,6 @@ export const deleteCertification = async (id: string) => {
     await supabase.from('certifications').delete().eq('id', id);
 };
 
-// --- PROJECTS ---
 export const getProjects = async (userId: string) => {
     if (!isSupabaseConfigured) return [];
     try {
@@ -101,11 +75,9 @@ export const getProjects = async (userId: string) => {
         return data.map(p => ({
             id: p.id, user_id: p.user_id, name: p.name, color: p.color,
             defaultHourlyRate: p.default_hourly_rate, defaultBillingType: p.default_billing_type,
-            shifts: p.shifts
+            shifts: p.shifts, activityTypes: p.activity_types
         }));
-    } catch (e) {
-        return [];
-    }
+    } catch (e) { return []; }
 };
 
 export const saveProject = async (p: Project, userId: string) => {
@@ -117,7 +89,8 @@ export const saveProject = async (p: Project, userId: string) => {
         color: p.color,
         default_hourly_rate: p.defaultHourlyRate,
         default_billing_type: p.defaultBillingType,
-        shifts: p.shifts
+        shifts: p.shifts,
+        activity_types: p.activityTypes
     };
     await supabase.from('projects').upsert(dbP);
 };
@@ -127,7 +100,6 @@ export const deleteProject = async (id: string) => {
     await supabase.from('projects').delete().eq('id', id);
 };
 
-// --- TIME ENTRIES ---
 export const getEntries = async (userId: string) => {
     if (!isSupabaseConfigured) return [];
     try {
@@ -137,11 +109,10 @@ export const getEntries = async (userId: string) => {
             id: e.id, projectId: e.project_id, description: e.description,
             startTime: e.start_time, endTime: e.end_time, duration: e.duration,
             hourlyRate: e.hourly_rate, billingType: e.billing_type, expenses: e.expenses,
-            isNightShift: e.is_night_shift, is_billed: e.is_billed, is_paid: e.is_paid
+            isNightShift: e.is_night_shift, is_billed: e.is_billed, is_paid: e.is_paid,
+            invoice_number: e.invoice_number
         }));
-    } catch (e) {
-        return [];
-    }
+    } catch (e) { return []; }
 };
 
 export const saveEntry = async (e: TimeEntry, userId: string) => {
@@ -159,7 +130,8 @@ export const saveEntry = async (e: TimeEntry, userId: string) => {
         expenses: e.expenses,
         is_night_shift: e.isNightShift,
         is_billed: e.is_billed,
-        is_paid: e.is_paid
+        is_paid: e.is_paid,
+        invoice_number: e.invoice_number
     };
     const { error } = await supabase.from('time_entries').upsert(dbE);
     return !error;
@@ -170,9 +142,12 @@ export const deleteEntry = async (id: string) => {
     await supabase.from('time_entries').delete().eq('id', id);
 };
 
-export const markEntriesAsBilled = async (ids: string[]) => {
+export const markEntriesAsBilled = async (ids: string[], invoiceNumber?: string) => {
     if (!isSupabaseConfigured) return;
-    await supabase.from('time_entries').update({ is_billed: true }).in('id', ids);
+    await supabase.from('time_entries').update({ 
+        is_billed: true, 
+        invoice_number: invoiceNumber 
+    }).in('id', ids);
 };
 
 export const markEntriesAsPaid = async (ids: string[], status: boolean = true) => {
@@ -185,16 +160,13 @@ export const updateEntriesRate = async (ids: string[], rate: number) => {
     await supabase.from('time_entries').update({ hourly_rate: rate }).in('id', ids);
 };
 
-// --- PROFILES ---
 export const getUserProfile = async (id: string) => {
     if (!isSupabaseConfigured) return null;
     try {
         const { data, error } = await supabase.from('profiles').select('*').eq('id', id).single();
         if (error) return null;
         return data;
-    } catch (e) {
-        return null;
-    }
+    } catch (e) { return null; }
 };
 
 export const createUserProfile = async (id: string, email: string) => {
@@ -204,9 +176,7 @@ export const createUserProfile = async (id: string, email: string) => {
         const { data, error } = await supabase.from('profiles').upsert(p).select().single();
         if (error) return null; 
         return data;
-    } catch (e) {
-        return null;
-    }
+    } catch (e) { return null; }
 };
 
 export const getAllProfiles = async () => {
@@ -230,9 +200,7 @@ export const getAppTheme = async (): Promise<AppTheme> => {
     try {
         const { data } = await supabase.from('app_config').select('value').eq('key', 'theme').single();
         return (data?.value as AppTheme) || DEFAULT_THEME;
-    } catch (e) {
-        return DEFAULT_THEME;
-    }
+    } catch (e) { return DEFAULT_THEME; }
 };
 
 export const saveAppTheme = async (theme: AppTheme) => {
