@@ -2,9 +2,9 @@
 import React, { useState } from 'react';
 import { Database, Copy, Check, RefreshCw, AlertTriangle } from 'lucide-react';
 
-const FULL_INIT_SCRIPT = `-- 🚀 SCRIPT DI RIPRISTINO V5 (Fiscalità Trasparente & Fix Incassi)
+const FULL_INIT_SCRIPT = `-- 🚀 FLUXLEDGER PROFESSIONAL - SQL V6
 
--- 1. PROFILI (Idempotente)
+-- 1. PROFILI
 create table if not exists public.profiles (
   id uuid references auth.users on delete cascade not null primary key,
   email text,
@@ -17,7 +17,7 @@ create table if not exists public.profiles (
   created_at timestamptz default now()
 );
 
--- 2. PROGETTI / CLIENTI
+-- 2. PROGETTI / CLIENTI (Aggiunta activity_types)
 create table if not exists public.projects (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
@@ -26,14 +26,16 @@ create table if not exists public.projects (
   default_hourly_rate numeric(10,2) default 0,
   default_billing_type text default 'hourly',
   shifts jsonb default '[]',
+  activity_types jsonb default '[]',
   created_at timestamptz default now()
 );
 
--- 3. TIME ENTRIES (Controllo colonna is_paid)
+-- 3. TIME ENTRIES (Aggiunta activity_type_id)
 create table if not exists public.time_entries (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
   project_id uuid references public.projects(id) on delete cascade not null,
+  activity_type_id uuid,
   description text,
   start_time bigint not null,
   end_time bigint,
@@ -100,11 +102,14 @@ BEGIN
     END IF;
 END $$;
 
--- AGGIUNTA COLONNA IS_PAID SE MANCANTE
+-- FIX COLONNE SE MANCANTI
 DO $$ 
 BEGIN 
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='time_entries' AND column_name='is_paid') THEN
-    ALTER TABLE public.time_entries ADD COLUMN is_paid boolean DEFAULT false;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='time_entries' AND column_name='activity_type_id') THEN
+    ALTER TABLE public.time_entries ADD COLUMN activity_type_id uuid;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='projects' AND column_name='activity_types') THEN
+    ALTER TABLE public.projects ADD COLUMN activity_types jsonb DEFAULT '[]';
   END IF;
 END $$;
 
@@ -126,8 +131,8 @@ const DatabaseSetup = () => {
                     <div className="flex items-center gap-4">
                         <div className="bg-white/20 p-3 rounded-lg"><Database size={32} /></div>
                         <div>
-                            <h1 className="text-2xl font-bold uppercase tracking-tight">Database Ledger V5</h1>
-                            <p className="opacity-90 text-xs">Riparazione Incassi & Trasparenza Coefficiente 78%.</p>
+                            <h1 className="text-2xl font-bold uppercase tracking-tight">FluxLedger Setup V6</h1>
+                            <p className="opacity-90 text-xs">Transizione a Fasi di Progetto & Gestione Ritmi.</p>
                         </div>
                     </div>
                 </div>
@@ -136,7 +141,7 @@ const DatabaseSetup = () => {
                         <AlertTriangle className="text-amber-600 shrink-0" size={24}/>
                         <div>
                             <p className="text-sm font-bold text-amber-800 tracking-tight">Manutenzione Necessaria</p>
-                            <p className="text-xs text-amber-700 leading-relaxed">Riccardo, copia il codice sotto, vai su <strong>Supabase > SQL Editor</strong>, incolla e premi <strong>RUN</strong>. Questo script corregge gli errori di policy e abilita il tasto "Segna Incassato".</p>
+                            <p className="text-xs text-amber-700 leading-relaxed">Riccardo, copia il codice sotto, vai su <strong>Supabase {"→"} SQL Editor</strong>, incolla e premi <strong>RUN</strong>. Questo script abilita i "Ritmi" e rinomina la piattaforma in FluxLedger.</p>
                         </div>
                     </div>
                     <div className="relative">
@@ -146,7 +151,7 @@ const DatabaseSetup = () => {
                         <pre className="bg-slate-900 text-emerald-400 p-4 rounded-xl overflow-x-auto text-[10px] font-mono h-64 border-4 border-slate-100 shadow-inner"><code>{FULL_INIT_SCRIPT}</code></pre>
                     </div>
                     <button onClick={() => window.location.reload()} className="w-full bg-emerald-600 text-white py-4 rounded-xl font-black uppercase tracking-[0.2em] shadow-xl shadow-emerald-100 flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all active:scale-95">
-                        <RefreshCw size={20} /> Applica Modifiche App
+                        <RefreshCw size={20} /> Applica Modifiche FluxLedger
                     </button>
                 </div>
             </div>

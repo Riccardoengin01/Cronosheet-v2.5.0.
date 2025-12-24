@@ -30,7 +30,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
   const menuItems = [
     { id: AppView.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
     { id: AppView.TIMESHEET, label: t('menu.timesheet'), icon: Table2 },
-    { id: AppView.CLIENTS, label: t('menu.projects'), icon: Users },
+    { id: AppView.CLIENTS, label: 'Anagrafica & Ritmi', icon: Users },
     { id: AppView.EXPENSES, label: 'Spese Studio', icon: Wallet },
     { id: AppView.BILLING, label: t('menu.billing'), icon: Receipt },
     { id: AppView.ARCHIVE, label: t('billing.billed'), icon: Archive },
@@ -82,7 +82,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
             <ShieldCheck className="w-7 h-7" style={{ color: currentTheme.accentColor }} />
         </div>
         <div className="hidden lg:block ml-4 overflow-hidden">
-            <span className="font-black text-2xl tracking-tighter block leading-none text-white italic">Cronosheet</span>
+            <span className="font-black text-2xl tracking-tighter block leading-none text-white italic">FluxLedger</span>
             <span className="text-[10px] uppercase tracking-[0.2em] font-bold opacity-40 mt-1 block" style={{ color: currentTheme.itemColor }}>Professional ERP</span>
         </div>
       </div>

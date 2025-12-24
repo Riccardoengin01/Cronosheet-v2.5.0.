@@ -1,7 +1,8 @@
+
 {
-  "name": "Cronosheet",
-  "short_name": "Cronosheet",
-  "description": "Gestione Ore e Fatturazione AI per Professionisti",
+  "name": "FluxLedger Professional",
+  "short_name": "FluxLedger",
+  "description": "Professional Engineering Ledger & Activity Manager",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

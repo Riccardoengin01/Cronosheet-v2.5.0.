@@ -6,6 +6,11 @@ export interface Shift {
   endTime: string;
 }
 
+export interface ActivityType {
+  id: string;
+  name: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -13,6 +18,7 @@ export interface Project {
   defaultHourlyRate: number; 
   defaultBillingType?: 'hourly' | 'daily';
   shifts?: Shift[];
+  activityTypes?: ActivityType[]; // Ritmi/Fasi predefinite
   user_id?: string; 
 }
 
@@ -51,6 +57,7 @@ export interface TimeEntry {
   id: string;
   description: string; 
   projectId: string; 
+  activityTypeId?: string; // ID della fase/ritmo
   startTime: number;
   endTime: number | null; 
   duration: number;
@@ -60,7 +67,7 @@ export interface TimeEntry {
   isNightShift?: boolean;
   user_id?: string;
   is_billed?: boolean; 
-  is_paid?: boolean; // Nuova proprietà per contabilità per cassa
+  is_paid?: boolean;
 }
 
 export interface DayGroup {
