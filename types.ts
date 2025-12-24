@@ -22,7 +22,16 @@ export interface Expense {
   amount: number;
 }
 
-// Tipi di formazione secondo Accordo Stato Regioni
+export interface BusinessExpense {
+  id: string;
+  user_id: string;
+  description: string;
+  amount: number;
+  category: 'Software' | 'Ordine/Assicurazione' | 'Auto/Trasporti' | 'Studio/Utenze' | 'Altro';
+  date: string;
+  is_recurring: boolean;
+}
+
 export type CourseType = 'CSP' | 'CSE' | 'RSPP' | 'ASPP' | 'FIRST_AID' | 'FIRE_SAFETY' | 'WORKER' | 'PREPOSTO' | 'DIRIGENTE' | 'EQUIPMENT' | 'MANUAL';
 
 export interface Certification {
@@ -34,7 +43,7 @@ export interface Certification {
   issueDate: string;
   expiryDate: string;
   document_url?: string;
-  details?: string; // Moduli A,B,C o Livello Rischio o note libere
+  details?: string; 
   status?: 'active' | 'warning' | 'expired';
 }
 
@@ -107,6 +116,7 @@ export enum AppView {
   CLIENTS = 'CLIENTS', 
   BILLING = 'BILLING',
   ARCHIVE = 'ARCHIVE',
+  EXPENSES = 'EXPENSES',
   SECURE_TRAIN = 'SECURE_TRAIN',
   ADMIN_PANEL = 'ADMIN_PANEL', 
   SETTINGS = 'SETTINGS' 

@@ -1,6 +1,6 @@
 
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { Project, TimeEntry, UserProfile, AppTheme, Certification } from '../types';
+import { Project, TimeEntry, UserProfile, AppTheme, Certification, BusinessExpense } from '../types';
 import { generateId, COLORS } from '../utils';
 
 export const DEFAULT_THEME: AppTheme = {
@@ -10,31 +10,39 @@ export const DEFAULT_THEME: AppTheme = {
     admin: { sidebarBg: '#020617', itemColor: '#64748b', activeBg: '#312e81', activeText: '#ffffff', accentColor: '#4f46e5' }
 };
 
+// --- BUSINESS EXPENSES ---
+export const getBusinessExpenses = async (userId: string): Promise<BusinessExpense[]> => {
+    if (!isSupabaseConfigured) return [];
+    try {
+        const { data, error } = await supabase.from('business_expenses').select('*').eq('user_id', userId).order('date', { ascending: false });
+        if (error) throw error;
+        return data;
+    } catch (e) {
+        return [];
+    }
+};
+
+export const saveBusinessExpense = async (expense: BusinessExpense) => {
+    if (!isSupabaseConfigured) return;
+    await supabase.from('business_expenses').upsert(expense);
+};
+
+export const deleteBusinessExpense = async (id: string) => {
+    if (!isSupabaseConfigured) return;
+    await supabase.from('business_expenses').delete().eq('id', id);
+};
+
 // --- STORAGE ---
 export const uploadCertificate = async (file: File, userId: string): Promise<string | null> => {
     if (!isSupabaseConfigured) return "https://placeholder.com/demo.pdf";
-
     try {
         const fileExt = file.name.split('.').pop();
         const fileName = `${userId}/${generateId()}.${fileExt}`;
-        
         const { error: uploadError } = await supabase.storage
             .from('certifications')
-            .upload(fileName, file, { 
-                cacheControl: '3600', 
-                upsert: true,
-                contentType: file.type 
-            });
-
-        if (uploadError) {
-            console.error('ERRORE STORAGE:', uploadError.message);
-            return null;
-        }
-
-        const { data } = supabase.storage
-            .from('certifications')
-            .getPublicUrl(fileName);
-
+            .upload(fileName, file, { cacheControl: '3600', upsert: true, contentType: file.type });
+        if (uploadError) return null;
+        const { data } = supabase.storage.from('certifications').getPublicUrl(fileName);
         return data.publicUrl;
     } catch (error) {
         return null;
@@ -59,12 +67,8 @@ export const getCertifications = async (userId: string): Promise<Certification[]
 
 export const saveCertification = async (cert: Certification, userId: string): Promise<any> => {
     if (!isSupabaseConfigured) return cert;
-    
-    // Assicuriamoci che l'ID sia un UUID valido
-    const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
-
     const dbCert = {
-        id: isUuid(cert.id) ? cert.id : undefined,
+        id: cert.id.length > 20 ? cert.id : undefined,
         user_id: userId,
         name: cert.name,
         course_type: cert.course_type,
@@ -74,13 +78,9 @@ export const saveCertification = async (cert: Certification, userId: string): Pr
         document_url: cert.document_url || null,
         details: cert.details || null
     };
-
     try {
         const { data, error } = await supabase.from('certifications').upsert(dbCert).select().single();
-        if (error) {
-            console.error("DETTAGLI ERRORE DB:", error);
-            return { error: error.message };
-        }
+        if (error) return { error: error.message };
         return data;
     } catch (e: any) {
         return { error: e.message };
@@ -110,9 +110,8 @@ export const getProjects = async (userId: string) => {
 
 export const saveProject = async (p: Project, userId: string) => {
     if (!isSupabaseConfigured) return;
-    const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
     const dbP = {
-        id: isUuid(p.id) ? p.id : undefined,
+        id: p.id.length > 20 ? p.id : undefined,
         user_id: userId,
         name: p.name,
         color: p.color,
@@ -137,7 +136,7 @@ export const getEntries = async (userId: string) => {
         return data.map(e => ({
             id: e.id, projectId: e.project_id, description: e.description,
             startTime: e.start_time, endTime: e.end_time, duration: e.duration,
-            hourlyRate: e.hourly_rate, billingType: e.billing_type, expenses: e.expenses,
+            hourlyRate: e.hourly_rate, billing_type: e.billing_type, expenses: e.expenses,
             isNightShift: e.is_night_shift, is_billed: e.is_billed
         }));
     } catch (e) {
@@ -147,9 +146,8 @@ export const getEntries = async (userId: string) => {
 
 export const saveEntry = async (e: TimeEntry, userId: string) => {
     if (!isSupabaseConfigured) return;
-    const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
     const dbE = {
-        id: isUuid(e.id) ? e.id : undefined,
+        id: e.id.length > 20 ? e.id : undefined,
         user_id: userId,
         project_id: e.projectId,
         description: e.description,

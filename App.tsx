@@ -15,6 +15,7 @@ import DatabaseSetup from './components/DatabaseSetup';
 import Timer from './components/Timer';
 import AIAssistant from './components/AIAssistant';
 import SecureTrain from './components/SecureTrain';
+import BusinessExpenses from './components/BusinessExpenses';
 import * as DB from './services/db';
 import { generateId } from './utils';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
@@ -58,48 +59,31 @@ function App() {
 
   useEffect(() => {
     if (!isSupabaseConfigured || demoMode) return;
-
     supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-            fetchUserProfile(session.user);
-        } else {
-            setLoadingAuth(false);
-        }
+        if (session) fetchUserProfile(session.user);
+        else setLoadingAuth(false);
     });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (session) {
-            fetchUserProfile(session.user);
-        } else {
-            setProfile(null);
-            setLoadingAuth(false);
-        }
+        if (session) fetchUserProfile(session.user);
+        else { setProfile(null); setLoadingAuth(false); }
     });
-
     return () => subscription.unsubscribe();
   }, [demoMode]);
 
   const fetchUserProfile = async (user: { id: string, email?: string }) => {
       setDbError(null);
       let p = await DB.getUserProfile(user.id);
-      
       if (!p && user.email) {
-          // Se non esiste, proviamo a crearlo
           const newProfile = await DB.createUserProfile(user.id, user.email);
-          if (!newProfile) {
-              setDbError("Impossibile creare il profilo nel database. Verifica di aver eseguito lo Script SQL nel Pannello Setup.");
-          }
+          if (!newProfile) setDbError("Errore Database.");
           p = newProfile;
       }
-      
       setProfile(p as UserProfile);
       setLoadingAuth(false);
   };
 
   useEffect(() => {
-      if (profile && profile.is_approved) {
-          fetchData(profile.id);
-      }
+      if (profile && profile.is_approved) fetchData(profile.id);
   }, [profile]);
 
   const fetchData = async (userId: string) => {
@@ -118,11 +102,7 @@ function App() {
   };
 
   const handleLogout = async () => {
-      if (demoMode) {
-          setDemoMode(false);
-          setProfile(null);
-          return;
-      }
+      if (demoMode) { setDemoMode(false); setProfile(null); return; }
       await supabase.auth.signOut();
       setProfile(null);
       setView(AppView.DASHBOARD);
@@ -148,11 +128,8 @@ function App() {
   const handleSaveEntry = async (entry: TimeEntry) => {
     if (profile) {
         const success = await DB.saveEntry(entry, profile.id);
-        if (success) {
-            fetchData(profile.id);
-        } else {
-            alert("Errore nel salvataggio. Controlla il Setup del Database.");
-        }
+        if (success) fetchData(profile.id);
+        else alert("Errore salvataggio.");
     }
   };
 
@@ -188,10 +165,7 @@ function App() {
   };
 
   const handleSaveProject = async (project: Project) => {
-      if (profile) {
-          await DB.saveProject(project, profile.id);
-          fetchData(profile.id);
-      }
+      if (profile) { await DB.saveProject(project, profile.id); fetchData(profile.id); }
   };
 
   const handleDeleteProject = async (id: string) => {
@@ -202,9 +176,7 @@ function App() {
   };
 
   const renderContent = () => {
-    if (loadingData) {
-        return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-indigo-500" size={32} /></div>;
-    }
+    if (loadingData) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-indigo-500" size={32} /></div>;
 
     switch (view) {
       case AppView.DASHBOARD:
@@ -217,27 +189,12 @@ function App() {
                     <h1 className="text-4xl font-black text-gray-900 tracking-tight">{t('menu.timesheet')}</h1>
                     <p className="text-gray-500 font-medium">Monitora le tue ore e attività in tempo reale.</p>
                 </div>
-                <button 
-                    onClick={handleManualEntryClick}
-                    className="flex items-center justify-center gap-2 text-base font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-6 py-3 rounded-2xl transition-all shadow-xl shadow-indigo-200 active:scale-95"
-                >
+                <button onClick={handleManualEntryClick} className="flex items-center justify-center gap-2 text-base font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-6 py-3 rounded-2xl transition-all shadow-xl shadow-indigo-200 active:scale-95">
                     <Plus size={20} strokeWidth={3} /> {t('app.add_service')}
                 </button>
              </div>
-             
-             <Timer 
-               projects={projects} 
-               activeEntry={activeEntry} 
-               onStart={handleStartTimer} 
-               onStop={handleStopTimer} 
-             />
-
-             <TimeLogTable 
-               entries={entries} 
-               projects={projects} 
-               onDelete={handleDeleteEntry} 
-               onEdit={(e) => { setEditingEntry(e); setIsModalOpen(true); }} 
-             />
+             <Timer projects={projects} activeEntry={activeEntry} onStart={handleStartTimer} onStop={handleStopTimer} />
+             <TimeLogTable entries={entries} projects={projects} onDelete={handleDeleteEntry} onEdit={(e) => { setEditingEntry(e); setIsModalOpen(true); }} />
           </div>
         );
       case AppView.CLIENTS:
@@ -258,6 +215,8 @@ function App() {
         );
       case AppView.SECURE_TRAIN:
           return profile ? <SecureTrain user={profile} /> : null;
+      case AppView.EXPENSES:
+          return profile ? <BusinessExpenses user={profile} /> : null;
       case AppView.ADMIN_PANEL:
           return <AdminPanel />;
       case AppView.SETTINGS:
@@ -267,72 +226,20 @@ function App() {
     }
   };
 
-  if (loadingAuth) {
-      return (
-          <div className="h-screen w-screen flex flex-col items-center justify-center bg-gray-50">
-              <div className="relative">
-                  <div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
-                  <div className="absolute inset-0 flex items-center justify-center text-indigo-600 font-bold text-xs uppercase">
-                      CS
-                  </div>
-              </div>
-              <p className="text-gray-400 font-bold mt-6 tracking-widest text-xs uppercase">{t('app.loading')}</p>
-          </div>
-      );
-  }
+  if (loadingAuth) return <div className="h-screen w-screen flex flex-col items-center justify-center bg-gray-50"><div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div></div>;
 
-  // Se c'è un errore del database o il profilo non è nel DB
-  if (dbError || (isSupabaseConfigured && !profile && !loadingAuth)) {
-      return (
-          <div className="h-screen w-screen flex flex-col">
-              <div className="bg-red-50 p-4 text-red-800 text-center text-sm font-bold border-b border-red-200 flex items-center justify-center gap-2">
-                  <AlertTriangle size={18} /> {dbError || "Configurazione Database non completata."}
-              </div>
-              <DatabaseSetup />
-          </div>
-      );
-  }
+  if (dbError || (isSupabaseConfigured && !profile && !loadingAuth)) return <div className="h-screen w-screen flex flex-col"><DatabaseSetup /></div>;
 
-  if (!isSupabaseConfigured && !demoMode) {
-      return (
-          <div className="h-screen w-screen flex flex-col">
-              <div className="bg-amber-50 p-4 text-amber-800 text-center text-sm font-medium border-b border-amber-200">
-                  ⚠️ Database Cloud non configurato. <button onClick={() => setDemoMode(true)} className="underline font-bold">Prova la Demo Locale</button>
-              </div>
-              <DatabaseSetup />
-          </div>
-      );
-  }
+  if (!isSupabaseConfigured && !demoMode) return <div className="h-screen w-screen flex flex-col"><DatabaseSetup /></div>;
 
-  if (!profile) {
-      return (
-          <div className="relative">
-             {demoMode && (
-                 <div className="fixed top-0 left-0 w-full bg-indigo-600 text-white text-[10px] font-bold text-center py-1 z-50">
-                     MODALITÀ DEMO ATTIVA
-                 </div>
-             )}
-             <Auth onLoginSuccess={(p) => setProfile(p)} />
-          </div>
-      );
-  }
+  if (!profile) return <Auth onLoginSuccess={(p) => setProfile(p)} />;
 
   return (
-    <div className="flex h-screen bg-white md:bg-gray-50/30 overflow-hidden font-sans">
+    <div className="flex h-screen bg-white md:bg-gray-50/30 overflow-hidden font-sans text-slate-900 antialiased">
       <Sidebar currentView={view} onChangeView={setView} userProfile={profile} />
       <main className="flex-1 overflow-y-auto relative scroll-smooth bg-gray-50/50">
-          <div className="absolute top-0 left-0 w-full h-40 bg-gradient-to-b from-indigo-50/30 to-transparent pointer-events-none"></div>
-          {demoMode && (
-              <div className="bg-indigo-600 text-white text-[10px] font-bold text-center py-1 no-print relative z-50">
-                  STAI USANDO LA VERSIONE DEMO - I DATI VERRANNO PERSI AL REFRESH
-              </div>
-          )}
           <div className="absolute top-4 right-4 z-50 flex items-center gap-4 no-print">
-               <button 
-                 onClick={handleLogout} 
-                 className="bg-white/80 backdrop-blur-md p-2.5 rounded-xl shadow-sm text-gray-400 hover:text-red-500 hover:bg-white transition-all border border-gray-100" 
-                 title="Disconnetti"
-               >
+               <button onClick={handleLogout} className="bg-white/80 backdrop-blur-md p-2.5 rounded-xl shadow-sm text-gray-400 hover:text-red-500 hover:bg-white transition-all border border-gray-100">
                    <LogOut size={20} />
                </button>
           </div>
@@ -340,13 +247,7 @@ function App() {
             {renderContent()}
         </div>
       </main>
-      <EntryModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSave={handleSaveEntry} 
-        initialEntry={editingEntry} 
-        projects={projects} 
-      />
+      <EntryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveEntry} initialEntry={editingEntry} projects={projects} />
     </div>
   );
 }
