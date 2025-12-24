@@ -2,8 +2,28 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Project, TimeEntry, UserProfile, AppView } from '../types';
 import { formatCurrency, formatDuration, calculateEarnings, formatTime } from '../utils';
-// Added Clock to the lucide-react imports to fix the "Cannot find name 'Clock'" error.
-import { Printer, Calendar, Clock, CheckSquare, Square, MapPin, ChevronDown, Archive, Check, Pencil, X, Settings2, ListFilter, Download, ToggleRight, ToggleLeft, Loader2, Receipt, Wallet, Banknote } from 'lucide-react';
+import { 
+  Printer, 
+  Calendar, 
+  Clock, 
+  CheckSquare, 
+  Square, 
+  MapPin, 
+  ChevronDown, 
+  Archive, 
+  Check, 
+  Pencil, 
+  X, 
+  Settings2, 
+  ListFilter, 
+  Download, 
+  ToggleRight, 
+  ToggleLeft, 
+  Loader2, 
+  Receipt, 
+  Wallet, 
+  Banknote 
+} from 'lucide-react';
 import * as DB from '../services/db';
 import { useLanguage } from '../lib/i18n';
 
@@ -38,7 +58,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   const clientDropdownRef = useRef<HTMLDivElement>(null);
 
   const availableYears = useMemo(() => {
-      const years = new Set(entries.map(e => new Date(e.startTime).getFullYear().toString()));
+      const years = new Set((entries || []).map(e => new Date(e.startTime).getFullYear().toString()));
       const sorted = Array.from(years).sort().reverse();
       const current = new Date().getFullYear().toString();
       if (!sorted.includes(current)) sorted.unshift(current);
@@ -47,7 +67,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
 
   const availableMonthsInYear = useMemo<string[]>(() => {
       const monthsSet = new Set<string>();
-      entries.forEach(e => {
+      (entries || []).forEach(e => {
           const d = new Date(e.startTime);
           if (d.getFullYear().toString() === selectedYear) {
               monthsSet.add(d.toISOString().slice(0, 7));
@@ -57,7 +77,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   }, [entries, selectedYear]);
 
   const filteredEntries = useMemo(() => {
-    return entries.filter(e => {
+    return (entries || []).filter(e => {
         const entryIsBilled = !!e.is_billed;
         if (!isArchive && entryIsBilled) return false;
         if (isArchive && !entryIsBilled) return false;
@@ -214,7 +234,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.setAttribute("href", url);
-      link.setAttribute("download", `export_cronosheet_${selectedYear}.csv`);
+      link.setAttribute("download", `export_fluxledger_${selectedYear}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -237,7 +257,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
            
            {selectedEntryIds.size > 0 && (
                <div className="animate-slide-up flex flex-wrap items-center gap-2 bg-indigo-50 border border-indigo-100 px-4 py-2 rounded-2xl shadow-sm">
-                   <span className="text-xs font-black text-indigo-800 uppercase tracking-widest">{selectedEntryIds.size} {t('billing.selected')}</span>
+                   <span className="text-xs font-black text-indigo-800 uppercase tracking-widest">{selectedEntryIds.size} Selezionati</span>
                    {isArchive ? (
                        <div className="flex gap-2">
                            <button onClick={() => handleMarkAsPaid(true)} className="text-xs font-black bg-emerald-600 text-white px-4 py-1.5 rounded-xl hover:bg-emerald-700 flex items-center gap-1.5 uppercase tracking-widest shadow-lg shadow-emerald-100">
@@ -329,11 +349,11 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
         <div className="lg:col-span-1 border-t lg:border-t-0 lg:border-l border-gray-100 pt-8 lg:pt-0 lg:pl-8 flex flex-col justify-center">
             <div className="bg-slate-900 text-white p-6 rounded-[2rem] w-full mb-6 shadow-xl relative overflow-hidden">
                 <div className="absolute right-0 bottom-0 opacity-10 -mr-4 -mb-4"><Receipt size={100} /></div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-1">Totale {isArchive ? 'Visualizzato' : 'Documento'}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-1">Totale Documento</p>
                 <p className="text-3xl font-black">{formatCurrency(isArchive ? baseTotalAmount : grandTotalAmount)}</p>
                 {isArchive && (
                     <p className="text-[10px] font-bold text-emerald-400 mt-2 uppercase tracking-tighter">
-                        Incassato: {formatCurrency(filteredEntries.filter(e => e.is_paid).reduce((acc, e) => acc + calculateEarnings(e), 0))}
+                        Saldo Pagato: {formatCurrency(filteredEntries.filter(e => e.is_paid).reduce((acc, e) => acc + calculateEarnings(e), 0))}
                     </p>
                 )}
             </div>
@@ -352,15 +372,15 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
           <div className="border-b-4 border-slate-900 pb-10 mb-10 flex flex-col md:flex-row justify-between items-start gap-6">
               <div>
                   <h1 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-3">
-                      {isArchive ? 'Libro Incassi' : 'Riepilogo Servizi'}
+                      {isArchive ? 'Libro Incassi' : 'Riepilogo Prestazioni'}
                   </h1>
-                  <p className="text-indigo-600 font-black text-xs uppercase tracking-[0.2em]">Registro Prestazioni Professionali d'Ingegneria</p>
+                  <p className="text-indigo-600 font-black text-xs uppercase tracking-[0.2em]">Registro Analitico Commesse Professionali</p>
               </div>
               <div className="text-left md:text-right">
                   <h3 className="text-xl font-black text-slate-900 uppercase">
-                    {selectedProjectIds.length === 1 ? projects.find(p => p.id === selectedProjectIds[0])?.name : 'Contabilità Cumulativa'}
+                    {selectedProjectIds.length === 1 ? projects.find(p => p.id === selectedProjectIds[0])?.name : 'Consolidato Commesse'}
                   </h3>
-                  <p className="text-slate-500 font-bold capitalize mt-1 text-sm">Periodo: {periodString}</p>
+                  <p className="text-slate-500 font-bold capitalize mt-1 text-sm">Riferimento: {periodString}</p>
               </div>
           </div>
 
@@ -374,9 +394,9 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                               </button>
                           </th>
                           <th className="px-4 py-5">DATA</th>
-                          <th className="px-4 py-5">DESCRIZIONE</th>
-                          <th className="px-4 py-5 text-center">UNITÀ</th>
-                          <th className="px-4 py-5 text-center">TARIFFA</th>
+                          <th className="px-4 py-5">DESCRIZIONE / COMMESSA</th>
+                          <th className="px-4 py-5 text-center">QUANTITÀ</th>
+                          <th className="px-4 py-5 text-center">PREZZO UNIT.</th>
                           <th className="px-4 py-5 text-right">TOTALE</th>
                           {isArchive && <th className="px-4 py-5 text-right print:hidden">STATO</th>}
                       </tr>
@@ -434,7 +454,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                       {filteredEntries.length === 0 && (
                           <tr>
                               <td colSpan={isArchive ? 7 : 6} className="px-4 py-16 text-center text-slate-300 font-bold italic text-lg">
-                                  Nessun servizio nel periodo selezionato.
+                                  Nessun dato corrispondente ai filtri.
                               </td>
                           </tr>
                       )}
@@ -446,20 +466,20 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
             <div className="mt-16 border-t-2 border-slate-100 pt-10 flex justify-end">
                 <div className="w-full md:w-1/2 lg:w-2/5 space-y-4">
                     <div className="flex justify-between text-slate-400 text-[10px] font-black tracking-widest uppercase">
-                        <span>IMPONIBILE SERVIZI:</span>
+                        <span>IMPONIBILE PRESTAZIONI:</span>
                         <span className="font-mono text-slate-900 text-base">{formatCurrency(baseTotalAmount)}</span>
                     </div>
                     
                     {!isArchive && applyBollo && (
                         <div className="flex justify-between text-slate-400 text-[10px] font-black tracking-widest uppercase">
-                            <span className="italic normal-case font-bold">Imposta di Bollo (D.P.R. 642/72):</span>
+                            <span className="italic font-bold">Imposta di Bollo:</span>
                             <span className="font-mono text-slate-900">{formatCurrency(bolloAmount)}</span>
                         </div>
                     )}
 
                     {!isArchive && applyInarcassa && (
                         <div className="flex justify-between text-slate-400 text-[10px] font-black tracking-widest uppercase">
-                            <span className="italic normal-case font-bold">Contributo Integrativo Inarcassa (4%):</span>
+                            <span className="italic font-bold">Integrativo Inarcassa (4%):</span>
                             <span className="font-mono text-slate-900">{formatCurrency(cassaAmount)}</span>
                         </div>
                     )}
@@ -468,20 +488,13 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                         <span className="tracking-tighter">TOTALE:</span>
                         <span className="text-indigo-600">{formatCurrency(isArchive ? baseTotalAmount : grandTotalAmount)}</span>
                     </div>
-                    
-                    {isArchive && (
-                        <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 mt-4 flex justify-between items-center">
-                            <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Saldo Incassato Reale:</span>
-                            <span className="text-xl font-black text-emerald-600">{formatCurrency(filteredEntries.filter(e => e.is_paid).reduce((acc, e) => acc + calculateEarnings(e), 0))}</span>
-                        </div>
-                    )}
                 </div>
             </div>
           )}
 
           <div className="mt-20 text-center text-[8px] font-bold text-slate-300 border-t border-dashed border-slate-100 pt-8 flex justify-between uppercase tracking-widest">
-              <span>Secure Professional Ledger System</span>
-              <span>© {new Date().getFullYear()} Engineer Riccardo Righini</span>
+              <span>FluxLedger Certified Management</span>
+              <span>Proprietà Tecnica: Riccardo Righini</span>
           </div>
       </div>
     </div>
