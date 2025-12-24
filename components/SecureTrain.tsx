@@ -87,7 +87,7 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
         if (url) {
             setDocUrl(url);
         } else {
-            alert("Errore caricamento. Controlla di aver creato il bucket 'certifications' e impostato le policy (v. schermata Database Setup).");
+            alert("Errore caricamento fisico del file. Controlla lo Storage Bucket.");
         }
         setUploading(false);
     };
@@ -105,12 +105,16 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
             document_url: docUrl,
             details: details
         };
-        const res = await DB.saveCertification(cert, user.id);
-        if (res) {
+
+        const result = await DB.saveCertification(cert, user.id);
+        
+        if (result && !result.error) {
             setIsModalOpen(false);
             fetchCerts();
         } else {
-            alert("Errore nel salvataggio del database.");
+            // Se c'è un errore, lo mostriamo chiaramente
+            const errorMsg = result?.error || "Errore sconosciuto nel database.";
+            alert(`ERRORE DI SALVATAGGIO: ${errorMsg}\n\nAssicurati di aver eseguito lo script SQL di ripristino.`);
         }
     };
 
@@ -153,7 +157,7 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                     <input 
                         type="text" 
-                        placeholder="Cerca per corso, livello (Basso/Medio/Alto) o modulo (A/B/C)..." 
+                        placeholder="Cerca per corso, livello o ente..." 
                         className="w-full pl-12 pr-4 py-3 border border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50/50 font-medium"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
@@ -180,10 +184,9 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
                                         </div>
                                     </div>
 
-                                    {/* DETTAGLIO LIVELLO/MODULO: Reso GIGANTE e visibile subito */}
                                     <div className="mb-3">
                                         {cert.details ? (
-                                            <div className="flex items-center gap-2 text-white bg-indigo-600 px-4 py-2 rounded-xl w-fit text-xs font-black uppercase shadow-lg shadow-indigo-100 ring-2 ring-indigo-50 animate-pulse-slow">
+                                            <div className="flex items-center gap-2 text-white bg-indigo-600 px-4 py-2 rounded-xl w-fit text-xs font-black uppercase shadow-lg shadow-indigo-100 ring-2 ring-indigo-50">
                                                 <Tag size={14} strokeWidth={3} /> {cert.details}
                                             </div>
                                         ) : (
@@ -215,7 +218,7 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
                                             rel="noopener noreferrer"
                                             className="mt-6 w-full flex items-center justify-center gap-3 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-xl shadow-indigo-100"
                                         >
-                                            <FileText size={18} /> SCARICA PDF <ExternalLink size={14} />
+                                            <FileText size={18} /> APRI PDF <ExternalLink size={14} />
                                         </a>
                                     ) : (
                                         <div className="mt-6 w-full py-4 bg-slate-100 text-slate-400 rounded-2xl text-xs font-bold text-center border-2 border-dashed border-slate-200">
@@ -235,6 +238,11 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
                             </div>
                         );
                     })}
+                    {filteredCerts.length === 0 && (
+                        <div className="col-span-full py-20 text-center bg-white rounded-3xl border-2 border-dashed border-gray-100 text-gray-400 font-bold">
+                            Nessun certificato in archivio.
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -306,19 +314,6 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
                                         />
                                     </div>
                                 )}
-
-                                {courseType !== 'FIRE_SAFETY' && courseType !== 'RSPP' && courseType !== 'ASPP' && (
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-indigo-400 uppercase mb-3">Annotazioni Tecniche</label>
-                                        <input 
-                                            type="text" 
-                                            placeholder="Dettagli aggiuntivi opzionali..."
-                                            className="w-full px-5 py-4 bg-white border border-indigo-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-sm"
-                                            value={details}
-                                            onChange={e => setDetails(e.target.value)}
-                                        />
-                                    </div>
-                                )}
                             </div>
 
                             <div>
@@ -347,6 +342,7 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
                                     </label>
                                     {docUrl && <button type="button" onClick={() => setDocUrl('')} className="p-5 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100"><X size={20}/></button>}
                                 </div>
+                                {uploading && <p className="text-[10px] text-indigo-600 font-bold text-center mt-2">Caricamento sul server in corso...</p>}
                             </div>
 
                             <div className="flex justify-end gap-4 pt-10">

@@ -20,10 +20,14 @@ export const uploadCertificate = async (file: File, userId: string): Promise<str
         
         const { error: uploadError } = await supabase.storage
             .from('certifications')
-            .upload(fileName, file, { cacheControl: '3600', upsert: true });
+            .upload(fileName, file, { 
+                cacheControl: '3600', 
+                upsert: true,
+                contentType: file.type 
+            });
 
         if (uploadError) {
-            console.error('ERRORE STORAGE SUPABASE:', uploadError.message, uploadError);
+            console.error('ERRORE STORAGE:', uploadError.message);
             return null;
         }
 
@@ -33,7 +37,6 @@ export const uploadCertificate = async (file: File, userId: string): Promise<str
 
         return data.publicUrl;
     } catch (error) {
-        console.error('ECCEZIONE UPLOAD:', error);
         return null;
     }
 };
@@ -50,37 +53,37 @@ export const getCertifications = async (userId: string): Promise<Certification[]
             document_url: c.document_url, details: c.details
         }));
     } catch (e) {
-        console.error("Errore Fetch Certificati:", e);
         return [];
     }
 };
 
-export const saveCertification = async (cert: Certification, userId: string) => {
+export const saveCertification = async (cert: Certification, userId: string): Promise<any> => {
     if (!isSupabaseConfigured) return cert;
     
-    // Pulizia ID per assicurare UUID validi in Supabase
+    // Assicuriamoci che l'ID sia un UUID valido
+    const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+
     const dbCert = {
-        id: cert.id.length > 30 ? cert.id : undefined,
+        id: isUuid(cert.id) ? cert.id : undefined,
         user_id: userId,
         name: cert.name,
         course_type: cert.course_type,
         organization: cert.organization,
-        issue_date: cert.issueDate,
-        expiry_date: cert.expiryDate,
-        document_url: cert.document_url,
-        details: cert.details
+        issue_date: cert.issueDate || null,
+        expiry_date: cert.expiryDate || null,
+        document_url: cert.document_url || null,
+        details: cert.details || null
     };
 
     try {
         const { data, error } = await supabase.from('certifications').upsert(dbCert).select().single();
         if (error) {
-            console.error("ERRORE DATABASE CERTIFICATO:", error.message, error.details);
-            return null;
+            console.error("DETTAGLI ERRORE DB:", error);
+            return { error: error.message };
         }
         return data;
-    } catch (e) {
-        console.error("Eccezione Save Cert:", e);
-        return null;
+    } catch (e: any) {
+        return { error: e.message };
     }
 };
 
@@ -101,15 +104,15 @@ export const getProjects = async (userId: string) => {
             shifts: p.shifts
         }));
     } catch (e) {
-        console.error("Errore Fetch Progetti:", e);
         return [];
     }
 };
 
 export const saveProject = async (p: Project, userId: string) => {
     if (!isSupabaseConfigured) return;
+    const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
     const dbP = {
-        id: p.id.length > 30 ? p.id : undefined,
+        id: isUuid(p.id) ? p.id : undefined,
         user_id: userId,
         name: p.name,
         color: p.color,
@@ -117,8 +120,7 @@ export const saveProject = async (p: Project, userId: string) => {
         default_billing_type: p.defaultBillingType,
         shifts: p.shifts
     };
-    const { error } = await supabase.from('projects').upsert(dbP);
-    if (error) console.error("Errore Save Project:", error.message);
+    await supabase.from('projects').upsert(dbP);
 };
 
 export const deleteProject = async (id: string) => {
@@ -145,8 +147,9 @@ export const getEntries = async (userId: string) => {
 
 export const saveEntry = async (e: TimeEntry, userId: string) => {
     if (!isSupabaseConfigured) return;
+    const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
     const dbE = {
-        id: e.id.length > 30 ? e.id : undefined,
+        id: isUuid(e.id) ? e.id : undefined,
         user_id: userId,
         project_id: e.projectId,
         description: e.description,
@@ -160,11 +163,7 @@ export const saveEntry = async (e: TimeEntry, userId: string) => {
         is_billed: e.is_billed
     };
     const { error } = await supabase.from('time_entries').upsert(dbE);
-    if (error) {
-        console.error("ERRORE SALVATAGGIO ORA:", error.message, error.details);
-        return null;
-    }
-    return true;
+    return !error;
 };
 
 export const deleteEntry = async (id: string) => {
@@ -199,13 +198,10 @@ export const createUserProfile = async (id: string, email: string) => {
     if (!isSupabaseConfigured) return p;
     try {
         const { data, error } = await supabase.from('profiles').upsert(p).select().single();
-        if (error) {
-            console.error("ERRORE CREAZIONE PROFILO:", error.message);
-            return p;
-        }
+        if (error) return null; 
         return data;
     } catch (e) {
-        return p;
+        return null;
     }
 };
 

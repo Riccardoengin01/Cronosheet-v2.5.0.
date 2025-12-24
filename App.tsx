@@ -18,13 +18,14 @@ import SecureTrain from './components/SecureTrain';
 import * as DB from './services/db';
 import { generateId } from './utils';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
-import { Plus, LogOut, Loader2 } from 'lucide-react';
+import { Plus, LogOut, Loader2, AlertTriangle } from 'lucide-react';
 import { useLanguage } from './lib/i18n';
 
 function App() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
+  const [dbError, setDbError] = useState<string | null>(null);
   const { t } = useLanguage();
 
   const [view, setView] = useState<AppView>(AppView.DASHBOARD);
@@ -49,7 +50,7 @@ function App() {
       const demoId = 'demo-user-1';
       const p = await DB.createUserProfile(demoId, 'demo@cronosheet.com');
       if (p) {
-          setProfile(p);
+          setProfile(p as UserProfile);
           fetchData(p.id);
       }
       setLoadingAuth(false);
@@ -79,11 +80,19 @@ function App() {
   }, [demoMode]);
 
   const fetchUserProfile = async (user: { id: string, email?: string }) => {
+      setDbError(null);
       let p = await DB.getUserProfile(user.id);
+      
       if (!p && user.email) {
-          p = await DB.createUserProfile(user.id, user.email);
+          // Se non esiste, proviamo a crearlo
+          const newProfile = await DB.createUserProfile(user.id, user.email);
+          if (!newProfile) {
+              setDbError("Impossibile creare il profilo nel database. Verifica di aver eseguito lo Script SQL nel Pannello Setup.");
+          }
+          p = newProfile;
       }
-      setProfile(p);
+      
+      setProfile(p as UserProfile);
       setLoadingAuth(false);
   };
 
@@ -138,8 +147,12 @@ function App() {
 
   const handleSaveEntry = async (entry: TimeEntry) => {
     if (profile) {
-        await DB.saveEntry(entry, profile.id);
-        fetchData(profile.id);
+        const success = await DB.saveEntry(entry, profile.id);
+        if (success) {
+            fetchData(profile.id);
+        } else {
+            alert("Errore nel salvataggio. Controlla il Setup del Database.");
+        }
     }
   };
 
@@ -264,6 +277,18 @@ function App() {
                   </div>
               </div>
               <p className="text-gray-400 font-bold mt-6 tracking-widest text-xs uppercase">{t('app.loading')}</p>
+          </div>
+      );
+  }
+
+  // Se c'è un errore del database o il profilo non è nel DB
+  if (dbError || (isSupabaseConfigured && !profile && !loadingAuth)) {
+      return (
+          <div className="h-screen w-screen flex flex-col">
+              <div className="bg-red-50 p-4 text-red-800 text-center text-sm font-bold border-b border-red-200 flex items-center justify-center gap-2">
+                  <AlertTriangle size={18} /> {dbError || "Configurazione Database non completata."}
+              </div>
+              <DatabaseSetup />
           </div>
       );
   }
