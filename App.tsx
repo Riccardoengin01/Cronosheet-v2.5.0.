@@ -12,14 +12,13 @@ import AdminPanel from './components/AdminPanel';
 import UserSettings from './components/UserSettings';
 import Auth from './components/Auth';
 import DatabaseSetup from './components/DatabaseSetup'; 
-import Timer from './components/Timer';
 import AIAssistant from './components/AIAssistant';
 import SecureTrain from './components/SecureTrain';
 import BusinessExpenses from './components/BusinessExpenses';
 import * as DB from './services/db';
 import { generateId } from './utils';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
-import { Plus, LogOut, Loader2, AlertTriangle, Clock } from 'lucide-react';
+import { Plus, LogOut, Loader2, AlertTriangle } from 'lucide-react';
 import { useLanguage } from './lib/i18n';
 
 function App() {
@@ -33,11 +32,9 @@ function App() {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingData, setLoadingData] = useState(false);
-  const [showTimer, setShowTimer] = useState(false);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | undefined>(undefined);
-  const [activeEntry, setActiveEntry] = useState<TimeEntry | undefined>(undefined);
 
   useEffect(() => {
     if (!isSupabaseConfigured && !demoMode) {
@@ -93,10 +90,6 @@ function App() {
           const [p, e] = await Promise.all([DB.getProjects(userId), DB.getEntries(userId)]);
           setProjects(p);
           setEntries(e);
-          const running = e.find(entry => entry.endTime === null);
-          setActiveEntry(running);
-          // Se c'è un timer attivo, mostralo automaticamente
-          if (running) setShowTimer(true);
       } catch (err) {
           console.error("Error fetching data:", err);
       } finally {
@@ -131,39 +124,12 @@ function App() {
   const handleSaveEntry = async (entry: TimeEntry) => {
     if (profile) {
         const success = await DB.saveEntry(entry, profile.id);
-        if (success) fetchData(profile.id);
-        else alert("Errore salvataggio.");
-    }
-  };
-
-  const handleStartTimer = async (description: string, projectId: string) => {
-    if (profile) {
-      const newEntry: TimeEntry = {
-        id: generateId(),
-        description,
-        projectId,
-        startTime: Date.now(),
-        endTime: null,
-        duration: 0,
-        hourlyRate: projects.find(p => p.id === projectId)?.defaultHourlyRate || 0,
-        billingType: projects.find(p => p.id === projectId)?.defaultBillingType || 'hourly',
-        user_id: profile.id
-      };
-      await DB.saveEntry(newEntry, profile.id);
-      fetchData(profile.id);
-    }
-  };
-
-  const handleStopTimer = async () => {
-    if (profile && activeEntry) {
-      const endTime = Date.now();
-      const updatedEntry = {
-        ...activeEntry,
-        endTime,
-        duration: (endTime - activeEntry.startTime) / 1000
-      };
-      await DB.saveEntry(updatedEntry, profile.id);
-      fetchData(profile.id);
+        if (success) {
+            fetchData(profile.id);
+            setIsModalOpen(false);
+        } else {
+            alert("Errore nel salvataggio. Assicurati di aver eseguito lo script SQL Repair V7 per aggiornare le colonne del database.");
+        }
     }
   };
 
@@ -186,33 +152,16 @@ function App() {
         return <Dashboard entries={entries} projects={projects} userProfile={profile} onViewChange={setView} />;
       case AppView.TIMESHEET:
         return (
-          <div className="space-y-8 animate-fade-in max-w-5xl mx-auto">
-             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+          <div className="space-y-10 animate-fade-in max-w-5xl mx-auto">
+             <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100">
                 <div>
-                    <h1 className="text-4xl font-black text-gray-900 tracking-tight uppercase">Ingresso Dati</h1>
-                    <p className="text-gray-400 font-bold text-xs uppercase tracking-widest mt-1">Registra le tue prestazioni professionali</p>
+                    <h1 className="text-5xl font-black text-gray-900 tracking-tighter uppercase leading-none italic">Registro Prestazioni</h1>
+                    <p className="text-indigo-600 font-black text-sm uppercase tracking-[0.3em] mt-3">Compilazione analitica ledger professionale</p>
                 </div>
-                <div className="flex gap-4">
-                  <button 
-                    onClick={() => setShowTimer(!showTimer)} 
-                    className={`flex items-center justify-center gap-2 text-xs font-black px-6 py-3 rounded-2xl transition-all border ${showTimer ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-white text-slate-400 border-slate-200 hover:border-indigo-200'}`}
-                  >
-                      <Clock size={18} /> {showTimer ? "Chiudi Timer" : "Usa Cronometro"}
-                  </button>
-                  <button onClick={handleManualEntryClick} className="flex-1 md:flex-none flex items-center justify-center gap-2 text-xs font-black text-white bg-slate-900 hover:bg-indigo-600 px-8 py-4 rounded-2xl transition-all shadow-xl shadow-slate-200 active:scale-95 uppercase tracking-widest">
-                      <Plus size={20} strokeWidth={3} /> {t('app.add_service')}
-                  </button>
-                </div>
+                <button onClick={handleManualEntryClick} className="flex-1 md:flex-none flex items-center justify-center gap-3 text-sm font-black text-white bg-slate-900 hover:bg-indigo-600 px-10 py-5 rounded-[2rem] transition-all shadow-2xl active:scale-95 uppercase tracking-widest">
+                    <Plus size={24} strokeWidth={3} /> {t('app.add_service')}
+                </button>
              </div>
-
-             {showTimer && (
-               <div className="animate-slide-down">
-                 <div className="flex items-center gap-2 mb-2 px-2">
-                    <span className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em]">Tracking in tempo reale</span>
-                 </div>
-                 <Timer projects={projects} activeEntry={activeEntry} onStart={handleStartTimer} onStop={handleStopTimer} />
-               </div>
-             )}
 
              <TimeLogTable entries={entries} projects={projects} onDelete={handleDeleteEntry} onEdit={(e) => { setEditingEntry(e); setIsModalOpen(true); }} />
           </div>
