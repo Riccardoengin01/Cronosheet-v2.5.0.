@@ -3,20 +3,20 @@ import { TimeEntry, Project } from "../types";
 import { formatDurationHuman, formatDate } from "../utils";
 
 const getAI = () => {
-    // Supporto doppio per compatibilità massima (Vercel/Vite)
-    const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_GOOGLE_API_KEY;
+    // Fix: The API key must be obtained exclusively from the environment variable process.env.API_KEY
+    const apiKey = process.env.API_KEY;
     
     if (!apiKey) {
-        console.error("API Key (VITE_GOOGLE_API_KEY) not found in environment variables.");
+        console.error("API Key (process.env.API_KEY) not found in environment variables.");
         return null;
     }
-    // Nota: Passiamo apiKey esplicitamente anche se la libreria potrebbe cercarla in process.env
+    // Fix: Using correct initialization with named parameter
     return new GoogleGenAI({ apiKey });
 }
 
 export const analyzeTimeData = async (entries: TimeEntry[], projects: Project[]) => {
     const ai = getAI();
-    if (!ai) return "Errore Configurazione: Manca la Chiave API di Google (VITE_GOOGLE_API_KEY). Controlla le impostazioni di Vercel.";
+    if (!ai) return "Errore Configurazione: Manca la Chiave API di Google (process.env.API_KEY).";
 
     // Prepare data summary
     const projectMap = new Map(projects.map(p => [p.id, p.name]));
@@ -45,10 +45,12 @@ export const analyzeTimeData = async (entries: TimeEntry[], projects: Project[])
     `;
 
     try {
+        // Fix: Switched to gemini-3-flash-preview for basic text tasks
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview',
             contents: prompt,
         });
+        // Fix: response.text is a property, not a method
         return response.text;
     } catch (error) {
         console.error("Gemini API Error:", error);
@@ -69,10 +71,12 @@ export const categorizeTask = async (description: string, projects: Project[]): 
     `;
 
     try {
+        // Fix: Switched to gemini-3-flash-preview for basic text tasks
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview',
             contents: prompt,
         });
+        // Fix: response.text is a property, not a method
         const suggestedName = response.text?.trim();
         const project = projects.find(p => p.name.toLowerCase() === suggestedName?.toLowerCase());
         return project ? project.id : null;

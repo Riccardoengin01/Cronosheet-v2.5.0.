@@ -1,6 +1,7 @@
+
 import React, { useEffect, useState } from 'react';
 import { AppView, UserProfile, AppTheme } from '../types';
-import { Table2, PieChart, ShieldCheck, Users, Receipt, Shield, Github, Crown, Star, Clock, ChevronRight, UserCog, Globe } from 'lucide-react';
+import { Table2, PieChart, ShieldCheck, Users, Receipt, Shield, Github, Crown, Star, Clock, ChevronRight, UserCog, Globe, Archive } from 'lucide-react';
 import * as DB from '../services/db';
 import { useLanguage } from '../lib/i18n';
 
@@ -14,15 +15,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
   const [theme, setTheme] = useState<AppTheme>(DB.DEFAULT_THEME);
   const { t, language, setLanguage } = useLanguage();
   
-  // Load Theme on Mount
   useEffect(() => {
       DB.getAppTheme().then(setTheme);
   }, []);
 
-  // Determine current theme colors based on user status
   const currentTheme = React.useMemo(() => {
       if (!userProfile) return theme.trial;
-      
       if (userProfile.role === 'admin') return theme.admin;
       if (userProfile.subscription_status === 'elite') return theme.elite;
       if (userProfile.subscription_status === 'pro') return theme.pro;
@@ -33,6 +31,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
     { id: AppView.TIMESHEET, label: t('menu.timesheet'), icon: Table2 },
     { id: AppView.CLIENTS, label: t('menu.projects'), icon: Users },
     { id: AppView.BILLING, label: t('menu.billing'), icon: Receipt },
+    { id: AppView.ARCHIVE, label: t('billing.billed'), icon: Archive },
     { id: AppView.REPORTS, label: t('menu.reports'), icon: PieChart },
     { id: AppView.SETTINGS, label: t('menu.profile'), icon: UserCog },
   ];
@@ -51,10 +50,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
 
   const renderUserStatus = () => {
       if (!userProfile) return null;
-      
-      // Style text based on theme for consistency (simplified white/light for dark backgrounds)
       const textColor = 'text-white/80';
-
       if (userProfile.subscription_status === 'elite') {
           return (
               <div className="flex items-center gap-2 mt-1" style={{ color: currentTheme.accentColor }}>
@@ -63,11 +59,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
               </div>
           );
       }
-      
       if (userProfile.subscription_status === 'pro') {
           const renewDate = new Date(userProfile.trial_ends_at).toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US');
           const isAutoRenew = userProfile.auto_renew !== false; 
-          
           return (
               <div className="mt-1">
                   <div className="flex items-center gap-2" style={{ color: currentTheme.accentColor }}>
@@ -83,12 +77,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
               </div>
           );
       }
-
       const isExpired = daysLeft < 0;
       const daysText = language === 'it' 
         ? (isExpired ? `Scaduto da ${Math.abs(daysLeft)} gg` : `${daysLeft} giorni rimanenti`)
         : (isExpired ? `Expired by ${Math.abs(daysLeft)} days` : `${daysLeft} days left`);
-
       return (
           <div className="mt-1">
              <div className={`flex items-center gap-2 ${isExpired ? 'text-red-400' : ''}`} style={!isExpired ? { color: currentTheme.accentColor } : {}}>
@@ -107,10 +99,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
         className="w-20 lg:w-72 flex flex-col h-full transition-all duration-300 shadow-xl z-20 print:hidden relative overflow-hidden"
         style={{ backgroundColor: currentTheme.sidebarBg }}
     >
-      {/* Background Accent Top */}
       <div className="absolute top-0 left-0 w-full h-1" style={{ background: `linear-gradient(90deg, ${currentTheme.activeBg}, ${currentTheme.accentColor})` }}></div>
-      
-      {/* Header */}
       <div className="h-20 flex items-center justify-center lg:justify-start lg:px-6 border-b border-white/10 bg-black/10 backdrop-blur-sm">
         <div className="p-2 rounded-lg shrink-0" style={{ backgroundColor: `${currentTheme.accentColor}20` }}>
             <ShieldCheck className="w-8 h-8" style={{ color: currentTheme.accentColor }} />
@@ -120,12 +109,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
             <span className="text-[10px] uppercase tracking-widest font-semibold block" style={{ color: currentTheme.itemColor }}>SaaS Platform</span>
         </div>
       </div>
-
-      {/* Navigation */}
       <nav className="flex-1 py-6 space-y-1 px-3 overflow-y-auto custom-scrollbar">
         <div className="hidden lg:flex justify-between items-center px-4 mb-2">
             <p className="text-xs font-bold uppercase tracking-wider" style={{ color: currentTheme.itemColor, opacity: 0.7 }}>Menu</p>
-            {/* Language Switcher */}
             <button 
                 onClick={() => setLanguage(language === 'it' ? 'en' : 'it')}
                 className="text-[10px] font-bold uppercase px-2 py-0.5 rounded border border-white/10 hover:bg-white/10 transition-colors flex items-center gap-1"
@@ -135,7 +121,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
                 {language === 'it' ? 'IT' : 'EN'}
             </button>
         </div>
-
         {menuItems.map(item => {
           const isActive = currentView === item.id;
           return (
@@ -162,10 +147,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
             >
               <item.icon 
                 className="w-5 h-5 transition-colors" 
-                style={{ color: isActive ? currentTheme.activeText : (undefined) }} 
               />
               <span className="hidden lg:block ml-3 font-medium text-sm">{item.label}</span>
-              
               {isActive && (
                  <ChevronRight className="hidden lg:block ml-auto w-4 h-4 opacity-50" />
               )}
@@ -173,10 +156,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
           );
         })}
       </nav>
-
-      {/* User Info Card */}
       <div className="p-4 border-t border-white/10 bg-black/20 space-y-3">
-        
         <div className="rounded-xl p-4 hidden lg:block border border-white/5 bg-white/5 hover:bg-white/10 transition-colors group cursor-default">
             <div className="flex items-center gap-3 mb-3">
                 <div 
@@ -199,8 +179,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
                 {renderUserStatus()}
             </div>
         </div>
-
-        {/* Mobile Icon */}
         <div className="lg:hidden flex flex-col items-center gap-4">
              <div 
                 className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
@@ -208,41 +186,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
              >
                 {userProfile?.email.charAt(0).toUpperCase()}
              </div>
-             <button 
-                onClick={() => setLanguage(language === 'it' ? 'en' : 'it')}
-                className="text-[10px] font-bold uppercase p-1 rounded border border-white/10 hover:bg-white/10 transition-colors"
-                style={{ color: currentTheme.itemColor }}
-             >
-                {language === 'it' ? 'IT' : 'EN'}
-            </button>
         </div>
-        
-        {/* Footer Links & Version */}
-        <div className="flex flex-col gap-2">
-            <div className="flex justify-center lg:justify-between items-center px-1">
-                <p className="hidden lg:block text-[10px]" style={{ color: currentTheme.itemColor }}>{t('version')}</p>
-                <a 
-                    href="https://github.com/Riccardoengin01/Cronosheet" 
-                    target="_blank" 
-                    rel="noreferrer"
-                    className="transition-colors hover:text-white"
-                    style={{ color: currentTheme.itemColor }}
-                >
-                    <Github size={16} />
-                </a>
-            </div>
-        </div>
-
-        {/* COPYRIGHT FOOTER PROFESSIONAL */}
         <div className="hidden lg:block pt-4 mt-2 border-t border-white/10 text-left">
             <p className="text-[10px] font-medium leading-tight mb-1" style={{ color: currentTheme.itemColor, opacity: 0.6 }}>
                 © {new Date().getFullYear()} Ing. Riccardo Righini
             </p>
-            <p className="text-[9px] uppercase tracking-wide opacity-40" style={{ color: currentTheme.itemColor }}>
-                {t('copyright')}
-            </p>
         </div>
-
       </div>
     </aside>
   );

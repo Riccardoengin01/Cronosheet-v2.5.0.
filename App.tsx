@@ -30,7 +30,6 @@ function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | undefined>(undefined);
 
-  // Inizializzazione Demo o Configurazione Supabase
   useEffect(() => {
     if (!isSupabaseConfigured && !demoMode) {
         setLoadingAuth(false);
@@ -50,7 +49,6 @@ function App() {
       setLoadingAuth(false);
   };
 
-  // Listener Autenticazione Supabase
   useEffect(() => {
     if (!isSupabaseConfigured || demoMode) return;
 
@@ -177,7 +175,8 @@ function App() {
       case AppView.CLIENTS:
           return <ManageClients projects={projects} onSave={handleSaveProject} onDelete={handleDeleteProject} />;
       case AppView.BILLING:
-          return <Billing entries={entries} projects={projects} userProfile={profile} onEntriesChange={() => profile && fetchData(profile.id)} />;
+      case AppView.ARCHIVE:
+          return <Billing entries={entries} projects={projects} userProfile={profile} onEntriesChange={() => profile && fetchData(profile.id)} view={view} />;
       case AppView.REPORTS:
         return <Reports entries={entries} projects={projects} />;
       case AppView.ADMIN_PANEL:
@@ -189,7 +188,6 @@ function App() {
     }
   };
 
-  // 1. Schermata di Caricamento Iniziale
   if (loadingAuth) {
       return (
           <div className="h-screen w-screen flex flex-col items-center justify-center bg-gray-50">
@@ -199,7 +197,6 @@ function App() {
       );
   }
 
-  // 2. Schermata Setup se Supabase non è configurato e non siamo in Demo
   if (!isSupabaseConfigured && !demoMode) {
       return (
           <div className="h-screen w-screen flex flex-col">
@@ -211,7 +208,6 @@ function App() {
       );
   }
 
-  // 3. Schermata Login se non c'è un profilo
   if (!profile) {
       return (
           <div className="relative">
@@ -225,7 +221,6 @@ function App() {
       );
   }
 
-  // 4. App Principale
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
       <Sidebar currentView={view} onChangeView={setView} userProfile={profile} />

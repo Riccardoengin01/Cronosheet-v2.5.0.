@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, DollarSign, Clock, Calendar } from 'lucide-react';
+import { X, Plus, Trash2, DollarSign, Clock, Calendar, ToggleLeft, ToggleRight, ListChecks } from 'lucide-react';
 import { Project, TimeEntry, Expense } from '../types';
 import { generateId } from '../utils';
 import { useLanguage } from '../lib/i18n';
@@ -16,14 +17,14 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
   const { t } = useLanguage();
   const [description, setDescription] = useState('');
   const [projectId, setProjectId] = useState('');
-  const [dateStr, setDateStr] = useState(''); // YYYY-MM-DD
-  const [startTimeStr, setStartTimeStr] = useState(''); // HH:mm
-  const [endTimeStr, setEndTimeStr] = useState(''); // HH:mm
+  const [dateStr, setDateStr] = useState(''); 
+  const [startTimeStr, setStartTimeStr] = useState(''); 
+  const [endTimeStr, setEndTimeStr] = useState(''); 
   const [hourlyRate, setHourlyRate] = useState<string>('0');
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isNightShift, setIsNightShift] = useState(false);
+  const [billingType, setBillingType] = useState<'hourly' | 'daily'>('hourly');
 
-  // Helpers
   const pad = (n: number) => n < 10 ? '0' + n : n;
   const toDateStr = (ts: number) => {
     const d = new Date(ts);
@@ -39,7 +40,6 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
   useEffect(() => {
     if (isOpen) {
       if (initialEntry) {
-        // Edit mode
         setDescription(initialEntry.description);
         setProjectId(initialEntry.projectId);
         setDateStr(toDateStr(initialEntry.startTime));
@@ -48,28 +48,25 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
         setHourlyRate(initialEntry.hourlyRate ? initialEntry.hourlyRate.toString() : '0');
         setExpenses(initialEntry.expenses || []);
         setIsNightShift(!!initialEntry.isNightShift);
+        setBillingType(initialEntry.billingType || 'hourly');
       } else {
-        // Create mode
         const now = new Date();
         setDescription('');
-        
-        // Select first project or maintain existing if just switching
         const defaultProj = projects[0];
         setProjectId(defaultProj?.id || '');
-        
         setDateStr(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
         setStartTimeStr('08:00');
         setEndTimeStr('16:00');
         setHourlyRate(defaultProj?.defaultHourlyRate.toString() || '0');
         setExpenses([]);
         setIsNightShift(false);
+        setBillingType('hourly');
       }
     }
   }, [isOpen, initialEntry, projects]);
 
   const handleProjectChange = (newProjectId: string) => {
       setProjectId(newProjectId);
-      // Update rate if creating new entry
       if (!initialEntry) {
           const proj = projects.find(p => p.id === newProjectId);
           if (proj) {
@@ -81,8 +78,6 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
   const applyPreset = (start: string, end: string) => {
       setStartTimeStr(start);
       setEndTimeStr(end);
-      
-      // Auto-detect night shift based on start/end
       const s = parseInt(start.split(':')[0]);
       const e = parseInt(end.split(':')[0]);
       const isNight = s >= 20 || s <= 4 || e <= 7;
@@ -103,16 +98,9 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Construct Timestamps
     const start = new Date(`${dateStr}T${startTimeStr}`).getTime();
     let end = new Date(`${dateStr}T${endTimeStr}`).getTime();
-
-    // Handle overnight shifts (end time is smaller than start time, assumes next day)
-    if (end < start) {
-        end += 24 * 60 * 60 * 1000; // Add 24 hours
-    }
-
+    if (end < start) end += 24 * 60 * 60 * 1000;
     const duration = (end - start) / 1000;
 
     const entryToSave: TimeEntry = {
@@ -123,6 +111,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
         endTime: end,
         duration,
         hourlyRate: parseFloat(hourlyRate),
+        billingType,
         expenses,
         isNightShift
     };
@@ -147,7 +136,29 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           
-          {/* 1. Selezione Postazione */}
+          <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                  <ListChecks className="text-indigo-600" size={20} />
+                  <span className="text-sm font-bold text-indigo-900">{t('entry.billing_mode')}</span>
+              </div>
+              <div className="flex bg-white p-1 rounded-lg border border-indigo-200">
+                  <button 
+                    type="button"
+                    onClick={() => setBillingType('hourly')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${billingType === 'hourly' ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                      {t('entry.hourly_mode')}
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setBillingType('daily')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${billingType === 'daily' ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                      {t('entry.daily_mode')}
+                  </button>
+              </div>
+          </div>
+
           <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">{t('entry.client_label')}</label>
               <select 
@@ -159,7 +170,6 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
               </select>
           </div>
 
-          {/* 2. Data */}
           <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">{t('entry.date_label')}</label>
               <div className="relative">
@@ -174,7 +184,6 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
               </div>
           </div>
 
-          {/* 3. Preset Orari (Turni Dinamici) */}
           {selectedProject?.shifts && selectedProject.shifts.length > 0 && (
              <div>
                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('entry.shift_select')}</label>
@@ -198,7 +207,6 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
              </div>
           )}
 
-          {/* 4. Orari Manuali */}
           <div className="grid grid-cols-2 gap-4">
               <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">{t('entry.start_time')}</label>
@@ -222,7 +230,6 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
               </div>
           </div>
 
-          {/* 5. Giorno/Notte & Paga */}
           <div className="flex gap-4 p-4 bg-gray-50 rounded-xl">
                <div className="flex-1">
                    <label className="block text-sm font-medium text-gray-600 mb-1">{t('entry.type')}</label>
@@ -240,7 +247,9 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
                    </div>
                </div>
                <div className="flex-1">
-                   <label className="block text-sm font-medium text-gray-600 mb-1">{t('entry.rate')}</label>
+                   <label className="block text-sm font-medium text-gray-600 mb-1">
+                       {billingType === 'hourly' ? t('entry.rate_hourly') : t('entry.rate_daily')}
+                   </label>
                    <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
                         <span className="text-gray-400 font-bold">€</span>
@@ -257,7 +266,6 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
                </div>
           </div>
 
-          {/* Note Opzionali */}
           <div>
                <label className="block text-sm font-medium text-gray-700 mb-1">{t('entry.notes')}</label>
                <input 
@@ -269,7 +277,6 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
                />
           </div>
 
-          {/* Expenses */}
           <div className="border-t border-gray-100 pt-4">
              <div className="flex justify-between items-center mb-3">
                 <h3 className="font-medium text-gray-800 flex items-center gap-2">

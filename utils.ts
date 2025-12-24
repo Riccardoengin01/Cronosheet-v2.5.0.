@@ -1,12 +1,10 @@
+
 import { TimeEntry, DayGroup } from './types';
 
-// Supabase richiede UUID validi per le colonne di tipo uuid.
-// Le vecchie stringhe brevi (Math.random) causavano il fallimento del salvataggio nel DB.
 export const generateId = (): string => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  // Fallback per browser vecchi
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
@@ -59,9 +57,15 @@ export const formatCurrency = (amount: number): string => {
 export const calculateEarnings = (entry: TimeEntry): number => {
     let total = 0;
     
-    // Time cost
-    if (entry.hourlyRate && entry.duration) {
-        total += (entry.duration / 3600) * entry.hourlyRate;
+    // Time cost: check if daily or hourly
+    if (entry.billingType === 'daily') {
+        // Flat daily rate
+        total += (entry.hourlyRate || 0);
+    } else {
+        // Classic hourly calculation (default)
+        if (entry.hourlyRate && entry.duration) {
+            total += (entry.duration / 3600) * entry.hourlyRate;
+        }
     }
 
     // Expenses
@@ -74,8 +78,6 @@ export const calculateEarnings = (entry: TimeEntry): number => {
 
 export const groupEntriesByDay = (entries: TimeEntry[]): DayGroup[] => {
   const groups: Record<string, DayGroup> = {};
-
-  // Sort entries descending
   const sorted = [...entries].sort((a, b) => b.startTime - a.startTime);
 
   sorted.forEach(entry => {
@@ -89,8 +91,6 @@ export const groupEntriesByDay = (entries: TimeEntry[]): DayGroup[] => {
     }
     groups[dateKey].entries.push(entry);
     
-    // Calculate duration for finished entries, or active duration if needed
-    // For grouping purposes, we use stored duration or calc elapsed if running
     const duration = entry.endTime 
       ? (entry.endTime - entry.startTime) / 1000 
       : (Date.now() - entry.startTime) / 1000;

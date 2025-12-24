@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Project, TimeEntry } from '../types';
 import { groupEntriesByDay, formatTime, formatDurationHuman, formatDuration, formatCurrency, calculateEarnings } from '../utils';
-import { Trash2, MapPin, Clock, Pencil, Moon, Filter, X, CheckSquare, Square, Calendar, ChevronDown, Search, ListFilter } from 'lucide-react';
+import { Trash2, MapPin, Clock, Pencil, Moon, Filter, X, CheckSquare, Square, Calendar, ChevronDown, Search, ListFilter, User } from 'lucide-react';
 import { useLanguage } from '../lib/i18n';
 
 interface TimeLogTableProps {
@@ -14,17 +15,14 @@ interface TimeLogTableProps {
 const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete, onEdit }) => {
   const { t, language } = useLanguage();
   
-  // --- STATI FILTRI ---
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
   
-  // UI States
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
   const [clientSearchTerm, setClientSearchTerm] = useState('');
   const clientDropdownRef = useRef<HTMLDivElement>(null);
 
-  // --- LOGICA DATI DISPONIBILI ---
   const availableYears = useMemo(() => {
       const years = new Set(entries.map(e => new Date(e.startTime).getFullYear().toString()));
       const sorted = Array.from(years).sort().reverse();
@@ -37,12 +35,11 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
       const months = new Set(
           entries
             .filter(e => new Date(e.startTime).getFullYear().toString() === selectedYear)
-            .map(e => new Date(e.startTime).toISOString().slice(0, 7)) // YYYY-MM
+            .map(e => new Date(e.startTime).toISOString().slice(0, 7)) 
       );
       return Array.from(months).sort().reverse();
   }, [entries, selectedYear]);
 
-  // --- EFFETTI DI INIZIALIZZAZIONE ---
   useEffect(() => {
       if (projects.length > 0 && selectedProjectIds.length === 0) {
           setSelectedProjectIds(projects.map(p => p.id));
@@ -59,7 +56,6 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
       return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // --- HANDLERS ---
   const toggleProject = (id: string) => {
       setSelectedProjectIds(prev => 
           prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
@@ -126,7 +122,6 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* FILTER PANEL */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <div className="flex flex-col gap-6">
               <div className="flex flex-col md:flex-row gap-6 md:items-end border-b border-gray-100 pb-6">
@@ -248,7 +243,6 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
           </div>
       </div>
       
-      {/* Totals Bar */}
       {filteredEntries.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-indigo-600 text-white p-4 rounded-xl shadow-md col-span-2 md:col-span-1">
@@ -290,6 +284,7 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
                 {group.entries.map(entry => {
                 const project = projects.find(p => p.id === entry.projectId);
                 const earnings = calculateEarnings(entry);
+                const isDaily = entry.billingType === 'daily';
                 
                 return (
                     <div key={entry.id} className="px-6 py-4 flex flex-col md:flex-row items-start md:items-center gap-4 hover:bg-gray-50 transition-colors">
@@ -302,6 +297,11 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
                                 <MapPin size={10} />
                                 {project?.name || 'Unknown'}
                             </span>
+                            {isDaily && (
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center gap-1 uppercase">
+                                    {t('entry.daily_mode')}
+                                </span>
+                            )}
                             {entry.isNightShift && (
                                 <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium flex items-center gap-1">
                                     <Moon size={10} /> {t('log.night')}
@@ -326,7 +326,7 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
                             </div>
                         )}
                         <div className="text-xs text-gray-400 mt-1">
-                            {formatCurrency(entry.hourlyRate || 0)}/h
+                            {formatCurrency(entry.hourlyRate || 0)}{isDaily ? '/gg' : '/h'}
                             {entry.expenses && entry.expenses.length > 0 && ` + ${entry.expenses.length} ${t('log.extra_expenses')}`}
                         </div>
                     </div>
@@ -338,7 +338,7 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
                         </div>
 
                         <div className="font-mono font-bold text-gray-700 w-16 text-right">
-                            {formatDuration(entry.duration).slice(0, 5)}
+                            {isDaily ? '1 GG' : formatDuration(entry.duration).slice(0, 5)}
                         </div>
                         
                         <div className="flex items-center gap-1">
