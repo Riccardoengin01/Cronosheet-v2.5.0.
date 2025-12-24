@@ -10,7 +10,7 @@ import {
   Square, 
   MapPin, 
   ChevronDown, 
-  Archive, 
+  Archive as ArchiveIcon, 
   Check, 
   Pencil, 
   X, 
@@ -20,7 +20,14 @@ import {
   Loader2, 
   Receipt, 
   Banknote,
-  Hash
+  Hash,
+  MoreVertical,
+  MoveHorizontal,
+  Trash2,
+  ChevronRight,
+  ChevronDown as ChevronDownIcon,
+  FileText,
+  AlertCircle
 } from 'lucide-react';
 import * as DB from '../services/db';
 import { useLanguage } from '../lib/i18n';
@@ -34,11 +41,10 @@ interface BillingProps {
 }
 
 const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEntriesChange, view }) => {
-  const isArchive = view === AppView.ARCHIVE;
+  const isArchiveView = view === AppView.ARCHIVE;
   const { t, language } = useLanguage();
   
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
-  const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
   
   const [invoiceNumber, setInvoiceNumber] = useState('');
@@ -46,54 +52,39 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   const [applyInarcassa, setApplyInarcassa] = useState(true);
 
   const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(new Set<string>());
+  const [expandedInvoices, setExpandedInvoices] = useState<Set<string>>(new Set<string>());
 
-  const [editingRateId, setEditingRateId] = useState<string | null>(null);
-  const [tempRate, setTempRate] = useState<string>('');
-  const [showBulkRateInput, setShowBulkRateInput] = useState(false);
-  const [bulkRateValue, setBulkRateValue] = useState<string>('');
-
-  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
   const clientDropdownRef = useRef<HTMLDivElement>(null);
 
-  const availableYears = useMemo(() => {
-      const years = new Set((entries || []).map(e => new Date(e.startTime).getFullYear().toString()));
-      const sorted = Array.from(years).sort().reverse();
-      const current = new Date().getFullYear().toString();
-      if (!sorted.includes(current)) sorted.unshift(current);
-      return sorted;
-  }, [entries]);
-
-  const availableMonthsInYear = useMemo<string[]>(() => {
-      const monthsSet = new Set<string>();
-      (entries || []).forEach(e => {
-          const d = new Date(e.startTime);
-          if (d.getFullYear().toString() === selectedYear) {
-              monthsSet.add(d.toISOString().slice(0, 7));
-          }
-      });
-      return [...monthsSet].sort().reverse();
-  }, [entries, selectedYear]);
-
+  // --- FILTRI & DATI ---
   const filteredEntries = useMemo(() => {
     return (entries || []).filter(e => {
         const entryIsBilled = !!e.is_billed;
-        if (!isArchive && entryIsBilled) return false;
-        if (isArchive && !entryIsBilled) return false;
+        if (!isArchiveView && entryIsBilled) return false;
+        if (isArchiveView && !entryIsBilled) return false;
         
-        const entryDate = new Date(e.startTime);
-        const entryMonth = entryDate.toISOString().slice(0, 7);
-        const entryYear = entryDate.getFullYear().toString();
-
+        const entryYear = new Date(e.startTime).getFullYear().toString();
         const matchesProject = selectedProjectIds.length === 0 || selectedProjectIds.includes(e.projectId);
-        const matchesMonth = selectedMonths.length === 0 || selectedMonths.includes(entryMonth);
         const matchesYear = entryYear === selectedYear;
 
-        return matchesProject && matchesMonth && matchesYear;
-    }).sort((a, b) => a.startTime - b.startTime);
-  }, [entries, selectedProjectIds, selectedMonths, isArchive, selectedYear]);
+        return matchesProject && matchesYear;
+    }).sort((a, b) => b.startTime - a.startTime);
+  }, [entries, selectedProjectIds, isArchiveView, selectedYear]);
 
-  // Base Imponibile (Prestazioni Pure)
+  // Raggruppamento per Numero Fattura (Solo per Archivio)
+  const groupedInvoices = useMemo(() => {
+      if (!isArchiveView) return {};
+      const groups: Record<string, TimeEntry[]> = {};
+      filteredEntries.forEach(e => {
+          const invNum = e.invoice_number || 'SENZA_NUMERO';
+          if (!groups[invNum]) groups[invNum] = [];
+          groups[invNum].push(e);
+      });
+      return groups;
+  }, [filteredEntries, isArchiveView]);
+
   const baseImponibile = useMemo(() => filteredEntries.reduce((acc, curr) => acc + calculateEarnings(curr), 0), [filteredEntries]);
 
   useEffect(() => {
@@ -108,133 +99,120 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   }, [projects]);
 
   const bolloAmount = applyBollo ? 2.00 : 0;
-  // Per Ingegneri: 4% calcolato su (Base + Bollo)
   const cassaAmount = applyInarcassa ? (baseImponibile + bolloAmount) * 0.04 : 0;
   const grandTotalAmount = baseImponibile + bolloAmount + cassaAmount;
 
-  const toggleMonth = (month: string) => {
-      setSelectedMonths(prev => 
-          prev.includes(month) ? prev.filter(m => m !== month) : [...prev, month]
-      );
+  // --- AZIONI ---
+
+  // Fix: Added handleExportCSV implementation to fix the missing name error
+  const handleExportCSV = () => {
+    const headers = ["Data", "Cliente", "Descrizione", "Durata", "Importo", "Stato"];
+    const rows = filteredEntries.map(e => [
+      new Date(e.startTime).toLocaleDateString(),
+      projects.find(p => p.id === e.projectId)?.name || '',
+      e.description || '',
+      e.billingType === 'daily' ? '1 GG' : `${((e.duration || 0) / 3600).toFixed(1)}H`,
+      calculateEarnings(e).toFixed(2),
+      e.is_paid ? 'Pagato' : 'Pendente'
+    ]);
+
+    const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `export_${selectedYear}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  const toggleAllMonthsInYear = () => {
-      const allSelected = availableMonthsInYear.every(m => selectedMonths.includes(m));
-      if (allSelected) {
-          setSelectedMonths(prev => prev.filter(m => !availableMonthsInYear.includes(m)));
-      } else {
-          const toAdd = availableMonthsInYear.filter(m => !selectedMonths.includes(m));
-          setSelectedMonths(prev => [...prev, ...toAdd]);
-      }
-  };
-
-  const handleSelectAll = () => {
-      if (selectedEntryIds.size === filteredEntries.length && filteredEntries.length > 0) {
-          setSelectedEntryIds(new Set<string>());
-      } else {
-          setSelectedEntryIds(new Set<string>(filteredEntries.map(e => e.id)));
-      }
+  const toggleInvoiceExpand = (num: string) => {
+      setExpandedInvoices(prev => {
+          const n = new Set(prev);
+          if (n.has(num)) n.delete(num);
+          else n.add(num);
+          return n;
+      });
   };
 
   const handleMarkAsBilled = async () => {
-      if (selectedEntryIds.size === 0) return;
-      if (!invoiceNumber) {
-          alert("Inserisci un Numero Fattura prima di procedere.");
-          return;
-      }
-      if (!confirm(`Archiviare ${selectedEntryIds.size} servizi con Fattura n. ${invoiceNumber}?`)) return;
-      
+      if (selectedEntryIds.size === 0 || !invoiceNumber) return;
       setIsProcessing(true);
       try {
           await DB.markEntriesAsBilled([...selectedEntryIds], invoiceNumber);
-          setSelectedEntryIds(new Set<string>()); 
+          setSelectedEntryIds(new Set());
           setInvoiceNumber('');
           if (onEntriesChange) await onEntriesChange();
-      } catch (e: any) { 
-          alert("Errore durante l'archiviazione."); 
-      } finally { 
-          setIsProcessing(false); 
-      }
+      } catch (e) { alert("Errore archiviazione"); } finally { setIsProcessing(false); }
   };
 
-  const handleMarkAsPaid = async (status: boolean = true) => {
+  const handleMoveEntries = async () => {
+      const newNum = prompt("Inserisci il Numero Fattura di destinazione per i servizi selezionati:");
+      if (!newNum || selectedEntryIds.size === 0) return;
+      setIsProcessing(true);
+      try {
+          await DB.markEntriesAsBilled([...selectedEntryIds], newNum);
+          setSelectedEntryIds(new Set());
+          if (onEntriesChange) await onEntriesChange();
+      } catch (e) { alert("Errore spostamento"); } finally { setIsProcessing(false); }
+  };
+
+  const handleRenameInvoice = async (oldNum: string) => {
+      const newNum = prompt(`Rinomina la Fattura n. ${oldNum} in:`, oldNum);
+      if (!newNum || newNum === oldNum) return;
+      const ids = groupedInvoices[oldNum].map(e => e.id);
+      setIsProcessing(true);
+      try {
+          await DB.markEntriesAsBilled(ids, newNum);
+          if (onEntriesChange) await onEntriesChange();
+      } catch (e) { alert("Errore rinomina"); } finally { setIsProcessing(false); }
+  };
+
+  const handleUnbillEntries = async () => {
+      if (!confirm(`Riportare i ${selectedEntryIds.size} servizi selezionati nello stato 'Da Fatturare'? verranno rimossi dall'archivio.`)) return;
+      setIsProcessing(true);
+      try {
+          // Usiamo null per rimuovere la fatturazione
+          await DB.markEntriesAsBilled([...selectedEntryIds], undefined);
+          setSelectedEntryIds(new Set());
+          if (onEntriesChange) await onEntriesChange();
+      } catch (e) { alert("Errore ripristino"); } finally { setIsProcessing(false); }
+  };
+
+  const handleMarkPaid = async (status: boolean) => {
       if (selectedEntryIds.size === 0) return;
-      const action = status ? "incassati" : "stornati come non pagati";
-      if (!confirm(`Segnare come ${action} ${selectedEntryIds.size} servizi selezionati?`)) return;
-      
       setIsProcessing(true);
       try {
           await DB.markEntriesAsPaid([...selectedEntryIds], status);
-          setSelectedEntryIds(new Set<string>());
+          setSelectedEntryIds(new Set());
           if (onEntriesChange) await onEntriesChange();
-      } catch (e) {
-          alert("Errore aggiornamento stato incasso");
-      } finally {
-          setIsProcessing(false);
-      }
+      } catch (e) { alert("Errore stato incasso"); } finally { setIsProcessing(false); }
   };
-
-  const handleUpdateRate = async (entry: TimeEntry) => {
-    const newRate = parseFloat(tempRate);
-    if (isNaN(newRate)) return;
-    setIsProcessing(true);
-    try {
-        await DB.saveEntry({ ...entry, hourlyRate: newRate }, userProfile?.id || '');
-        if (onEntriesChange) await onEntriesChange();
-        setEditingRateId(null);
-    } catch (e) { alert("Errore aggiornamento tariffa"); } finally { setIsProcessing(false); }
-  };
-
-  const handleExportCSV = () => {
-      if (filteredEntries.length === 0) return;
-      const headers = ["Fattura", "Data", "Cliente", "Descrizione", "Unità", "Tariffa (€)", "Totale (€)", "Stato"];
-      const rows = filteredEntries.map(e => {
-          const project = projects.find(p => p.id === e.projectId);
-          const earnings = calculateEarnings(e);
-          return [
-              e.invoice_number || '-',
-              new Date(e.startTime).toLocaleDateString('it-IT'),
-              `"${project?.name || ''}"`,
-              `"${e.description || ''}"`,
-              e.billingType === 'daily' ? '1 GG' : `${((e.duration || 0)/3600).toFixed(2)}H`,
-              (e.hourlyRate || 0).toFixed(2),
-              earnings.toFixed(2),
-              e.is_paid ? 'PAGATO' : 'PENDENTE'
-          ];
-      });
-      const csvContent = [headers, ...rows].map(r => r.join(";")).join("\n");
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `export_fluxledger_${selectedYear}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-  };
-
-  const periodString = useMemo(() => {
-      if (selectedMonths.length === 0) return '-';
-      return [...selectedMonths].sort().map(m => {
-          const [y, mo] = m.split('-');
-          return new Date(parseInt(y), parseInt(mo) - 1).toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US', { month: 'long', year: 'numeric' });
-      }).join(', ');
-  }, [selectedMonths, language]);
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-5xl mx-auto pb-10 print:pb-0">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print">
-           <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase">
-               {isArchive ? "Registro Archivio" : "Emissione Documento"}
-           </h1>
+    <div className="space-y-6 animate-fade-in max-w-6xl mx-auto pb-10 print:pb-0">
+      
+      {/* 1. Header & Quick Actions */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print px-2">
+           <div>
+               <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase flex items-center gap-3">
+                   {isArchiveView ? <ArchiveIcon className="text-indigo-600" /> : <Receipt className="text-indigo-600" />}
+                   {isArchiveView ? "Registro Fatture" : "Emissione Documento"}
+               </h1>
+           </div>
            
            {selectedEntryIds.size > 0 && (
-               <div className="animate-slide-up flex flex-wrap items-center gap-2 bg-indigo-50 border border-indigo-100 px-4 py-2 rounded-2xl shadow-sm">
-                   <span className="text-xs font-black text-indigo-800 uppercase tracking-widest">{selectedEntryIds.size} Selezionati</span>
-                   {isArchive ? (
-                       <button onClick={() => handleMarkAsPaid(true)} className="text-xs font-black bg-emerald-600 text-white px-4 py-1.5 rounded-xl hover:bg-emerald-700 flex items-center gap-1.5 uppercase tracking-widest shadow-lg shadow-emerald-100">
-                           <Check size={14}/> Segna Incassato
-                       </button>
+               <div className="animate-slide-up flex flex-wrap items-center gap-2 bg-indigo-900 text-white px-4 py-2 rounded-2xl shadow-2xl border border-indigo-700">
+                   <span className="text-[10px] font-black uppercase tracking-widest mr-2">{selectedEntryIds.size} Servizi Selezionati</span>
+                   
+                   {isArchiveView ? (
+                       <div className="flex gap-2">
+                           <button onClick={() => handleMarkPaid(true)} className="text-[10px] font-black bg-emerald-500 px-4 py-1.5 rounded-xl hover:bg-emerald-600 uppercase tracking-widest">Segna Incassati</button>
+                           <button onClick={handleMoveEntries} className="text-[10px] font-black bg-indigo-700 px-4 py-1.5 rounded-xl hover:bg-indigo-600 uppercase tracking-widest flex items-center gap-1.5"><MoveHorizontal size={14}/> Sposta in Fattura...</button>
+                           <button onClick={handleUnbillEntries} className="text-[10px] font-black bg-red-500/20 text-red-300 px-4 py-1.5 rounded-xl hover:bg-red-500 hover:text-white uppercase tracking-widest flex items-center gap-1.5"><X size={14}/> Rimuovi</button>
+                       </div>
                    ) : (
                        <div className="flex items-center gap-2">
                            <div className="relative">
@@ -242,13 +220,13 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                <input 
                                   type="text" 
                                   placeholder="N. Fattura" 
-                                  className="pl-8 pr-4 py-1.5 bg-white border border-indigo-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500 w-28" 
+                                  className="pl-8 pr-4 py-1.5 bg-indigo-800 border border-indigo-700 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-white w-28 placeholder:text-indigo-400" 
                                   value={invoiceNumber}
                                   onChange={e => setInvoiceNumber(e.target.value)}
                                />
                            </div>
-                           <button onClick={handleMarkAsBilled} disabled={isProcessing} className="text-xs font-black bg-indigo-600 text-white px-4 py-1.5 rounded-xl hover:bg-indigo-700 flex items-center gap-1.5 shadow-lg shadow-indigo-100 uppercase tracking-widest">
-                                {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <><Archive size={14}/> Archivia Fattura</>}
+                           <button onClick={handleMarkAsBilled} disabled={isProcessing} className="text-[10px] font-black bg-white text-indigo-900 px-4 py-1.5 rounded-xl hover:bg-indigo-50 uppercase tracking-widest">
+                                {isProcessing ? <Loader2 size={14} className="animate-spin" /> : "Archivia Ora"}
                            </button>
                        </div>
                    )}
@@ -256,182 +234,231 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
            )}
       </div>
 
-      <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-200 no-print grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-            <h2 className="text-lg font-black text-slate-800 flex items-center gap-2.5 uppercase tracking-tight">
-                <Receipt className="text-indigo-600" size={20} /> Parametri Analisi
-            </h2>
-            
-            <div className="flex flex-col sm:flex-row gap-4">
-                 <div className="flex items-center bg-slate-100 p-1 rounded-2xl shrink-0">
-                    {availableYears.map(year => (
-                        <button key={year} onClick={() => setSelectedYear(year)} className={`px-5 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${selectedYear === year ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>
-                            {year}
-                        </button>
-                    ))}
-                </div>
-                <div className="relative w-full sm:w-auto" ref={clientDropdownRef}>
-                    <button onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)} className="flex items-center justify-between gap-4 px-5 py-2.5 rounded-2xl text-sm font-bold border border-gray-100 text-slate-700 w-full hover:bg-gray-50 bg-white">
-                        <MapPin size={18} className="text-indigo-500" /> 
-                        <span>{selectedProjectIds.length === projects.length ? 'Tutti i Clienti' : `${selectedProjectIds.length} Selezionati`}</span>
+      {/* 2. Filtri Avanzati */}
+      <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 no-print flex flex-col lg:flex-row gap-6 items-center">
+            <div className="flex items-center bg-slate-100 p-1 rounded-2xl shrink-0">
+                {['2023', '2024', '2025'].map(year => (
+                    <button key={year} onClick={() => setSelectedYear(year)} className={`px-5 py-2 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${selectedYear === year ? 'bg-white text-indigo-600 shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>
+                        {year}
+                    </button>
+                ))}
+            </div>
+
+            <div className="flex-grow flex gap-4 w-full">
+                <div className="relative flex-grow" ref={clientDropdownRef}>
+                    <button onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)} className="flex items-center justify-between gap-4 px-6 py-3 rounded-2xl text-xs font-black border border-gray-100 text-slate-700 w-full hover:bg-gray-50 bg-white uppercase tracking-widest">
+                        <MapPin size={16} className="text-indigo-500" /> 
+                        <span>{selectedProjectIds.length === projects.length ? 'Tutti i Clienti' : `${selectedProjectIds.length} Clienti`}</span>
                         <ChevronDown size={16} />
                     </button>
                 </div>
-            </div>
-
-            <div>
-                <div className="flex items-center justify-between mb-3">
-                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-1.5"><ListFilter size={14}/> Mesi Disponibili</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    {availableMonthsInYear.map(m => {
-                        const isSelected = selectedMonths.includes(m);
-                        const [y, mo] = m.split('-');
-                        const label = new Date(parseInt(y), parseInt(mo)-1).toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US', { month: 'short' });
-                        return (
-                            <button key={m} onClick={() => toggleMonth(m)} className={`px-5 py-2 rounded-full text-xs font-bold border transition-all capitalize ${isSelected ? 'bg-amber-50 border-amber-200 text-amber-800 shadow-sm' : 'bg-white border-gray-100 text-slate-500 hover:bg-gray-50'}`}>
-                                {label}
-                            </button>
-                        );
-                    })}
+                
+                <div className="bg-slate-900 text-white px-6 py-3 rounded-2xl flex items-center gap-3 shadow-xl">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Base Imponibile</p>
+                    <p className="text-lg font-black font-mono">{formatCurrency(baseImponibile)}</p>
                 </div>
             </div>
-        </div>
 
-        <div className="lg:col-span-1 border-t lg:border-t-0 lg:border-l border-gray-100 pt-8 lg:pt-0 lg:pl-8 flex flex-col justify-center">
-            <div className="bg-slate-900 text-white p-6 rounded-[2rem] w-full mb-6 shadow-xl relative overflow-hidden">
-                <div className="absolute right-0 bottom-0 opacity-10 -mr-4 -mb-4"><Banknote size={100} /></div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-1">Lordo Fattura Stimato</p>
-                <p className="text-3xl font-black">{formatCurrency(isArchive ? baseImponibile : grandTotalAmount)}</p>
-                {isArchive && (
-                    <p className="text-[10px] font-bold text-emerald-400 mt-2 uppercase tracking-tighter">
-                        Incassato ad oggi: {formatCurrency(filteredEntries.filter(e => e.is_paid).reduce((acc, e) => acc + calculateEarnings(e), 0))}
-                    </p>
-                )}
+            <div className="flex gap-2 w-full lg:w-auto">
+                <button onClick={() => window.print()} className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-100"><Printer size={16}/> Stampa</button>
+                <button onClick={handleExportCSV} className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-600 px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50"><Download size={16}/> Excel</button>
             </div>
-            <div className="flex flex-col gap-4">
-                <button onClick={() => window.print()} disabled={filteredEntries.length === 0} className="w-full flex justify-center items-center gap-2 bg-indigo-600 disabled:bg-slate-200 text-white px-8 py-4 rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 font-black uppercase tracking-widest text-xs transition-all active:scale-95">
-                    <Printer size={18} /> Stampa Documento
-                </button>
-                <button onClick={handleExportCSV} disabled={filteredEntries.length === 0} className="w-full flex justify-center items-center gap-2 bg-white border border-gray-200 text-slate-700 px-8 py-4 rounded-2xl hover:bg-gray-50 shadow-sm font-black uppercase tracking-widest text-xs transition-all active:scale-95">
-                    <Download size={18} /> Export Excel
-                </button>
-            </div>
-        </div>
       </div>
 
-      <div className="bg-white p-8 md:p-14 rounded-none md:rounded-[3rem] shadow-2xl print:shadow-none print:w-full print:p-0 border border-gray-50">
-          <div className="border-b-4 border-slate-900 pb-10 mb-10 flex flex-col md:flex-row justify-between items-start gap-6">
-              <div>
-                  <h1 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-3">
-                      {isArchive ? 'Analisi Incassi' : 'Riepilogo Prestazioni'}
-                  </h1>
-                  <p className="text-indigo-600 font-black text-xs uppercase tracking-[0.2em]">Registro Analitico Professionale Ingegneri</p>
-              </div>
-              <div className="text-left md:text-right">
-                  <h3 className="text-xl font-black text-slate-900 uppercase">
-                    {selectedProjectIds.length === 1 ? projects.find(p => p.id === selectedProjectIds[0])?.name : 'Portfolio Clienti'}
-                  </h3>
-                  <p className="text-slate-500 font-bold capitalize mt-1 text-sm">Periodo: {periodString}</p>
-              </div>
-          </div>
+      {/* 3. CONTENUTO PRINCIPALE */}
+      <div className="space-y-6">
+          {isArchiveView ? (
+              /* --- VISTA REGISTRO FATTURE --- */
+              <div className="space-y-4">
+                  {/* Fix: Explicitly typed entries for Object.entries to resolve 'unknown' property issues in the map callback */}
+                  {(Object.entries(groupedInvoices) as [string, TimeEntry[]][]).sort((a,b) => b[0].localeCompare(a[0])).map(([invNum, items]) => {
+                      const invTotal = items.reduce((acc, i) => acc + calculateEarnings(i), 0);
+                      const isExpanded = expandedInvoices.has(invNum);
+                      const isFullyPaid = items.every(i => i.is_paid);
+                      const dateRange = `${new Date(items[items.length-1].startTime).toLocaleDateString()} - ${new Date(items[0].startTime).toLocaleDateString()}`;
 
-          <div className="overflow-x-auto print:overflow-visible">
-              <table className="w-full text-xs text-left border-collapse">
-                  <thead className="text-gray-400 uppercase text-[9px] font-black tracking-[0.2em] border-b border-gray-100">
-                      <tr>
-                          <th className="px-4 py-5 w-12 print:hidden">
-                              <button onClick={handleSelectAll} className="flex items-center text-slate-300 hover:text-indigo-600 transition-colors">
-                                  {selectedEntryIds.size > 0 && selectedEntryIds.size === filteredEntries.length ? <CheckSquare size={20} /> : <Square size={20} />}
-                              </button>
-                          </th>
-                          <th className="px-4 py-5">FATTURA</th>
-                          <th className="px-4 py-5">DATA</th>
-                          <th className="px-4 py-5">DESCRIZIONE SERVIZIO</th>
-                          <th className="px-4 py-5 text-center">QUANTITÀ</th>
-                          <th className="px-4 py-5 text-right">IMPONIBILE</th>
-                          {isArchive && <th className="px-4 py-5 text-right print:hidden">STATO</th>}
-                      </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                      {filteredEntries.map(entry => {
-                          const earnings = calculateEarnings(entry);
-                          const project = projects.find(p => p.id === entry.projectId);
-                          const isDaily = entry.billingType === 'daily';
+                      return (
+                          <div key={invNum} className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden transition-all">
+                              {/* Header Fattura */}
+                              <div className={`p-6 flex flex-wrap items-center justify-between gap-4 cursor-pointer hover:bg-slate-50/50 transition-colors ${isExpanded ? 'border-b border-slate-50' : ''}`} onClick={() => toggleInvoiceExpand(invNum)}>
+                                  <div className="flex items-center gap-5">
+                                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isFullyPaid ? 'bg-emerald-50 text-emerald-500' : 'bg-amber-50 text-amber-500'}`}>
+                                          <FileText size={24} />
+                                      </div>
+                                      <div>
+                                          <div className="flex items-center gap-3">
+                                              <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Fattura n. {invNum}</h3>
+                                              <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border uppercase ${isFullyPaid ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>
+                                                  {isFullyPaid ? 'Incassata' : 'In attesa'}
+                                              </span>
+                                          </div>
+                                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{dateRange} • {items.length} prestazioni</p>
+                                      </div>
+                                  </div>
 
-                          return (
-                              <tr key={entry.id} className={`hover:bg-slate-50/50 transition-colors print:break-inside-avoid ${selectedEntryIds.has(entry.id) ? 'bg-indigo-50/30' : ''}`}>
-                                  <td className="px-4 py-5 print:hidden">
-                                      <button 
-                                          onClick={() => setSelectedEntryIds(prev => { const n = new Set<string>(prev); if(n.has(entry.id)) n.delete(entry.id); else n.add(entry.id); return n; })} 
-                                          className={`flex items-center transition-colors ${selectedEntryIds.has(entry.id) ? 'text-indigo-600' : 'text-slate-200 hover:text-slate-300'}`}
-                                      >
-                                          {selectedEntryIds.has(entry.id) ? <CheckSquare size={20} /> : <Square size={20} />}
-                                      </button>
-                                  </td>
-                                  <td className="px-4 py-5 font-black text-indigo-600">
-                                      {entry.invoice_number ? `FAT. ${entry.invoice_number}` : '-'}
-                                  </td>
-                                  <td className="px-4 py-5 text-slate-500 font-bold">
-                                      {new Date(entry.startTime).toLocaleDateString('it-IT')}
-                                  </td>
-                                  <td className="px-4 py-5">
-                                      <div className="font-bold text-slate-800 uppercase text-[10px]">{project?.name}</div>
-                                      <div className="text-slate-400 italic text-[10px] truncate max-w-[200px]">{entry.description || '-'}</div>
-                                  </td>
-                                  <td className="px-4 py-5 text-center font-black text-slate-900 font-mono">
-                                      {isDaily ? `1 GG` : `${((entry.duration || 0)/3600).toFixed(1)}H`}
-                                  </td>
-                                  <td className="px-4 py-5 text-right font-black text-slate-900 text-sm">
-                                      {formatCurrency(earnings)}
-                                  </td>
-                                  {isArchive && (
-                                    <td className="px-4 py-5 text-right print:hidden">
-                                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black border ${entry.is_paid ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
-                                            {entry.is_paid ? 'INCASSATO' : 'PENDENTE'}
-                                        </div>
-                                    </td>
-                                  )}
+                                  <div className="flex items-center gap-8">
+                                      <div className="text-right">
+                                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Totale Lordo</p>
+                                          <p className="text-xl font-black text-indigo-600 font-mono">{formatCurrency(invTotal)}</p>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                          <button onClick={(e) => { e.stopPropagation(); handleRenameInvoice(invNum); }} className="p-2 text-slate-300 hover:text-indigo-600 transition-colors" title="Rinomina Fattura"><Pencil size={18}/></button>
+                                          {isExpanded ? <ChevronDownIcon size={20} className="text-slate-300" /> : <ChevronRight size={20} className="text-slate-300" />}
+                                      </div>
+                                  </div>
+                              </div>
+
+                              {/* Dettaglio Servizi Fattura */}
+                              {isExpanded && (
+                                  <div className="p-2 bg-slate-50/30">
+                                      <table className="w-full text-xs text-left">
+                                          <thead className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                              <tr>
+                                                  <th className="px-4 py-3 w-10">
+                                                      <button onClick={() => {
+                                                          const allIds = items.map(i => i.id);
+                                                          setSelectedEntryIds(prev => {
+                                                              const n = new Set(prev);
+                                                              const hasAll = allIds.every(id => n.has(id));
+                                                              if (hasAll) allIds.forEach(id => n.delete(id));
+                                                              else allIds.forEach(id => n.add(id));
+                                                              return n;
+                                                          });
+                                                      }} className="text-slate-300"><CheckSquare size={16}/></button>
+                                                  </th>
+                                                  <th className="px-4 py-3">DATA</th>
+                                                  <th className="px-4 py-3">CLIENTE</th>
+                                                  <th className="px-4 py-3">DESCRIZIONE</th>
+                                                  <th className="px-4 py-3 text-right">IMPORTO</th>
+                                                  <th className="px-4 py-3 text-right">INCASSO</th>
+                                              </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-slate-100">
+                                              {/* Fix: items is correctly inferred as TimeEntry[] now due to type casting above */}
+                                              {items.map(item => (
+                                                  <tr key={item.id} className={`hover:bg-white transition-colors group ${selectedEntryIds.has(item.id) ? 'bg-indigo-50/50' : ''}`}>
+                                                      <td className="px-4 py-3">
+                                                          <button onClick={() => setSelectedEntryIds(prev => { const n = new Set(prev); if(n.has(item.id)) n.delete(item.id); else n.add(item.id); return n; })} className={selectedEntryIds.has(item.id) ? 'text-indigo-600' : 'text-slate-200'}>
+                                                              {selectedEntryIds.has(item.id) ? <CheckSquare size={18}/> : <Square size={18}/>}
+                                                          </button>
+                                                      </td>
+                                                      <td className="px-4 py-3 font-bold text-slate-600">{new Date(item.startTime).toLocaleDateString()}</td>
+                                                      <td className="px-4 py-3 font-black text-slate-800 uppercase text-[10px]">{projects.find(p => p.id === item.projectId)?.name}</td>
+                                                      <td className="px-4 py-3 text-slate-500 italic truncate max-w-[200px]">{item.description}</td>
+                                                      <td className="px-4 py-3 text-right font-black text-slate-900">{formatCurrency(calculateEarnings(item))}</td>
+                                                      <td className="px-4 py-3 text-right">
+                                                           <div className={`inline-block w-2 h-2 rounded-full ${item.is_paid ? 'bg-emerald-500' : 'bg-amber-500'}`} title={item.is_paid ? 'Pagato' : 'Pendente'}></div>
+                                                      </td>
+                                                  </tr>
+                                              ))}
+                                          </tbody>
+                                      </table>
+                                  </div>
+                              )}
+                          </div>
+                      );
+                  })}
+
+                  {Object.keys(groupedInvoices).length === 0 && (
+                      <div className="py-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
+                          <AlertCircle size={40} className="mx-auto text-slate-200 mb-4" />
+                          <p className="text-slate-400 font-black uppercase tracking-widest text-xs">Nessuna fattura registrata per questi filtri.</p>
+                      </div>
+                  )}
+              </div>
+          ) : (
+              /* --- VISTA EMISSIONE (DA FATTURARE) --- */
+              <div className="bg-white p-8 md:p-14 rounded-[3rem] shadow-2xl print:shadow-none border border-slate-50 relative">
+                  <div className="border-b-4 border-slate-900 pb-10 mb-10 flex flex-col md:flex-row justify-between items-start gap-6">
+                      <div>
+                          <h1 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-3">Riepilogo Pro-Forma</h1>
+                          <p className="text-indigo-600 font-black text-xs uppercase tracking-[0.2em]">Registro Analitico Commesse Professionali</p>
+                      </div>
+                      <div className="text-left md:text-right">
+                          <h3 className="text-xl font-black text-slate-900 uppercase">
+                            {selectedProjectIds.length === 1 ? projects.find(p => p.id === selectedProjectIds[0])?.name : 'Portfolio Clienti'}
+                          </h3>
+                          <p className="text-slate-500 font-bold mt-1 text-sm uppercase tracking-widest">Rif. {selectedYear}</p>
+                      </div>
+                  </div>
+
+                  <div className="overflow-x-auto print:overflow-visible">
+                      <table className="w-full text-xs text-left border-collapse">
+                          <thead className="text-gray-400 uppercase text-[9px] font-black tracking-[0.2em] border-b border-gray-100">
+                              <tr>
+                                  <th className="px-4 py-5 w-12 print:hidden">
+                                      <button onClick={() => {
+                                          if (selectedEntryIds.size === filteredEntries.length) setSelectedEntryIds(new Set());
+                                          else setSelectedEntryIds(new Set(filteredEntries.map(e => e.id)));
+                                      }} className="text-slate-300 hover:text-indigo-600"><CheckSquare size={20}/></button>
+                                  </th>
+                                  <th className="px-4 py-5">DATA</th>
+                                  <th className="px-4 py-5">CLIENTE</th>
+                                  <th className="px-4 py-5">DESCRIZIONE</th>
+                                  <th className="px-4 py-5 text-center">QUANTITÀ</th>
+                                  <th className="px-4 py-5 text-right">IMPONIBILE</th>
                               </tr>
-                          );
-                      })}
-                  </tbody>
-              </table>
-          </div>
+                          </thead>
+                          <tbody className="divide-y divide-gray-50">
+                              {filteredEntries.map(entry => {
+                                  const earnings = calculateEarnings(entry);
+                                  const project = projects.find(p => p.id === entry.projectId);
+                                  const isDaily = entry.billingType === 'daily';
 
-          {filteredEntries.length > 0 && (
-            <div className="mt-16 border-t-2 border-slate-100 pt-10 flex justify-end">
-                <div className="w-full md:w-1/2 lg:w-2/5 space-y-4">
-                    <div className="flex justify-between text-slate-400 text-[10px] font-black tracking-widest uppercase">
-                        <span>TOTALE PRESTAZIONI (IMPONIBILE):</span>
-                        <span className="font-mono text-slate-900 text-base">{formatCurrency(baseImponibile)}</span>
-                    </div>
-                    
-                    {!isArchive && (
-                        <>
+                                  return (
+                                      <tr key={entry.id} className={`hover:bg-slate-50/50 transition-colors print:break-inside-avoid ${selectedEntryIds.has(entry.id) ? 'bg-indigo-50/30' : ''}`}>
+                                          <td className="px-4 py-5 print:hidden">
+                                              <button onClick={() => setSelectedEntryIds(prev => { const n = new Set(prev); if(n.has(entry.id)) n.delete(entry.id); else n.add(entry.id); return n; })} className={selectedEntryIds.has(item.id) ? 'text-indigo-600' : 'text-slate-200'}>
+                                                  {selectedEntryIds.has(entry.id) ? <CheckSquare size={20}/> : <Square size={20}/>}
+                                              </button>
+                                          </td>
+                                          <td className="px-4 py-5 font-bold text-slate-500">{new Date(entry.startTime).toLocaleDateString()}</td>
+                                          <td className="px-4 py-5 font-black text-slate-800 uppercase text-[10px] tracking-tight">{project?.name}</td>
+                                          <td className="px-4 py-5 text-slate-400 italic truncate max-w-[200px]">{entry.description || '-'}</td>
+                                          <td className="px-4 py-5 text-center font-black text-slate-900 font-mono">
+                                              {isDaily ? `1 GG` : `${((entry.duration || 0)/3600).toFixed(1)}H`}
+                                          </td>
+                                          <td className="px-4 py-5 text-right font-black text-slate-900 text-sm">
+                                              {formatCurrency(earnings)}
+                                          </td>
+                                      </tr>
+                                  );
+                              })}
+                          </tbody>
+                      </table>
+                  </div>
+
+                  {filteredEntries.length > 0 && (
+                    <div className="mt-16 border-t-2 border-slate-100 pt-10 flex justify-end">
+                        <div className="w-full md:w-1/2 lg:w-2/5 space-y-4">
                             <div className="flex justify-between text-slate-400 text-[10px] font-black tracking-widest uppercase">
-                                <span className="italic">Imposta di Bollo:</span>
+                                <span>IMPONIBILE PRESTAZIONI:</span>
+                                <span className="font-mono text-slate-900 text-base">{formatCurrency(baseImponibile)}</span>
+                            </div>
+                            
+                            <div className="flex justify-between text-slate-400 text-[10px] font-black tracking-widest uppercase">
+                                <span className="italic font-bold">Imposta di Bollo:</span>
                                 <span className="font-mono text-slate-900">{formatCurrency(bolloAmount)}</span>
                             </div>
+
                             <div className="flex justify-between text-slate-400 text-[10px] font-black tracking-widest uppercase">
-                                <span className="italic">Integrativo Inarcassa (4% su Prest.+Bollo):</span>
+                                <span className="italic font-bold">Inarcassa (4%):</span>
                                 <span className="font-mono text-slate-900">{formatCurrency(cassaAmount)}</span>
                             </div>
-                        </>
-                    )}
 
-                    <div className="flex justify-between items-center text-3xl font-black text-slate-900 pt-8 border-t-4 border-slate-900 mt-6">
-                        <span className="tracking-tighter">TOTALE LORDO:</span>
-                        <span className="text-indigo-600">{formatCurrency(isArchive ? baseImponibile : grandTotalAmount)}</span>
+                            <div className="flex justify-between items-center text-3xl font-black text-slate-900 pt-8 border-t-4 border-slate-900 mt-6">
+                                <span className="tracking-tighter uppercase">Totale Documento:</span>
+                                <span className="text-indigo-600">{formatCurrency(grandTotalAmount)}</span>
+                            </div>
+                        </div>
                     </div>
-                    {!isArchive && (
-                        <p className="text-[9px] text-slate-400 italic text-right mt-2 uppercase font-bold">
-                            Nota: I servizi archiviati verranno salvati al netto di cassa e bollo per il calcolo fiscale.
-                        </p>
-                    )}
-                </div>
-            </div>
+                  )}
+              </div>
           )}
+      </div>
+
+      <div className="pt-8 border-t border-slate-50 text-center no-print">
+          <p className="text-[9px] font-black text-slate-200 uppercase tracking-[0.6em]">Proprietà Tecnica Certificata • Studio Engineering Systems</p>
       </div>
     </div>
   );
