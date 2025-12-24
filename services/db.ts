@@ -37,26 +37,39 @@ export const DEFAULT_THEME: AppTheme = {
 
 // --- STORAGE ---
 export const uploadCertificate = async (file: File, userId: string): Promise<string | null> => {
-    if (!isSupabaseConfigured) return "https://placeholder.com/demo-cert.pdf";
-
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${userId}/${generateId()}.${fileExt}`;
-    const filePath = `${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-        .from('certifications')
-        .upload(filePath, file);
-
-    if (uploadError) {
-        console.error('Error uploading file:', uploadError);
-        return null;
+    if (!isSupabaseConfigured) {
+        console.warn("Supabase non configurato, uso file demo.");
+        return "https://placeholder.com/demo-cert.pdf";
     }
 
-    const { data } = supabase.storage
-        .from('certifications')
-        .getPublicUrl(filePath);
+    try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${userId}/${generateId()}.${fileExt}`;
+        const filePath = `${fileName}`;
 
-    return data.publicUrl;
+        // Caricamento nel bucket 'certifications'
+        const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('certifications')
+            .upload(filePath, file, {
+                cacheControl: '3600',
+                upsert: true
+            });
+
+        if (uploadError) {
+            console.error('ERRORE STORAGE SUPABASE:', uploadError.message);
+            // Spesso l'errore è dovuto alla mancanza del bucket 'certifications' o permessi RLS
+            return null;
+        }
+
+        const { data } = supabase.storage
+            .from('certifications')
+            .getPublicUrl(filePath);
+
+        return data.publicUrl;
+    } catch (error) {
+        console.error('Error uploading file:', error);
+        return null;
+    }
 };
 
 // --- CERTIFICATIONS ---
@@ -99,7 +112,7 @@ export const saveCertification = async (cert: Certification, userId: string): Pr
     }
 
     const dbCert = {
-        id: cert.id.includes('-') ? cert.id : undefined,
+        id: cert.id.includes('-') ? cert.id : undefined, // Assicura UUID valido o lascia generare
         user_id: userId,
         name: cert.name,
         course_type: cert.course_type,
@@ -116,7 +129,11 @@ export const saveCertification = async (cert: Certification, userId: string): Pr
         .select()
         .single();
 
-    if (error) return null;
+    if (error) {
+        console.error('Error saving certification:', error.message);
+        return null;
+    }
+    
     return {
         id: data.id,
         user_id: data.user_id,
