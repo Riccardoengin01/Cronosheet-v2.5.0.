@@ -31,8 +31,9 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
       return sorted;
   }, [entries]);
 
-  const availableMonthsInYear = useMemo(() => {
-      const months = new Set(
+  // Explicitly type the result as string[] and the Set as string to avoid 'unknown[]' inference during filter operations
+  const availableMonthsInYear = useMemo<string[]>(() => {
+      const months = new Set<string>(
           entries
             .filter(e => new Date(e.startTime).getFullYear().toString() === selectedYear)
             .map(e => new Date(e.startTime).toISOString().slice(0, 7)) 
@@ -285,6 +286,7 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
                 const project = projects.find(p => p.id === entry.projectId);
                 const earnings = calculateEarnings(entry);
                 const isDaily = entry.billingType === 'daily';
+                const hasNoTime = isDaily && !entry.endTime && entry.duration === 0;
                 
                 return (
                     <div key={entry.id} className="px-6 py-4 flex flex-col md:flex-row items-start md:items-center gap-4 hover:bg-gray-50 transition-colors">
@@ -302,14 +304,14 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
                                     {t('entry.daily_mode')}
                                 </span>
                             )}
-                            {entry.isNightShift && (
+                            {entry.isNightShift && !hasNoTime && (
                                 <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium flex items-center gap-1">
                                     <Moon size={10} /> {t('log.night')}
                                 </span>
                             )}
                         </div>
                         <p className="font-medium text-gray-800 text-base">
-                            {entry.description || <span className="text-gray-400 italic">{t('log.no_notes')}</span>}
+                            {entry.description || <span className="text-gray-400 italic">Nessuna nota</span>}
                         </p>
                         
                         {earnings > 0 && (
@@ -327,18 +329,17 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
                         )}
                         <div className="text-xs text-gray-400 mt-1">
                             {formatCurrency(entry.hourlyRate || 0)}{isDaily ? '/gg' : '/h'}
-                            {entry.expenses && entry.expenses.length > 0 && ` + ${entry.expenses.length} ${t('log.extra_expenses')}`}
                         </div>
                     </div>
 
                     <div className="flex items-center justify-between w-full md:w-auto gap-4 md:gap-8 border-t md:border-t-0 border-gray-100 pt-3 md:pt-0 mt-2 md:mt-0">
                         <div className="text-sm text-gray-600 font-mono flex items-center gap-2">
                             <Clock size={14} className="text-gray-400" />
-                            {formatTime(entry.startTime)} - {entry.endTime ? formatTime(entry.endTime) : '...'}
+                            {hasNoTime ? "Giornata Intera" : `${formatTime(entry.startTime)} - ${formatTime(entry.endTime)}`}
                         </div>
 
                         <div className="font-mono font-bold text-gray-700 w-16 text-right">
-                            {isDaily ? '1 GG' : formatDuration(entry.duration).slice(0, 5)}
+                            {isDaily ? (hasNoTime ? '1 GG' : formatDuration(entry.duration).slice(0, 5)) : formatDuration(entry.duration).slice(0, 5)}
                         </div>
                         
                         <div className="flex items-center gap-1">

@@ -1,3 +1,4 @@
+
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Project, TimeEntry, UserProfile, AppTheme } from '../types';
 import { generateId, COLORS } from '../utils';
@@ -153,10 +154,11 @@ export const getEntries = async (userId?: string): Promise<TimeEntry[]> => {
     endTime: e.end_time ? parseInt(e.end_time) : null,
     duration: parseFloat(e.duration),
     hourlyRate: parseFloat(e.hourly_rate),
+    billingType: e.billing_type || 'hourly', // Mapping corretto
     expenses: e.expenses,
     isNightShift: e.is_night_shift,
     user_id: e.user_id,
-    is_billed: e.is_billed || false // Mappa campo fatturato
+    is_billed: e.is_billed || false
   }));
 };
 
@@ -181,9 +183,10 @@ export const saveEntry = async (entry: TimeEntry, userId: string): Promise<TimeE
     end_time: entry.endTime,
     duration: entry.duration,
     hourly_rate: entry.hourlyRate,
+    billing_type: entry.billingType || 'hourly', // Salvataggio campo nuovo
     expenses: entry.expenses,
     is_night_shift: entry.isNightShift,
-    is_billed: entry.is_billed
+    is_billed: entry.is_billed || false
   };
 
   const { data, error } = await supabase
@@ -221,7 +224,10 @@ export const markEntriesAsBilled = async (entryIds: string[]) => {
         .update({ is_billed: true })
         .in('id', entryIds);
 
-    if (error) throw error;
+    if (error) {
+        console.error("Errore Supabase markEntriesAsBilled:", error);
+        throw error;
+    }
 };
 
 // Funzione Bulk per aggiornare la tariffa oraria

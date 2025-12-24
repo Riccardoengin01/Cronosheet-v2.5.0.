@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, DollarSign, Clock, Calendar, ToggleLeft, ToggleRight, ListChecks } from 'lucide-react';
+import { X, Plus, Trash2, DollarSign, Clock, Calendar, ToggleLeft, ToggleRight, ListChecks, Info } from 'lucide-react';
 import { Project, TimeEntry, Expense } from '../types';
 import { generateId } from '../utils';
 import { useLanguage } from '../lib/i18n';
@@ -24,13 +24,15 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isNightShift, setIsNightShift] = useState(false);
   const [billingType, setBillingType] = useState<'hourly' | 'daily'>('hourly');
+  const [noSpecificTime, setNoSpecificTime] = useState(false);
 
   const pad = (n: number) => n < 10 ? '0' + n : n;
   const toDateStr = (ts: number) => {
     const d = new Date(ts);
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   };
-  const toTimeStr = (ts: number) => {
+  const toTimeStr = (ts: number | null) => {
+    if (!ts) return '';
     const d = new Date(ts);
     return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
@@ -43,8 +45,11 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
         setDescription(initialEntry.description);
         setProjectId(initialEntry.projectId);
         setDateStr(toDateStr(initialEntry.startTime));
-        setStartTimeStr(toTimeStr(initialEntry.startTime));
-        setEndTimeStr(initialEntry.endTime ? toTimeStr(initialEntry.endTime) : '');
+        const sTime = toTimeStr(initialEntry.startTime);
+        const eTime = toTimeStr(initialEntry.endTime);
+        setStartTimeStr(sTime);
+        setEndTimeStr(eTime);
+        setNoSpecificTime(!sTime && !eTime && initialEntry.billingType === 'daily');
         setHourlyRate(initialEntry.hourlyRate ? initialEntry.hourlyRate.toString() : '0');
         setExpenses(initialEntry.expenses || []);
         setIsNightShift(!!initialEntry.isNightShift);
@@ -57,6 +62,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
         setDateStr(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
         setStartTimeStr('08:00');
         setEndTimeStr('16:00');
+        setNoSpecificTime(false);
         setHourlyRate(defaultProj?.defaultHourlyRate.toString() || '0');
         setExpenses([]);
         setIsNightShift(false);
@@ -76,6 +82,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
   };
 
   const applyPreset = (start: string, end: string) => {
+      setNoSpecificTime(false);
       setStartTimeStr(start);
       setEndTimeStr(end);
       const s = parseInt(start.split(':')[0]);
@@ -98,10 +105,20 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const start = new Date(`${dateStr}T${startTimeStr}`).getTime();
-    let end = new Date(`${dateStr}T${endTimeStr}`).getTime();
-    if (end < start) end += 24 * 60 * 60 * 1000;
-    const duration = (end - start) / 1000;
+    
+    let start, end, duration = 0;
+
+    if (noSpecificTime && billingType === 'daily') {
+        start = new Date(`${dateStr}T00:00`).getTime();
+        end = null;
+        duration = 0;
+    } else {
+        start = new Date(`${dateStr}T${startTimeStr || '00:00'}`).getTime();
+        let endVal = new Date(`${dateStr}T${endTimeStr || '00:00'}`).getTime();
+        if (endTimeStr && endVal < start) endVal += 24 * 60 * 60 * 1000;
+        end = endVal;
+        duration = (end - start) / 1000;
+    }
 
     const entryToSave: TimeEntry = {
         id: initialEntry ? initialEntry.id : generateId(),
@@ -113,7 +130,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
         hourlyRate: parseFloat(hourlyRate),
         billingType,
         expenses,
-        isNightShift
+        isNightShift: noSpecificTime ? false : isNightShift
     };
 
     onSave(entryToSave);
@@ -124,7 +141,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto custom-scrollbar">
         <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
           <h2 className="text-xl font-bold text-gray-800">
             {initialEntry ? t('entry.edit_title') : t('entry.new_title')}
@@ -136,27 +153,35 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           
-          <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                  <ListChecks className="text-indigo-600" size={20} />
-                  <span className="text-sm font-bold text-indigo-900">{t('entry.billing_mode')}</span>
+          <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                      <ListChecks className="text-indigo-600" size={20} />
+                      <span className="text-sm font-bold text-indigo-900">{t('entry.billing_mode')}</span>
+                  </div>
+                  <div className="flex bg-white p-1 rounded-lg border border-indigo-200">
+                      <button 
+                        type="button"
+                        onClick={() => { setBillingType('hourly'); setNoSpecificTime(false); }}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${billingType === 'hourly' ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}
+                      >
+                          {t('entry.hourly_mode')}
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setBillingType('daily')}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${billingType === 'daily' ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}
+                      >
+                          {t('entry.daily_mode')}
+                      </button>
+                  </div>
               </div>
-              <div className="flex bg-white p-1 rounded-lg border border-indigo-200">
-                  <button 
-                    type="button"
-                    onClick={() => setBillingType('hourly')}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${billingType === 'hourly' ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}
-                  >
-                      {t('entry.hourly_mode')}
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setBillingType('daily')}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${billingType === 'daily' ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}
-                  >
-                      {t('entry.daily_mode')}
-                  </button>
-              </div>
+              {billingType === 'daily' && (
+                  <div className="flex items-center gap-2 text-[10px] text-indigo-700 font-medium">
+                      <Info size={12} />
+                      In modalità giornata, il prezzo è fisso e non dipende dalle ore.
+                  </div>
+              )}
           </div>
 
           <div>
@@ -170,100 +195,117 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
               </select>
           </div>
 
-          <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">{t('entry.date_label')}</label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input 
-                    type="date" 
-                    required
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-                    value={dateStr}
-                    onChange={e => setDateStr(e.target.value)}
-                />
-              </div>
-          </div>
-
-          {selectedProject?.shifts && selectedProject.shifts.length > 0 && (
-             <div>
-               <label className="block text-sm font-semibold text-gray-700 mb-2">{t('entry.shift_select')}</label>
-               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                   {selectedProject.shifts.map(shift => (
-                       <button 
-                           key={shift.id}
-                           type="button"
-                           onClick={() => applyPreset(shift.startTime, shift.endTime)}
-                           className={`p-2 rounded-lg border text-sm transition-all text-left group ${
-                               startTimeStr === shift.startTime && endTimeStr === shift.endTime
-                               ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm' 
-                               : 'border-gray-200 hover:bg-gray-50 text-gray-600'
-                           }`}
-                       >
-                           <div className="font-semibold">{shift.name}</div>
-                           <div className="text-xs opacity-75 font-mono group-hover:opacity-100">{shift.startTime} - {shift.endTime}</div>
-                       </button>
-                   ))}
-               </div>
-             </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">{t('entry.start_time')}</label>
-                  <input 
-                      type="time" 
-                      required
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-indigo-500 font-mono"
-                      value={startTimeStr}
-                      onChange={e => setStartTimeStr(e.target.value)}
-                  />
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t('entry.date_label')}</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <input 
+                        type="date" 
+                        required
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                        value={dateStr}
+                        onChange={e => setDateStr(e.target.value)}
+                    />
+                  </div>
               </div>
-              <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">{t('entry.end_time')}</label>
-                  <input 
-                      type="time" 
-                      required
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-indigo-500 font-mono"
-                      value={endTimeStr}
-                      onChange={e => setEndTimeStr(e.target.value)}
-                  />
-              </div>
-          </div>
-
-          <div className="flex gap-4 p-4 bg-gray-50 rounded-xl">
-               <div className="flex-1">
-                   <label className="block text-sm font-medium text-gray-600 mb-1">{t('entry.type')}</label>
-                   <div className="flex items-center gap-2 mt-2">
-                       <button 
-                         type="button"
-                         onClick={() => setIsNightShift(!isNightShift)}
-                         className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isNightShift ? 'bg-indigo-900' : 'bg-gray-200'}`}
-                       >
-                           <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isNightShift ? 'translate-x-5' : 'translate-x-0'}`} />
-                       </button>
-                       <span className={`text-sm font-medium ${isNightShift ? 'text-indigo-900' : 'text-gray-500'}`}>
-                           {isNightShift ? t('entry.nocturnal') : t('entry.diurnal')}
-                       </span>
-                   </div>
-               </div>
-               <div className="flex-1">
-                   <label className="block text-sm font-medium text-gray-600 mb-1">
-                       {billingType === 'hourly' ? t('entry.rate_hourly') : t('entry.rate_daily')}
+              <div className="flex flex-col justify-end">
+                   <label className="block text-sm font-semibold text-gray-700 mb-2">
+                       {billingType === 'hourly' ? t('entry.rate_hourly') : "Prezzo Fisso Giornata (€)"}
                    </label>
                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <span className="text-gray-400 font-bold">€</span>
                       </div>
                       <input 
                         type="number" 
                         min="0"
                         step="0.01"
-                        className="w-full pl-6 pr-3 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
+                        className="w-full pl-8 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-lg font-bold"
                         value={hourlyRate}
                         onChange={e => setHourlyRate(e.target.value)}
                       />
                    </div>
-               </div>
+              </div>
+          </div>
+
+          <div className={`space-y-4 p-4 rounded-xl border transition-all ${billingType === 'daily' && noSpecificTime ? 'bg-gray-50 border-gray-200 opacity-60' : 'bg-white border-gray-100'}`}>
+              <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                      <Clock size={16} /> Orario del Servizio
+                  </h3>
+                  {billingType === 'daily' && (
+                      <button 
+                        type="button" 
+                        onClick={() => setNoSpecificTime(!noSpecificTime)}
+                        className={`text-xs px-2 py-1 rounded-md font-bold transition-colors ${noSpecificTime ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500'}`}
+                      >
+                          Intera Giornata
+                      </button>
+                  )}
+              </div>
+
+              {!noSpecificTime && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">{t('entry.start_time')}</label>
+                            <input 
+                                type="time" 
+                                required={!noSpecificTime}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-indigo-500 font-mono"
+                                value={startTimeStr}
+                                onChange={e => setStartTimeStr(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">{t('entry.end_time')}</label>
+                            <input 
+                                type="time" 
+                                required={!noSpecificTime}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-indigo-500 font-mono"
+                                value={endTimeStr}
+                                onChange={e => setEndTimeStr(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                         <button 
+                             type="button"
+                             onClick={() => setIsNightShift(!isNightShift)}
+                             className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isNightShift ? 'bg-indigo-900' : 'bg-gray-200'}`}
+                         >
+                             <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isNightShift ? 'translate-x-5' : 'translate-x-0'}`} />
+                         </button>
+                         <span className={`text-xs font-medium ${isNightShift ? 'text-indigo-900' : 'text-gray-500'}`}>
+                             {isNightShift ? t('entry.nocturnal') : t('entry.diurnal')}
+                         </span>
+                    </div>
+
+                    {selectedProject?.shifts && selectedProject.shifts.length > 0 && (
+                        <div className="pt-2">
+                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                 {selectedProject.shifts.map(shift => (
+                                     <button 
+                                         key={shift.id}
+                                         type="button"
+                                         onClick={() => applyPreset(shift.startTime, shift.endTime)}
+                                         className={`p-1.5 rounded-lg border text-[10px] transition-all text-left ${
+                                             startTimeStr === shift.startTime && endTimeStr === shift.endTime
+                                             ? 'bg-indigo-50 border-indigo-500 text-indigo-700 font-bold' 
+                                             : 'border-gray-200 hover:bg-gray-50 text-gray-500'
+                                         }`}
+                                     >
+                                         <div className="truncate">{shift.name}</div>
+                                         <div className="opacity-75 font-mono">{shift.startTime}-{shift.endTime}</div>
+                                     </button>
+                                 ))}
+                             </div>
+                        </div>
+                    )}
+                  </>
+              )}
           </div>
 
           <div>
@@ -273,7 +315,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                  value={description}
                  onChange={e => setDescription(e.target.value)}
-                 placeholder={t('entry.notes_placeholder')}
+                 placeholder="Dettagli servizio..."
                />
           </div>
 
@@ -292,14 +334,11 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
              </div>
              
              <div className="space-y-3">
-                 {expenses.length === 0 && (
-                     <p className="text-sm text-gray-400 italic">{t('entry.no_extra')}</p>
-                 )}
                  {expenses.map((exp) => (
                      <div key={exp.id} className="flex gap-2 items-center">
                          <input 
                             type="text" 
-                            placeholder="Es. Pasto"
+                            placeholder="Descrizione spesa"
                             className="flex-grow px-3 py-2 border border-gray-200 rounded-md text-sm outline-none focus:border-indigo-500"
                             value={exp.description}
                             onChange={e => handleUpdateExpense(exp.id, 'description', e.target.value)}
@@ -335,7 +374,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
              </button>
              <button 
                 type="submit" 
-                className="px-6 py-3 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
+                className="px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
              >
                  {t('entry.save')}
              </button>

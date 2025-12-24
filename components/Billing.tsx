@@ -44,8 +44,9 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       return sorted;
   }, [entries]);
 
-  const availableMonthsInYear = useMemo(() => {
-      const months = new Set(
+  // Explicitly type the result as string[] and the Set as string to avoid 'unknown[]' inference during filter operations
+  const availableMonthsInYear = useMemo<string[]>(() => {
+      const months = new Set<string>(
           entries
             .filter(e => new Date(e.startTime).getFullYear().toString() === selectedYear)
             .map(e => new Date(e.startTime).toISOString().slice(0, 7))
@@ -133,14 +134,22 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   const handleMarkAsBilled = async () => {
       if (selectedEntryIds.size === 0) return;
       if (!confirm(`Segnare come fatturati ${selectedEntryIds.size} servizi? Verranno spostati nell'Archivio.`)) return;
+      
       setIsProcessing(true);
+      const idsToMark = Array.from(selectedEntryIds);
+      
       try {
-          await DB.markEntriesAsBilled(Array.from(selectedEntryIds));
-          if (onEntriesChange) onEntriesChange();
-          setSelectedEntryIds(new Set());
+          await DB.markEntriesAsBilled(idsToMark);
+          setSelectedEntryIds(new Set()); // Pulisce selezione locale prima del refresh
+          if (onEntriesChange) {
+              await onEntriesChange();
+          }
       } catch (e: any) { 
-          alert("Errore durante l'aggiornamento: " + (e.message || "Problema sconosciuto")); 
-      } finally { setIsProcessing(false); }
+          console.error("Errore Billing MarkAsBilled:", e);
+          alert("Errore durante lo spostamento: " + (e.message || "Problema di connessione al database. Verifica i permessi RLS.")); 
+      } finally { 
+          setIsProcessing(false); 
+      }
   };
 
   const handleUpdateRate = async (entry: TimeEntry) => {
@@ -149,9 +158,9 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
     setIsProcessing(true);
     try {
         await DB.saveEntry({ ...entry, hourlyRate: newRate }, userProfile?.id || '');
-        if (onEntriesChange) onEntriesChange();
+        if (onEntriesChange) await onEntriesChange();
         setEditingRateId(null);
-    } catch (e) { alert("Errore"); } finally { setIsProcessing(false); }
+    } catch (e) { alert("Errore aggiornamento tariffa"); } finally { setIsProcessing(false); }
   };
 
   const handleBulkUpdateRate = async () => {
@@ -161,11 +170,11 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       setIsProcessing(true);
       try {
           await DB.updateEntriesRate(Array.from(selectedEntryIds), newRate);
-          if (onEntriesChange) onEntriesChange();
           setSelectedEntryIds(new Set());
           setShowBulkRateInput(false);
           setBulkRateValue('');
-      } catch (e) { alert("Errore"); } finally { setIsProcessing(false); }
+          if (onEntriesChange) await onEntriesChange();
+      } catch (e) { alert("Errore aggiornamento bulk"); } finally { setIsProcessing(false); }
   };
 
   const handleExportCSV = () => {

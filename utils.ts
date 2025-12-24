@@ -12,9 +12,10 @@ export const generateId = (): string => {
 };
 
 export const formatDuration = (seconds: number): string => {
+  if (seconds <= 0) return "--:--";
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
+  const s = Math.floor(seconds % 60);
   
   const hStr = h < 10 ? `0${h}` : `${h}`;
   const mStr = m < 10 ? `0${m}` : `${m}`;
@@ -24,6 +25,7 @@ export const formatDuration = (seconds: number): string => {
 };
 
 export const formatDurationHuman = (seconds: number): string => {
+  if (seconds <= 0) return "";
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   
@@ -39,7 +41,8 @@ export const formatDate = (timestamp: number): string => {
   });
 };
 
-export const formatTime = (timestamp: number): string => {
+export const formatTime = (timestamp: number | null): string => {
+  if (!timestamp) return "--:--";
   return new Date(timestamp).toLocaleTimeString('it-IT', {
     hour: '2-digit',
     minute: '2-digit'
@@ -57,18 +60,18 @@ export const formatCurrency = (amount: number): string => {
 export const calculateEarnings = (entry: TimeEntry): number => {
     let total = 0;
     
-    // Time cost: check if daily or hourly
+    // Check billing type first
     if (entry.billingType === 'daily') {
-        // Flat daily rate
-        total += (entry.hourlyRate || 0);
+        // Daily is a FLAT FEE. Ignore duration.
+        total = (entry.hourlyRate || 0);
     } else {
-        // Classic hourly calculation (default)
+        // Hourly is DURATION * RATE
         if (entry.hourlyRate && entry.duration) {
-            total += (entry.duration / 3600) * entry.hourlyRate;
+            total = (entry.duration / 3600) * entry.hourlyRate;
         }
     }
 
-    // Expenses
+    // Always add expenses
     if (entry.expenses && entry.expenses.length > 0) {
         total += entry.expenses.reduce((sum, exp) => sum + exp.amount, 0);
     }
@@ -91,11 +94,13 @@ export const groupEntriesByDay = (entries: TimeEntry[]): DayGroup[] => {
     }
     groups[dateKey].entries.push(entry);
     
-    const duration = entry.endTime 
-      ? (entry.endTime - entry.startTime) / 1000 
-      : (Date.now() - entry.startTime) / 1000;
-      
-    groups[dateKey].totalDuration += duration;
+    // Only add to total duration if not a daily entry (or daily entry with times)
+    if (entry.billingType !== 'daily' || (entry.endTime && entry.startTime)) {
+        const duration = entry.endTime 
+          ? (entry.endTime - entry.startTime) / 1000 
+          : 0;
+        groups[dateKey].totalDuration += duration;
+    }
   });
 
   return Object.values(groups).sort((a, b) => b.date.localeCompare(a.date));
