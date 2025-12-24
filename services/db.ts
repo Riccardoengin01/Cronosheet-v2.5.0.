@@ -82,7 +82,8 @@ export const getCertifications = async (userId: string): Promise<Certification[]
         organization: c.organization,
         issueDate: c.issue_date,
         expiryDate: c.expiry_date,
-        document_url: c.document_url
+        document_url: c.document_url,
+        details: c.details
     }));
 };
 
@@ -105,7 +106,8 @@ export const saveCertification = async (cert: Certification, userId: string): Pr
         organization: cert.organization,
         issue_date: cert.issueDate,
         expiry_date: cert.expiryDate,
-        document_url: cert.document_url
+        document_url: cert.document_url,
+        details: cert.details
     };
 
     const { data, error } = await supabase
@@ -123,7 +125,8 @@ export const saveCertification = async (cert: Certification, userId: string): Pr
         organization: data.organization,
         issueDate: data.issue_date,
         expiryDate: data.expiry_date,
-        document_url: data.document_url
+        document_url: data.document_url,
+        details: data.details
     };
 };
 

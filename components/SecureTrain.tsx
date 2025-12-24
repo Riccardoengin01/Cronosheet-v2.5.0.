@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Certification, UserProfile, CourseType } from '../types';
 import * as DB from '../services/db';
 import { generateId } from '../utils';
-import { Award, Plus, Calendar, Trash2, Pencil, Search, ShieldCheck, AlertTriangle, Clock, X, Save, Building, FileText, ExternalLink, Info, Upload, Loader2 } from 'lucide-react';
+import { Award, Plus, Calendar, Trash2, Pencil, Search, ShieldCheck, AlertTriangle, Clock, X, Save, Building, FileText, ExternalLink, Info, Upload, Loader2, Tag, ListFilter } from 'lucide-react';
 import { useLanguage } from '../lib/i18n';
 
 interface SecureTrainProps {
@@ -14,7 +14,7 @@ interface SecureTrainProps {
 const COURSE_CONFIG: Record<CourseType, { label: string; validity: number; color: string }> = {
     'CSP': { label: 'Coordinatore Progettazione (CSP)', validity: 5, color: 'text-indigo-600 bg-indigo-50' },
     'CSE': { label: 'Coordinatore Esecuzione (CSE)', validity: 5, color: 'text-blue-600 bg-blue-50' },
-    'RSPP': { label: 'RSPP (A+B+C)', validity: 5, color: 'text-purple-600 bg-purple-50' },
+    'RSPP': { label: 'RSPP (Moduli A+B+C)', validity: 5, color: 'text-purple-600 bg-purple-50' },
     'ASPP': { label: 'ASPP', validity: 5, color: 'text-violet-600 bg-violet-50' },
     'FIRST_AID': { label: 'Primo Soccorso', validity: 3, color: 'text-red-600 bg-red-50' },
     'FIRE_SAFETY': { label: 'Antincendio', validity: 5, color: 'text-orange-600 bg-orange-50' },
@@ -24,6 +24,12 @@ const COURSE_CONFIG: Record<CourseType, { label: string; validity: number; color
     'EQUIPMENT': { label: 'Abilitazione Attrezzature', validity: 5, color: 'text-amber-600 bg-amber-50' },
     'MANUAL': { label: 'Altro (Inserimento Manuale)', validity: 1, color: 'text-gray-600 bg-gray-50' }
 };
+
+const FIRE_RISK_LEVELS = [
+    { value: 'Livello 1 (Basso)', label: 'Livello 1 (ex Basso)' },
+    { value: 'Livello 2 (Medio)', label: 'Livello 2 (ex Medio)' },
+    { value: 'Livello 3 (Alto)', label: 'Livello 3 (ex Alto)' }
+];
 
 const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
     const { t } = useLanguage();
@@ -41,6 +47,7 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
     const [issueDate, setIssueDate] = useState(new Date().toISOString().slice(0, 10));
     const [expiryDate, setExpiryDate] = useState('');
     const [docUrl, setDocUrl] = useState('');
+    const [details, setDetails] = useState('');
 
     useEffect(() => {
         fetchCerts();
@@ -71,6 +78,7 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
         setIssueDate(cert.issueDate);
         setExpiryDate(cert.expiryDate);
         setDocUrl(cert.document_url || '');
+        setDetails(cert.details || '');
         setIsModalOpen(true);
     };
 
@@ -98,7 +106,8 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
             organization: org,
             issueDate,
             expiryDate,
-            document_url: docUrl
+            document_url: docUrl,
+            details: details
         };
         await DB.saveCertification(cert, user.id);
         setIsModalOpen(false);
@@ -118,7 +127,8 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
     const filteredCerts = useMemo(() => {
         return certs.filter(c => 
             c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-            c.organization.toLowerCase().includes(searchTerm.toLowerCase())
+            c.organization.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (c.details && c.details.toLowerCase().includes(searchTerm.toLowerCase()))
         );
     }, [certs, searchTerm]);
 
@@ -132,7 +142,13 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
                     <p className="text-gray-500 font-medium">Archivio Competenze Certificate - Ing. {user.email.split('@')[0]}</p>
                 </div>
                 <button 
-                    onClick={() => { setEditCert(null); setDocUrl(''); setIsModalOpen(true); }}
+                    onClick={() => { 
+                        setEditCert(null); 
+                        setDocUrl(''); 
+                        setDetails(''); 
+                        setOrg('');
+                        setIsModalOpen(true); 
+                    }}
                     className="flex items-center justify-center gap-2 text-base font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-8 py-4 rounded-2xl transition-all shadow-xl shadow-indigo-200 active:scale-95"
                 >
                     <Plus size={20} strokeWidth={3} /> {t('train.add')}
@@ -144,7 +160,7 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                     <input 
                         type="text" 
-                        placeholder="Cerca tra CSP, CSE, Primo Soccorso o Ente..." 
+                        placeholder="Cerca tra RSPP, Antincendio, Modulo B o Ente..." 
                         className="w-full pl-12 pr-4 py-3 border border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50/50 font-medium"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
@@ -171,7 +187,14 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
                                         </div>
                                     </div>
                                     
-                                    <h3 className="text-xl font-black text-slate-900 mb-2 leading-tight h-14 overflow-hidden">{cert.name}</h3>
+                                    <h3 className="text-xl font-black text-slate-900 mb-1 leading-tight h-14 overflow-hidden">{cert.name}</h3>
+                                    
+                                    {cert.details && (
+                                        <div className="flex items-center gap-1.5 text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg w-fit text-[10px] font-black uppercase mb-3">
+                                            <Tag size={10} /> {cert.details}
+                                        </div>
+                                    )}
+
                                     <p className="text-gray-400 text-sm font-bold flex items-center gap-2 mb-6">
                                         <Building size={16} /> {cert.organization || 'Ente non specificato'}
                                     </p>
@@ -214,6 +237,11 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
                             </div>
                         );
                     })}
+                    {filteredCerts.length === 0 && (
+                        <div className="col-span-full py-20 text-center bg-white rounded-[2rem] border-2 border-dashed border-gray-100">
+                             <p className="text-gray-400 font-bold italic">Nessuna certificazione trovata con questi parametri.</p>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -233,13 +261,20 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
                             </button>
                         </div>
 
-                        <form onSubmit={handleSave} className="p-10 space-y-6">
+                        <form onSubmit={handleSave} className="p-10 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
                             <div>
                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Tipo di Abilitazione / Corso</label>
                                 <select 
                                     className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none font-bold text-slate-800 text-lg appearance-none"
                                     value={courseType}
-                                    onChange={e => setCourseType(e.target.value as CourseType)}
+                                    onChange={e => {
+                                        const val = e.target.value as CourseType;
+                                        setCourseType(val);
+                                        // Reset details specific when type changes
+                                        if (val !== 'FIRE_SAFETY' && val !== 'RSPP' && val !== 'ASPP') {
+                                            setDetails('');
+                                        }
+                                    }}
                                 >
                                     {Object.entries(COURSE_CONFIG).map(([key, config]) => (
                                         <option key={key} value={key}>{config.label}</option>
@@ -253,6 +288,59 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
                                     <input type="text" required className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none font-bold" value={customName} onChange={e => setCustomName(e.target.value)} />
                                 </div>
                             )}
+
+                            {/* Sezione Dettagli Dinamici */}
+                            <div className="bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100 animate-slide-down space-y-4">
+                                <div className="flex items-center gap-2 text-indigo-600 font-black text-[10px] uppercase tracking-widest mb-2">
+                                    <ListFilter size={14} /> Caratteristiche Percorso
+                                </div>
+                                
+                                {courseType === 'FIRE_SAFETY' && (
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-indigo-400 uppercase mb-2">Livello di Rischio Antincendio</label>
+                                        <div className="grid grid-cols-1 gap-2">
+                                            {FIRE_RISK_LEVELS.map((level) => (
+                                                <button
+                                                    key={level.value}
+                                                    type="button"
+                                                    onClick={() => setDetails(level.value)}
+                                                    className={`px-4 py-2 text-left rounded-xl text-xs font-bold border transition-all ${details === level.value ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}
+                                                >
+                                                    {level.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {(courseType === 'RSPP' || courseType === 'ASPP') && (
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-indigo-400 uppercase mb-2">Moduli Inclusi (A, B, C)</label>
+                                        <input 
+                                            type="text" 
+                                            placeholder="Es. Modulo A + B (SP2) + C"
+                                            className="w-full px-4 py-3 bg-white border border-indigo-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-sm"
+                                            value={details}
+                                            onChange={e => setDetails(e.target.value)}
+                                        />
+                                    </div>
+                                )}
+
+                                {courseType !== 'FIRE_SAFETY' && courseType !== 'RSPP' && courseType !== 'ASPP' && (
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-indigo-400 uppercase mb-2">Dettagli / Note Specifiche</label>
+                                        <input 
+                                            type="text" 
+                                            placeholder="Inserisci dettagli aggiuntivi (opzionale)"
+                                            className="w-full px-4 py-3 bg-white border border-indigo-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-sm"
+                                            value={details}
+                                            onChange={e => setDetails(e.target.value)}
+                                        />
+                                    </div>
+                                )}
+                                
+                                <p className="text-[9px] text-indigo-300 italic">Questi dettagli appariranno sulla card e nelle esportazioni normative.</p>
+                            </div>
 
                             <div>
                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Ente Erogatore</label>

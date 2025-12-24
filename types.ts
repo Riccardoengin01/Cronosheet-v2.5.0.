@@ -34,6 +34,7 @@ export interface Certification {
   issueDate: string;
   expiryDate: string;
   document_url?: string;
+  details?: string; // Moduli A,B,C o Livello Rischio o note libere
   status?: 'active' | 'warning' | 'expired';
 }
 
