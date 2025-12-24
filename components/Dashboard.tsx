@@ -25,7 +25,10 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
         
+        // Only count unbilled entries for current pending stats
+        const pendingEntries = entries.filter(e => !e.is_billed);
         const monthEntries = entries.filter(e => e.startTime >= startOfMonth);
+        
         const totalEarnings = monthEntries.reduce((acc, e) => acc + calculateEarnings(e), 0);
         const totalSeconds = monthEntries.reduce((acc, e) => acc + (e.duration || 0), 0);
 
@@ -42,7 +45,8 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
             entriesCount: monthEntries.length,
             expiredCount: expiredCerts.length,
             warningCount: warningCerts.length,
-            isSafe: expiredCerts.length === 0 && warningCerts.length === 0
+            isSafe: expiredCerts.length === 0 && warningCerts.length === 0,
+            pendingCount: pendingEntries.length
         };
     }, [entries, certs]);
 
@@ -98,10 +102,10 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
                         <div className="bg-indigo-50 text-indigo-600 p-3 rounded-2xl w-fit mb-6">
                             <TrendingUp size={28} />
                         </div>
-                        <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest mb-1">Guadagni Lordi Mensili</p>
+                        <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest mb-1">Fatturato Mensile (Lordo)</p>
                         <h3 className="text-5xl font-black text-slate-900 tracking-tighter mb-2">{formatCurrency(stats.earnings)}</h3>
                         <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm">
-                            <TrendingUp size={16} /> +12% rispetto a scorso mese
+                            <TrendingUp size={16} /> {stats.pendingCount} servizi in attesa
                         </div>
                     </div>
                     
@@ -111,7 +115,7 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
                             <p className="text-xl font-bold text-slate-700">{formatDurationHuman(stats.hours)}</p>
                         </div>
                         <div className="text-right">
-                            <p className="text-gray-400 text-[10px] font-bold uppercase mb-1">Servizi</p>
+                            <p className="text-gray-400 text-[10px] font-bold uppercase mb-1">Voci Mese</p>
                             <p className="text-xl font-bold text-slate-700">{stats.entriesCount}</p>
                         </div>
                     </div>
@@ -123,7 +127,7 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
                 <div className="bg-slate-900 text-white rounded-[2rem] p-6 shadow-lg">
                     <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Clock /> Attività Recente</h3>
                     <div className="space-y-3">
-                        {entries.slice(0, 3).map(e => {
+                        {entries.filter(e => !e.is_billed).slice(0, 3).map(e => {
                             const p = projects.find(proj => proj.id === e.projectId);
                             return (
                                 <div key={e.id} className="bg-white/5 border border-white/10 p-3 rounded-xl flex items-center justify-between">
@@ -135,6 +139,9 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
                                 </div>
                             );
                         })}
+                        {entries.filter(e => !e.is_billed).length === 0 && (
+                            <p className="text-slate-500 italic text-sm text-center py-4">Nessuna attività in sospeso.</p>
+                        )}
                     </div>
                 </div>
 
@@ -147,13 +154,13 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
                          </div>
                          <div className="bg-gray-50 p-4 rounded-2xl text-center">
                              <p className="text-[9px] font-black text-gray-400 uppercase">Status</p>
-                             <p className="text-sm font-bold text-emerald-600">CERTIFICATO</p>
+                             <p className="text-sm font-bold text-emerald-600">CONFORME</p>
                          </div>
                          <button 
-                            onClick={() => onViewChange('SETTINGS')}
-                            className="col-span-2 py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold rounded-2xl text-sm transition-all"
+                            onClick={() => onViewChange('BILLING')}
+                            className="col-span-2 py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold rounded-2xl text-sm transition-all flex items-center justify-center gap-2"
                         >
-                            Impostazioni Fatturazione
+                            Vai ai Riepiloghi <ChevronRight size={16} />
                          </button>
                      </div>
                 </div>

@@ -63,7 +63,6 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
         setLoading(false);
     };
 
-    // Prepares the form for editing an existing certification.
     const handleEdit = (cert: Certification) => {
         setEditCert(cert);
         setCourseType(cert.course_type);
