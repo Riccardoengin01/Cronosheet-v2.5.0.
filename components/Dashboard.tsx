@@ -2,7 +2,7 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { TimeEntry, Project, Certification } from '../types';
 import { calculateEarnings, formatCurrency, formatDurationHuman } from '../utils';
-import { Clock, TrendingUp, AlertCircle, ShieldAlert, CheckCircle2, ChevronRight, Calendar, User } from 'lucide-react';
+import { Clock, TrendingUp, AlertCircle, ShieldCheck, ShieldAlert, CheckCircle2, ChevronRight, Calendar, User, Activity, LayoutGrid, Briefcase, Wallet } from 'lucide-react';
 import * as DB from '../services/db';
 
 interface DashboardProps {
@@ -25,7 +25,6 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
         
-        // Only count unbilled entries for current pending stats
         const pendingEntries = entries.filter(e => !e.is_billed);
         const monthEntries = entries.filter(e => e.startTime >= startOfMonth);
         
@@ -51,118 +50,155 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
     }, [entries, certs]);
 
     return (
-        <div className="space-y-8 animate-fade-in max-w-6xl mx-auto">
-            <div className="flex justify-between items-end">
+        <div className="flex flex-col min-h-[calc(100vh-140px)] animate-fade-in max-w-6xl mx-auto space-y-5">
+            
+            {/* Header Super-Compatto */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
                 <div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tight">The Pulse</h1>
-                    <p className="text-gray-500 font-medium italic">Benvenuto, Ing. {userProfile?.email.split('@')[0]}</p>
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                        Control Center <Activity className="text-indigo-600" size={20} />
+                    </h1>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                        Ing. {userProfile?.full_name || userProfile?.email.split('@')[0]}
+                    </p>
                 </div>
-                <div className="bg-white px-4 py-2 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-2 text-sm font-bold text-slate-400">
-                    <Calendar size={16} /> {new Date().toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
+                <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-100 shadow-sm flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase">
+                    <Calendar size={12} className="text-indigo-500" /> 
+                    {new Date().toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Quick Stats Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm group hover:border-indigo-200 transition-colors">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Volume Affari (Mese)</p>
+                    <p className="text-xl font-black text-slate-900 tracking-tighter">{formatCurrency(stats.earnings)}</p>
+                </div>
+                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm group hover:border-indigo-200 transition-colors">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Operatività</p>
+                    <p className="text-xl font-black text-slate-900 tracking-tighter">{formatDurationHuman(stats.hours)}</p>
+                </div>
+                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm group hover:border-indigo-200 transition-colors">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Pratiche Pendenti</p>
+                    <p className="text-xl font-black text-indigo-600 tracking-tighter">{stats.pendingCount}</p>
+                </div>
+                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm group hover:border-indigo-200 transition-colors">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Asset Clienti</p>
+                    <p className="text-xl font-black text-slate-900 tracking-tighter">{projects.length}</p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
                 
-                {/* Safety Status Card */}
-                <div className={`col-span-1 lg:col-span-2 rounded-[2.5rem] p-8 relative overflow-hidden transition-all shadow-2xl ${stats.expiredCount > 0 ? 'bg-red-600 text-white' : stats.warningCount > 0 ? 'bg-amber-500 text-white' : 'bg-emerald-600 text-white'}`}>
-                    <div className="absolute right-0 bottom-0 opacity-10 -mr-10 -mb-10"><ShieldAlert size={240} /></div>
-                    <div className="relative z-10 flex flex-col h-full justify-between">
-                        <div>
-                            <div className="flex items-center gap-2 mb-2">
-                                <ShieldAlert size={24} />
-                                <span className="text-xs font-black uppercase tracking-[0.2em] opacity-80">Safety & Compliance Monitor</span>
+                {/* Main Insight & Progetti */}
+                <div className="lg:col-span-8 space-y-5">
+                    <div className={`rounded-[2rem] p-8 relative overflow-hidden transition-all shadow-xl ${stats.expiredCount > 0 ? 'bg-red-600' : 'bg-slate-900'} text-white`}>
+                        <div className="absolute right-0 bottom-0 opacity-5 -mr-8 -mb-8"><ShieldCheck size={220} /></div>
+                        <div className="relative z-10">
+                            <div className="flex items-center gap-2 mb-3">
+                                <div className="p-1.5 rounded-lg bg-indigo-500/20 backdrop-blur-sm border border-indigo-500/30">
+                                    <ShieldCheck size={16} />
+                                </div>
+                                <span className="text-[9px] font-black uppercase tracking-[0.2em] opacity-70">Security & Compliance Ledger</span>
                             </div>
-                            <h2 className="text-4xl font-black leading-tight mb-4">
+                            
+                            <h2 className="text-2xl font-black leading-tight mb-3 tracking-tight">
                                 {stats.expiredCount > 0 
-                                    ? `Attenzione! Hai ${stats.expiredCount} certificazioni scadute.` 
-                                    : stats.warningCount > 0 
-                                    ? `In Scadenza: ${stats.warningCount} corsi da aggiornare.`
-                                    : "Stato Formativo: Operativo al 100%"}
+                                    ? `Critical Alert: ${stats.expiredCount} Titoli Scaduti` 
+                                    : "Stato Formativo Professionalmente Conforme."}
                             </h2>
-                            <p className="text-white/80 font-medium text-lg max-w-md">
+                            
+                            <p className="text-white/60 font-medium text-xs max-w-lg leading-relaxed mb-6">
                                 {stats.isSafe 
-                                    ? "Tutti i tuoi titoli (CSP, CSE, RSPP) sono validi secondo l'Accordo 2025. Continua così!" 
-                                    : "Procedi al rinnovo immediato per garantire la conformità normativa nei tuoi cantieri."}
+                                    ? "Il tuo profilo rispetta i requisiti di legge (D.Lgs 81/08). I titoli CSP, CSE e RSPP sono validi e monitorati in tempo reale dal sistema Cronosheet." 
+                                    : "Attenzione: Sono presenti titoli scaduti che invalidano le tue attuali nomine in cantiere. Aggiorna immediatamente il registro."}
                             </p>
+
+                            <button 
+                                onClick={() => onViewChange('SECURE_TRAIN')}
+                                className="flex items-center gap-2 bg-white text-slate-900 hover:bg-indigo-50 px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-lg"
+                            >
+                                Gestione Certificazioni <ChevronRight size={14} />
+                            </button>
                         </div>
-                        
-                        <button 
-                            onClick={() => onViewChange('SECURE_TRAIN')}
-                            className="mt-8 flex items-center gap-2 bg-white/20 hover:bg-white/30 backdrop-blur-md w-fit px-6 py-3 rounded-2xl font-bold transition-all active:scale-95"
-                        >
-                            Apri Secure Train <ChevronRight size={18} />
-                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white p-5 rounded-[1.5rem] border border-slate-100 shadow-sm">
+                             <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                <Briefcase size={12} className="text-indigo-500" /> Progetti in Monitoraggio
+                             </h3>
+                             <div className="flex flex-wrap gap-1.5">
+                                 {projects.slice(0, 5).map(p => (
+                                     <div key={p.id} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-100 text-[9px] font-bold text-slate-600 bg-slate-50">
+                                         <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color }}></div>
+                                         {p.name}
+                                     </div>
+                                 ))}
+                                 <button onClick={() => onViewChange('CLIENTS')} className="text-[9px] font-black text-indigo-600 px-1.5">...</button>
+                             </div>
+                        </div>
+
+                        <div className="bg-indigo-600 p-5 rounded-[1.5rem] shadow-lg text-white flex flex-col justify-between">
+                             <div className="flex justify-between items-start">
+                                 <p className="text-[9px] font-black uppercase tracking-widest opacity-60 text-indigo-100">Performance Report</p>
+                                 <TrendingUp size={16} className="text-indigo-300" />
+                             </div>
+                             <p className="text-xs font-bold leading-snug my-2">Trend in crescita: +12% di produttività billable registrata questa settimana.</p>
+                             <button onClick={() => onViewChange('REPORTS')} className="text-[9px] font-black uppercase tracking-widest flex items-center gap-1 hover:gap-1.5 transition-all text-indigo-100">
+                                Analisi Dettagliata <ChevronRight size={10} />
+                             </button>
+                        </div>
                     </div>
                 </div>
 
-                {/* Earnings Card */}
-                <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-xl flex flex-col justify-between">
-                    <div>
-                        <div className="bg-indigo-50 text-indigo-600 p-3 rounded-2xl w-fit mb-6">
-                            <TrendingUp size={28} />
-                        </div>
-                        <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest mb-1">Fatturato Mensile (Lordo)</p>
-                        <h3 className="text-5xl font-black text-slate-900 tracking-tighter mb-2">{formatCurrency(stats.earnings)}</h3>
-                        <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm">
-                            <TrendingUp size={16} /> {stats.pendingCount} servizi in attesa
-                        </div>
-                    </div>
-                    
-                    <div className="pt-8 border-t border-gray-50 flex justify-between items-center">
-                        <div>
-                            <p className="text-gray-400 text-[10px] font-bold uppercase mb-1">Ore Erogate</p>
-                            <p className="text-xl font-bold text-slate-700">{formatDurationHuman(stats.hours)}</p>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-gray-400 text-[10px] font-bold uppercase mb-1">Voci Mese</p>
-                            <p className="text-xl font-bold text-slate-700">{stats.entriesCount}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Quick Actions & Recent Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-slate-900 text-white rounded-[2rem] p-6 shadow-lg">
-                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Clock /> Attività Recente</h3>
-                    <div className="space-y-3">
-                        {entries.filter(e => !e.is_billed).slice(0, 3).map(e => {
+                {/* Attività Recente - Design Professionale */}
+                <div className="lg:col-span-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 flex flex-col">
+                    <h3 className="text-sm font-black text-slate-900 mb-5 flex items-center gap-2">
+                        <Activity size={16} className="text-indigo-600" /> Flusso Attività
+                    </h3>
+                    <div className="space-y-3 flex-grow overflow-y-auto custom-scrollbar pr-1 max-h-[350px]">
+                        {entries.filter(e => !e.is_billed).slice(0, 6).map(e => {
                             const p = projects.find(proj => proj.id === e.projectId);
+                            const total = calculateEarnings(e);
                             return (
-                                <div key={e.id} className="bg-white/5 border border-white/10 p-3 rounded-xl flex items-center justify-between">
-                                    <div className="overflow-hidden">
-                                        <p className="text-sm font-bold truncate">{e.description || 'Senza descrizione'}</p>
-                                        <p className="text-[10px] opacity-60 uppercase font-black" style={{ color: p?.color }}>{p?.name}</p>
+                                <div key={e.id} className="group relative p-3 rounded-xl border border-transparent hover:border-slate-100 hover:bg-slate-50 transition-all">
+                                    <div className="flex justify-between items-start mb-1">
+                                        <p className="text-[11px] font-black text-slate-800 truncate pr-2">{e.description || 'Intervento Tecnico'}</p>
+                                        <span className="text-[10px] font-black text-indigo-600 font-mono">{formatCurrency(total)}</span>
                                     </div>
-                                    <span className="text-xs font-mono font-bold bg-white/10 px-2 py-1 rounded">{new Date(e.startTime).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })}</span>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: p?.color }}></div>
+                                        <span className="text-[9px] font-bold text-slate-400 uppercase truncate w-24">{p?.name || 'Cliente'}</span>
+                                        <span className="text-[9px] font-black text-slate-300 ml-auto font-mono">{new Date(e.startTime).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })}</span>
+                                    </div>
                                 </div>
                             );
                         })}
-                        {entries.filter(e => !e.is_billed).length === 0 && (
-                            <p className="text-slate-500 italic text-sm text-center py-4">Nessuna attività in sospeso.</p>
+                        {entries.length === 0 && (
+                            <div className="flex flex-col items-center justify-center py-10 opacity-30 gap-2">
+                                <LayoutGrid size={24} />
+                                <p className="text-[10px] font-bold uppercase italic">Log vuoto</p>
+                            </div>
                         )}
                     </div>
+                    <button 
+                        onClick={() => onViewChange('TIMESHEET')}
+                        className="mt-6 w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-black text-[9px] uppercase tracking-[0.2em] rounded-xl transition-all shadow-md active:scale-95"
+                    >
+                        Registro Completo
+                    </button>
                 </div>
+            </div>
 
-                <div className="bg-white border border-gray-100 rounded-[2rem] p-6 shadow-sm">
-                     <h3 className="text-lg font-bold mb-4 text-slate-800 flex items-center gap-2"><User /> Il mio Profilo Safety</h3>
-                     <div className="grid grid-cols-2 gap-4">
-                         <div className="bg-gray-50 p-4 rounded-2xl text-center">
-                             <p className="text-[9px] font-black text-gray-400 uppercase">Qualifica</p>
-                             <p className="text-sm font-bold text-slate-700">ING / CSP / CSE</p>
-                         </div>
-                         <div className="bg-gray-50 p-4 rounded-2xl text-center">
-                             <p className="text-[9px] font-black text-gray-400 uppercase">Status</p>
-                             <p className="text-sm font-bold text-emerald-600">CONFORME</p>
-                         </div>
-                         <button 
-                            onClick={() => onViewChange('BILLING')}
-                            className="col-span-2 py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold rounded-2xl text-sm transition-all flex items-center justify-center gap-2"
-                        >
-                            Vai ai Riepiloghi <ChevronRight size={16} />
-                         </button>
-                     </div>
+            {/* Footer Professionale */}
+            <div className="mt-auto pt-8 pb-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-2">
+                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.15em]">
+                    © 2025 Engineer Riccardo Righini - All Rights Reserved
+                </div>
+                <div className="flex items-center gap-4">
+                    <span className="text-[9px] font-black text-indigo-500 uppercase tracking-widest opacity-50">Secure Cronosheet System v2.5</span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                 </div>
             </div>
         </div>

@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Project, TimeEntry } from '../types';
 import { groupEntriesByDay, formatTime, formatDurationHuman, formatDuration, formatCurrency, calculateEarnings } from '../utils';
-import { Trash2, MapPin, Clock, Pencil, Moon, Filter, X, CheckSquare, Square, Calendar, ChevronDown, Search, ListFilter, User, Archive } from 'lucide-react';
+import { Trash2, MapPin, Clock, Pencil, Moon, Filter, X, CheckSquare, Square, Calendar, ChevronDown, Search, ListFilter, User, Archive, Wallet, PlusCircle } from 'lucide-react';
 import { useLanguage } from '../lib/i18n';
 
 interface TimeLogTableProps {
@@ -23,7 +23,6 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
   const [clientSearchTerm, setClientSearchTerm] = useState('');
   const clientDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Filter out billed entries for the main active timesheet
   const pendingEntries = useMemo(() => entries.filter(e => !e.is_billed), [entries]);
 
   const availableYears = useMemo(() => {
@@ -128,7 +127,7 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="bg-white rounded-3xl border border-gray-200 shadow-sm p-6">
+      <div className="bg-white rounded-3xl border border-gray-200 shadow-sm p-6 no-print">
           <div className="flex flex-col gap-6">
               <div className="flex flex-col md:flex-row gap-6 md:items-end border-b border-gray-100 pb-6">
                   <div className="w-full md:w-48">
@@ -250,9 +249,9 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
       </div>
       
       {filteredEntries.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-indigo-600 text-white p-6 rounded-[2rem] shadow-xl col-span-2 md:col-span-1">
-                  <span className="text-indigo-200 text-[10px] font-black uppercase tracking-widest block mb-1">{t('log.total_earnings')}</span>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 no-print">
+              <div className="bg-slate-900 text-white p-6 rounded-[2rem] shadow-xl col-span-2 md:col-span-1">
+                  <span className="text-indigo-300 text-[10px] font-black uppercase tracking-widest block mb-1">Fatturato Lordo</span>
                   <span className="font-black text-3xl">{formatCurrency(totalFilteredEarnings)}</span>
               </div>
               <div className="bg-white border border-gray-100 p-6 rounded-[2rem] shadow-sm col-span-2 md:col-span-1">
@@ -276,13 +275,13 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
           </div>
       ) : (
         grouped.map(group => (
-            <div key={group.date} className="bg-white border border-gray-100 rounded-[2.5rem] overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-            <div className="bg-slate-50/50 px-8 py-5 border-b border-gray-100 flex justify-between items-center">
-                <h3 className="font-black text-slate-800 capitalize tracking-tight text-lg">
+            <div key={group.date} className="bg-white border border-gray-100 rounded-[2rem] overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+            <div className="bg-slate-50/50 px-8 py-4 border-b border-gray-100 flex justify-between items-center">
+                <h3 className="font-black text-slate-800 capitalize tracking-tight text-base">
                 {new Date(group.date).toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </h3>
                 <div className="flex items-center gap-3">
-                    <div className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">
+                    <div className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border border-indigo-100">
                         {formatDurationHuman(group.totalDuration)}
                     </div>
                 </div>
@@ -294,70 +293,81 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
                 const earnings = calculateEarnings(entry);
                 const isDaily = entry.billingType === 'daily';
                 const hasNoTime = isDaily && !entry.endTime && entry.duration === 0;
+                const totalExpenses = entry.expenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
+                const baseEarnings = earnings - totalExpenses;
                 
                 return (
-                    <div key={entry.id} className="px-8 py-6 flex flex-col md:flex-row items-start md:items-center gap-6 hover:bg-slate-50/30 transition-colors group">
+                    <div key={entry.id} className="px-8 py-5 flex flex-col md:flex-row items-start md:items-center gap-6 hover:bg-slate-50/30 transition-colors group">
                         <div className="flex-grow min-w-0">
-                            <div className="flex flex-wrap items-center gap-3 mb-2">
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
                                 <span 
-                                    className="text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm"
-                                    style={{ color: project?.color, backgroundColor: `${project?.color}15`, border: `1px solid ${project?.color}30` }}
+                                    className="text-[9px] px-2.5 py-1 rounded-lg font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm"
+                                    style={{ color: project?.color, backgroundColor: `${project?.color}10`, border: `1px solid ${project?.color}20` }}
                                 >
                                     <MapPin size={10} />
                                     {project?.name || 'Unknown'}
                                 </span>
                                 {isDaily && (
-                                    <span className="text-[10px] px-3 py-1 rounded-full bg-slate-900 text-white font-black flex items-center gap-1.5 uppercase tracking-widest">
-                                        {t('entry.daily_mode')}
+                                    <span className="text-[9px] px-2.5 py-1 rounded-lg bg-slate-900 text-white font-black flex items-center gap-1.5 uppercase tracking-widest">
+                                        GIORNATA
                                     </span>
                                 )}
                                 {entry.isNightShift && !hasNoTime && (
-                                    <span className="text-[10px] px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 font-black flex items-center gap-1.5 uppercase tracking-widest">
-                                        <Moon size={10} /> {t('log.night')}
+                                    <span className="text-[9px] px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-600 font-black flex items-center gap-1.5 uppercase tracking-widest">
+                                        <Moon size={10} /> NOTTE
                                     </span>
                                 )}
                             </div>
-                            <h4 className="font-bold text-slate-900 text-lg leading-tight truncate" title={entry.description}>
-                                {entry.description || <span className="text-gray-300 font-medium italic">Senza note</span>}
+                            <h4 className="font-bold text-slate-900 text-base leading-tight truncate" title={entry.description}>
+                                {entry.description || <span className="text-gray-300 font-medium italic">Nessun dettaglio tecnico</span>}
                             </h4>
-                            
-                            {earnings > 0 && (
-                                <div className="md:hidden mt-3 text-sm text-emerald-600 font-black">
-                                    {formatCurrency(earnings)}
-                                </div>
-                            )}
                         </div>
 
-                        <div className="hidden md:flex flex-col items-end w-40 shrink-0">
-                            {earnings > 0 && (
-                                <div className="text-emerald-600 font-black text-xl tracking-tight">
-                                    {formatCurrency(earnings)}
-                                </div>
-                            )}
-                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
-                                {formatCurrency(entry.hourlyRate || 0)}{isDaily ? '/gg' : '/h'}
-                            </div>
-                        </div>
-
-                        <div className="flex items-center justify-between w-full md:w-auto gap-8 border-t md:border-t-0 border-gray-50 pt-4 md:pt-0">
-                            <div className="text-sm text-slate-600 font-bold bg-slate-100 px-4 py-2 rounded-2xl flex items-center gap-2.5">
-                                <Clock size={16} className="text-slate-400" />
-                                {hasNoTime ? "Giornata Intera" : <span className="font-mono">{formatTime(entry.startTime)} — {formatTime(entry.endTime)}</span>}
-                            </div>
-
+                        {/* Breakdown Economico Dettagliato */}
+                        <div className="flex flex-col items-end shrink-0 md:w-56">
                             <div className="flex items-center gap-2">
-                                <button 
-                                    onClick={() => onEdit(entry)}
-                                    className="p-3 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-2xl transition-all"
-                                >
-                                    <Pencil size={20} strokeWidth={2.5}/>
-                                </button>
-                                <button 
-                                    onClick={() => onDelete(entry.id)}
-                                    className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
-                                >
-                                    <Trash2 size={20} strokeWidth={2.5}/>
-                                </button>
+                                <div className="text-right">
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                                        {isDaily ? 'Tariffa' : 'Prestazione'}
+                                    </div>
+                                    <div className="text-xs font-bold text-slate-600 font-mono">
+                                        {formatCurrency(baseEarnings)}
+                                    </div>
+                                </div>
+                                
+                                {totalExpenses > 0 && (
+                                    <div className="flex items-center gap-2 pl-2 border-l border-slate-100">
+                                        <div className="text-right">
+                                            <div className="text-[10px] font-black text-amber-500 uppercase tracking-tighter flex items-center gap-1">
+                                                <PlusCircle size={8}/> Extra
+                                            </div>
+                                            <div className="text-xs font-bold text-amber-600 font-mono">
+                                                {formatCurrency(totalExpenses)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="flex items-center gap-2 pl-3 border-l-2 border-slate-200 ml-2">
+                                    <div className="text-right">
+                                        <div className="text-[10px] font-black text-indigo-500 uppercase tracking-tighter">Totale</div>
+                                        <div className="text-base font-black text-slate-900 tracking-tighter">
+                                            {formatCurrency(earnings)}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between w-full md:w-auto gap-4 border-t md:border-t-0 border-gray-50 pt-3 md:pt-0">
+                            <div className="text-xs text-slate-500 font-bold bg-slate-100 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                                <Clock size={14} className="text-slate-400" />
+                                {hasNoTime ? "Intera" : <span className="font-mono">{formatTime(entry.startTime)} — {formatTime(entry.endTime)}</span>}
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                                <button onClick={() => onEdit(entry)} className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"><Pencil size={18} /></button>
+                                <button onClick={() => onDelete(entry.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={18} /></button>
                             </div>
                         </div>
                     </div>
