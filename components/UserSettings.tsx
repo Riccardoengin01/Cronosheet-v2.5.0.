@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { UserProfile, BillingInfo } from '../types';
 import * as DB from '../services/db';
@@ -53,7 +54,8 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
 
     const handleSaveName = async () => {
         try {
-            await DB.updateUserProfile(user.id, { full_name: tempName });
+            // Fix: Replaced DB.updateUserProfile with DB.updateUserProfileAdmin and passed ID in updates object
+            await DB.updateUserProfileAdmin({ id: user.id, full_name: tempName });
             setIsEditingName(false);
             onProfileUpdate();
         } catch (error) {
@@ -65,7 +67,8 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
         e.preventDefault();
         setSaveStatus('saving');
         try {
-            await DB.updateUserProfile(user.id, { billing_info: billingInfo });
+            // Fix: Replaced DB.updateUserProfile with DB.updateUserProfileAdmin and passed ID in updates object
+            await DB.updateUserProfileAdmin({ id: user.id, billing_info: billingInfo });
             setSaveStatus('success');
             setTimeout(() => {
                 setIsEditingBilling(false);
@@ -86,7 +89,8 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
         setAutoRenew(newValue);
         
         try {
-            await DB.updateUserProfile(user.id, { auto_renew: newValue });
+            // Fix: Replaced DB.updateUserProfile with DB.updateUserProfileAdmin and passed ID in updates object
+            await DB.updateUserProfileAdmin({ id: user.id, auto_renew: newValue });
             onProfileUpdate(); 
         } catch (error: any) {
             console.error("Errore toggle rinnovo:", error);
@@ -167,7 +171,9 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
 
         try {
             // 2. Aggiorna il DB
-            await DB.updateUserProfile(user.id, {
+            // Fix: Replaced DB.updateUserProfile with DB.updateUserProfileAdmin and passed ID in updates object
+            await DB.updateUserProfileAdmin({
+                id: user.id,
                 subscription_status: 'pro',
                 trial_ends_at: newExpiryDate.toISOString(),
                 auto_renew: true
@@ -431,7 +437,7 @@ const UserSettings: React.FC<UserSettingsProps> = ({ user, onProfileUpdate }) =>
                             {user.subscription_status === 'elite' ? <Crown size={150} /> : <Zap size={150} />}
                         </div>
                         
-                        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                        <div className="relative z-10 flex flex-col h-full justify-between">
                             <div>
                                 <p className="text-sm font-bold text-indigo-300 uppercase tracking-wider mb-1">Piano Attuale</p>
                                 <h2 className="text-4xl font-bold text-white capitalize flex items-center gap-3">
