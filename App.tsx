@@ -12,13 +12,11 @@ import AdminPanel from './components/AdminPanel';
 import UserSettings from './components/UserSettings';
 import Auth from './components/Auth';
 import DatabaseSetup from './components/DatabaseSetup'; 
-import AIAssistant from './components/AIAssistant';
 import SecureTrain from './components/SecureTrain';
 import BusinessExpenses from './components/BusinessExpenses';
 import * as DB from './services/db';
-import { generateId } from './utils';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
-import { Plus, LogOut, Loader2, AlertTriangle } from 'lucide-react';
+import { Plus, LogOut, Loader2 } from 'lucide-react';
 import { useLanguage } from './lib/i18n';
 
 function App() {
@@ -162,7 +160,6 @@ function App() {
                     <Plus size={24} strokeWidth={3} /> {t('app.add_service')}
                 </button>
              </div>
-
              <TimeLogTable entries={entries} projects={projects} onDelete={handleDeleteEntry} onEdit={(e) => { setEditingEntry(e); setIsModalOpen(true); }} />
           </div>
         );
@@ -176,9 +173,8 @@ function App() {
           <div className="space-y-8 animate-fade-in max-w-6xl mx-auto">
             <div>
                 <h1 className="text-4xl font-black text-gray-900 tracking-tight">{t('menu.reports')}</h1>
-                <p className="text-gray-500 font-medium">Visualizza statistiche e insights sul tuo lavoro.</p>
+                <p className="text-gray-500 font-medium">Analisi visuale delle performance e delle ore caricate.</p>
             </div>
-            <AIAssistant entries={entries} projects={projects} />
             <Reports entries={entries} projects={projects} />
           </div>
         );
@@ -207,7 +203,7 @@ function App() {
     <div className="flex h-screen bg-white md:bg-gray-50/30 overflow-hidden font-sans text-slate-900 antialiased">
       <Sidebar currentView={view} onChangeView={setView} userProfile={profile} />
       <main className="flex-1 overflow-y-auto relative scroll-smooth bg-gray-50/50">
-          <div className="absolute top-4 right-4 z-50 flex items-center gap-4 no-print">
+          <div className="absolute top-4 right-4 z-[70] flex items-center gap-4 no-print">
                <button onClick={handleLogout} className="bg-white/80 backdrop-blur-md p-2.5 rounded-xl shadow-sm text-gray-400 hover:text-red-500 hover:bg-white transition-all border border-gray-100">
                    <LogOut size={20} />
                </button>
