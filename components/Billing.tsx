@@ -138,7 +138,8 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       if (!confirm(`Segnare come fatturati ${selectedEntryIds.size} servizi? Verranno spostati nell'Archivio.`)) return;
       
       setIsProcessing(true);
-      const idsToMark = Array.from(selectedEntryIds);
+      // Fix: Use spread operator for better type inference with Sets
+      const idsToMark = [...selectedEntryIds];
       
       try {
           await DB.markEntriesAsBilled(idsToMark);
@@ -171,7 +172,8 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       if (!confirm(`Aggiornare la tariffa a ${formatCurrency(newRate)} per ${selectedEntryIds.size} servizi?`)) return;
       setIsProcessing(true);
       try {
-          await DB.updateEntriesRate(Array.from(selectedEntryIds), newRate);
+          // Fix: Use spread operator for better type inference with Sets
+          await DB.updateEntriesRate([...selectedEntryIds], newRate);
           setSelectedEntryIds(new Set<string>());
           setShowBulkRateInput(false);
           setBulkRateValue('');

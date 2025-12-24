@@ -17,6 +17,7 @@ const translations = {
     'menu.reports': 'Statistiche',
     'menu.profile': 'Il mio Profilo',
     'menu.admin': 'Admin Panel',
+    'menu.secure_train': 'Secure Train',
     'auth.title': 'Gestione orari Cloud & Sicura',
     'auth.create_profile': 'Crea il tuo profilo',
     'auth.login_profile': 'Accedi al tuo profilo',
@@ -75,6 +76,13 @@ const translations = {
     'reports.7d': '7 Giorni',
     'reports.14d': '14 Giorni',
     'reports.month': 'Mese Corrente',
+    'train.title': 'Certificazioni & Corsi',
+    'train.add': 'Aggiungi Certificato',
+    'train.no_data': 'Nessuna certificazione salvata.',
+    'train.expiry': 'Scadenza',
+    'train.issued': 'Conseguito il',
+    'train.days_left': 'giorni rimanenti',
+    'train.expired': 'Scaduto',
   },
   en: {
     'menu.timesheet': 'Timesheet',
@@ -83,6 +91,7 @@ const translations = {
     'menu.reports': 'Analytics',
     'menu.profile': 'My Profile',
     'menu.admin': 'Admin Panel',
+    'menu.secure_train': 'Secure Train',
     'auth.title': 'Secure Cloud Time Tracking',
     'auth.create_profile': 'Create profile',
     'auth.login_profile': 'Login',
@@ -141,6 +150,13 @@ const translations = {
     'reports.7d': '7 Days',
     'reports.14d': '14 Days',
     'reports.month': 'Current Month',
+    'train.title': 'Certifications & Training',
+    'train.add': 'Add Certificate',
+    'train.no_data': 'No certifications saved.',
+    'train.expiry': 'Expiry',
+    'train.issued': 'Issued on',
+    'train.days_left': 'days left',
+    'train.expired': 'Expired',
   }
 };
 

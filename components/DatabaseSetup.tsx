@@ -50,38 +50,31 @@ create table if not exists public.time_entries (
   created_at timestamptz default now()
 );
 
--- 4. MIGRAZIONE: Aggiunta colonne se le tabelle esistevano già (Indispensabile per fix inserimento)
-do $$
-begin
-  -- Per PROFILES
-  if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'auto_renew') then
-    alter table public.profiles add column auto_renew boolean default true;
-  end if;
-  
-  -- Per PROJECTS
-  if not exists (select 1 from information_schema.columns where table_name = 'projects' and column_name = 'default_billing_type') then
-    alter table public.projects add column default_billing_type text default 'hourly';
-  end if;
-
-  -- Per TIME_ENTRIES
-  if not exists (select 1 from information_schema.columns where table_name = 'time_entries' and column_name = 'billing_type') then
-    alter table public.time_entries add column billing_type text default 'hourly';
-  end if;
-  if not exists (select 1 from information_schema.columns where table_name = 'time_entries' and column_name = 'is_billed') then
-    alter table public.time_entries add column is_billed boolean default false;
-  end if;
-end $$;
+-- 4. Tabella Certificazioni (Secure Train)
+create table if not exists public.certifications (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  name text not null,
+  organization text,
+  issue_date date,
+  expiry_date date,
+  created_at timestamptz default now()
+);
 
 -- 5. Sicurezza (RLS)
 alter table public.profiles enable row level security;
 alter table public.projects enable row level security;
 alter table public.time_entries enable row level security;
+alter table public.certifications enable row level security;
 
 drop policy if exists "Users can CRUD their own projects" on public.projects;
 create policy "Users can CRUD their own projects" on public.projects for all using (auth.uid() = user_id);
 
 drop policy if exists "Users can CRUD their own entries" on public.time_entries;
 create policy "Users can CRUD their own entries" on public.time_entries for all using (auth.uid() = user_id);
+
+drop policy if exists "Users can CRUD their own certs" on public.certifications;
+create policy "Users can CRUD their own certs" on public.certifications for all using (auth.uid() = user_id);
 `;
 
 const DatabaseSetup = () => {

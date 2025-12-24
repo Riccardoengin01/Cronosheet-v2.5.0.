@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { AppView, UserProfile, AppTheme } from '../types';
-import { Table2, PieChart, ShieldCheck, Users, Receipt, Shield, Github, Crown, Star, Clock, ChevronRight, UserCog, Globe, Archive } from 'lucide-react';
+import { Table2, PieChart, ShieldCheck, Users, Receipt, Shield, Clock, ChevronRight, UserCog, Globe, Archive, Award, LayoutDashboard } from 'lucide-react';
 import * as DB from '../services/db';
 import { useLanguage } from '../lib/i18n';
 
@@ -28,11 +28,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
   }, [userProfile, theme]);
 
   const menuItems = [
+    { id: AppView.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
     { id: AppView.TIMESHEET, label: t('menu.timesheet'), icon: Table2 },
     { id: AppView.CLIENTS, label: t('menu.projects'), icon: Users },
     { id: AppView.BILLING, label: t('menu.billing'), icon: Receipt },
     { id: AppView.ARCHIVE, label: t('billing.billed'), icon: Archive },
     { id: AppView.REPORTS, label: t('menu.reports'), icon: PieChart },
+    { id: AppView.SECURE_TRAIN, label: t('menu.secure_train'), icon: Award },
     { id: AppView.SETTINGS, label: t('menu.profile'), icon: UserCog },
   ];
 
@@ -50,45 +52,23 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
 
   const renderUserStatus = () => {
       if (!userProfile) return null;
-      const textColor = 'text-white/80';
       if (userProfile.subscription_status === 'elite') {
           return (
-              <div className="flex items-center gap-2 mt-1" style={{ color: currentTheme.accentColor }}>
-                  <Crown size={14} fill="currentColor" />
-                  <span className="text-xs font-bold uppercase tracking-wider">Elite Member</span>
-              </div>
-          );
-      }
-      if (userProfile.subscription_status === 'pro') {
-          const renewDate = new Date(userProfile.trial_ends_at).toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US');
-          const isAutoRenew = userProfile.auto_renew !== false; 
-          return (
-              <div className="mt-1">
-                  <div className="flex items-center gap-2" style={{ color: currentTheme.accentColor }}>
-                      <Star size={14} fill="currentColor" />
-                      <span className="text-xs font-bold uppercase tracking-wider">Pro Plan</span>
-                  </div>
-                  <div className={`text-[10px] mt-0.5 ${isAutoRenew ? textColor : 'text-amber-500 font-medium'}`}>
-                      {daysLeft < 0 
-                        ? (language === 'it' ? 'Scaduto' : 'Expired') 
-                        : (isAutoRenew ? (language === 'it' ? `Rinnovo: ${renewDate}` : `Renews: ${renewDate}`) : (language === 'it' ? `Scadenza: ${renewDate}` : `Expires: ${renewDate}`))
-                      }
-                  </div>
+              <div className="flex items-center gap-2 mt-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">Elite Member</span>
               </div>
           );
       }
       const isExpired = daysLeft < 0;
-      const daysText = language === 'it' 
-        ? (isExpired ? `Scaduto da ${Math.abs(daysLeft)} gg` : `${daysLeft} giorni rimanenti`)
-        : (isExpired ? `Expired by ${Math.abs(daysLeft)} days` : `${daysLeft} days left`);
       return (
           <div className="mt-1">
-             <div className={`flex items-center gap-2 ${isExpired ? 'text-red-400' : ''}`} style={!isExpired ? { color: currentTheme.accentColor } : {}}>
-                  <Clock size={14} />
-                  <span className="text-xs font-bold uppercase tracking-wider">Trial</span>
+             <div className={`flex items-center gap-2 ${isExpired ? 'text-red-400' : 'text-indigo-300'}`}>
+                  <Clock size={10} />
+                  <span className="text-[9px] font-bold uppercase tracking-widest">{userProfile.subscription_status}</span>
               </div>
-              <div className={`text-[10px] mt-0.5 ${isExpired ? 'text-red-500 font-bold' : textColor}`}>
-                  {daysText}
+              <div className={`text-[10px] font-medium opacity-60`}>
+                  {isExpired ? 'Scaduto' : `${daysLeft}d left`}
               </div>
           </div>
       );
@@ -96,100 +76,95 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userProfil
 
   return (
     <aside 
-        className="w-20 lg:w-72 flex flex-col h-full transition-all duration-300 shadow-xl z-20 print:hidden relative overflow-hidden"
+        className="w-20 lg:w-72 flex flex-col h-full transition-all duration-300 shadow-2xl z-30 print:hidden relative overflow-hidden shrink-0 border-r border-white/5"
         style={{ backgroundColor: currentTheme.sidebarBg }}
     >
-      <div className="absolute top-0 left-0 w-full h-1" style={{ background: `linear-gradient(90deg, ${currentTheme.activeBg}, ${currentTheme.accentColor})` }}></div>
-      <div className="h-20 flex items-center justify-center lg:justify-start lg:px-6 border-b border-white/10 bg-black/10 backdrop-blur-sm">
-        <div className="p-2 rounded-lg shrink-0" style={{ backgroundColor: `${currentTheme.accentColor}20` }}>
-            <ShieldCheck className="w-8 h-8" style={{ color: currentTheme.accentColor }} />
+      {/* Decorative Gradient Background */}
+      <div className="absolute inset-0 opacity-10 pointer-events-none">
+          <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.4),transparent_50%)]"></div>
+      </div>
+
+      <div className="h-24 flex items-center justify-center lg:justify-start lg:px-8 border-b border-white/5 relative z-10">
+        <div className="p-2.5 rounded-2xl flex items-center justify-center shadow-lg transform transition-transform hover:scale-105" style={{ backgroundColor: `${currentTheme.accentColor}20`, border: `1px solid ${currentTheme.accentColor}30` }}>
+            <ShieldCheck className="w-7 h-7" style={{ color: currentTheme.accentColor }} />
         </div>
-        <div className="hidden lg:block ml-3 overflow-hidden">
-            <span className="font-bold text-xl tracking-tight block leading-none truncate text-white">Cronosheet</span>
-            <span className="text-[10px] uppercase tracking-widest font-semibold block" style={{ color: currentTheme.itemColor }}>SaaS Platform</span>
+        <div className="hidden lg:block ml-4 overflow-hidden">
+            <span className="font-black text-2xl tracking-tighter block leading-none text-white italic">Cronosheet</span>
+            <span className="text-[10px] uppercase tracking-[0.2em] font-bold opacity-40 mt-1 block" style={{ color: currentTheme.itemColor }}>SaaS Platform</span>
         </div>
       </div>
-      <nav className="flex-1 py-6 space-y-1 px-3 overflow-y-auto custom-scrollbar">
-        <div className="hidden lg:flex justify-between items-center px-4 mb-2">
-            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: currentTheme.itemColor, opacity: 0.7 }}>Menu</p>
+
+      <nav className="flex-1 py-10 space-y-1.5 px-4 overflow-y-auto custom-scrollbar relative z-10">
+        <div className="hidden lg:flex justify-between items-center px-4 mb-4">
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-30" style={{ color: currentTheme.itemColor }}>Main Dashboard</p>
             <button 
                 onClick={() => setLanguage(language === 'it' ? 'en' : 'it')}
-                className="text-[10px] font-bold uppercase px-2 py-0.5 rounded border border-white/10 hover:bg-white/10 transition-colors flex items-center gap-1"
+                className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border border-white/10 hover:bg-white/10 transition-all flex items-center gap-1.5 active:scale-95"
                 style={{ color: currentTheme.itemColor }}
             >
-                <Globe size={10} />
-                {language === 'it' ? 'IT' : 'EN'}
+                <Globe size={12} />
+                {language === 'it' ? 'ITA' : 'ENG'}
             </button>
         </div>
+        
         {menuItems.map(item => {
           const isActive = currentView === item.id;
           return (
             <button
               key={item.id}
               onClick={() => onChangeView(item.id)}
-              className="w-full flex items-center justify-center lg:justify-start lg:px-4 py-3.5 rounded-xl transition-all group relative"
+              className={`w-full flex items-center justify-center lg:justify-start lg:px-5 py-3.5 rounded-2xl transition-all group relative overflow-hidden`}
               style={{
                   backgroundColor: isActive ? currentTheme.activeBg : 'transparent',
-                  color: isActive ? currentTheme.activeText : currentTheme.itemColor
-              }}
-              onMouseEnter={(e) => {
-                  if(!isActive) {
-                      e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
-                      e.currentTarget.style.color = '#fff';
-                  }
-              }}
-              onMouseLeave={(e) => {
-                  if(!isActive) {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                      e.currentTarget.style.color = currentTheme.itemColor;
-                  }
+                  color: isActive ? currentTheme.activeText : currentTheme.itemColor,
+                  boxShadow: isActive ? `0 10px 15px -3px rgba(0,0,0,0.3)` : 'none'
               }}
             >
-              <item.icon 
-                className="w-5 h-5 transition-colors" 
-              />
-              <span className="hidden lg:block ml-3 font-medium text-sm">{item.label}</span>
               {isActive && (
-                 <ChevronRight className="hidden lg:block ml-auto w-4 h-4 opacity-50" />
+                  <div className="absolute left-0 top-0 w-1 h-full bg-white opacity-40"></div>
+              )}
+              <item.icon 
+                className={`w-5 h-5 transition-transform group-hover:scale-110 ${isActive ? 'scale-110' : 'opacity-70 group-hover:opacity-100'}`} 
+              />
+              <span className={`hidden lg:block ml-4 font-bold text-sm tracking-wide ${isActive ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'}`}>
+                  {item.label}
+              </span>
+              {isActive && (
+                 <ChevronRight className="hidden lg:block ml-auto w-4 h-4 opacity-30" />
               )}
             </button>
           );
         })}
       </nav>
-      <div className="p-4 border-t border-white/10 bg-black/20 space-y-3">
-        <div className="rounded-xl p-4 hidden lg:block border border-white/5 bg-white/5 hover:bg-white/10 transition-colors group cursor-default">
-            <div className="flex items-center gap-3 mb-3">
+
+      <div className="p-6 border-t border-white/5 bg-black/10 backdrop-blur-xl relative z-10">
+        <div className="rounded-2xl p-4 hidden lg:block border border-white/5 bg-white/5 transition-all group cursor-default">
+            <div className="flex items-center gap-4">
                 <div 
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-inner border border-white/20 text-white"
-                    style={{ backgroundColor: userProfile?.role === 'admin' ? currentTheme.activeBg : 'rgba(255,255,255,0.1)' }}
+                    className="w-11 h-11 rounded-2xl flex items-center justify-center text-sm font-black shadow-lg border border-white/10 text-white shrink-0"
+                    style={{ backgroundColor: userProfile?.role === 'admin' ? currentTheme.activeBg : 'rgba(255,255,255,0.05)' }}
                 >
                     {userProfile?.email.charAt(0).toUpperCase()}
                 </div>
                 <div className="overflow-hidden">
-                    <p className="text-sm font-bold text-white truncate w-32" title={userProfile?.email}>
+                    <p className="text-sm font-black text-white truncate w-32 tracking-tight" title={userProfile?.email}>
                         {userProfile?.email.split('@')[0]}
                     </p>
-                    <div className="flex items-center gap-1.5">
-                        <div className={`w-2 h-2 rounded-full ${userProfile?.role === 'admin' ? 'animate-pulse' : ''}`} style={{ backgroundColor: currentTheme.accentColor }}></div>
-                        <p className="text-xs capitalize" style={{ color: currentTheme.itemColor }}>{userProfile?.role || 'User'}</p>
-                    </div>
+                    {renderUserStatus()}
                 </div>
             </div>
-            <div className="rounded-lg p-3 border border-white/5 bg-black/20">
-                {renderUserStatus()}
-            </div>
         </div>
-        <div className="lg:hidden flex flex-col items-center gap-4">
+        <div className="lg:hidden flex flex-col items-center">
              <div 
-                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                className="w-10 h-10 rounded-2xl flex items-center justify-center text-xs font-black text-white shadow-lg border border-white/10"
                 style={{ backgroundColor: currentTheme.activeBg }}
              >
                 {userProfile?.email.charAt(0).toUpperCase()}
              </div>
         </div>
-        <div className="hidden lg:block pt-4 mt-2 border-t border-white/10 text-left">
-            <p className="text-[10px] font-medium leading-tight mb-1" style={{ color: currentTheme.itemColor, opacity: 0.6 }}>
-                © {new Date().getFullYear()} Ing. Riccardo Righini
+        <div className="hidden lg:block pt-6 mt-4 border-t border-white/5 text-center">
+            <p className="text-[9px] font-black tracking-widest uppercase opacity-20" style={{ color: currentTheme.itemColor }}>
+                © {new Date().getFullYear()} Cronosheet
             </p>
         </div>
       </div>

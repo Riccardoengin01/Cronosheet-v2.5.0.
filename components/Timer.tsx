@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { Play, Square } from 'lucide-react';
+import { Play, Square, Timer as TimerIcon, ChevronDown } from 'lucide-react';
 import { Project, TimeEntry } from '../types';
 import { formatDuration } from '../utils';
 
@@ -24,76 +25,84 @@ const Timer: React.FC<TimerProps> = ({ projects, activeEntry, onStart, onStop })
         setElapsed(Math.floor((Date.now() - activeEntry.startTime) / 1000));
       }, 1000);
       
-      // Initial set
       setElapsed(Math.floor((Date.now() - activeEntry.startTime) / 1000));
-
       return () => clearInterval(interval);
     } else {
       setElapsed(0);
-      // Don't clear description to allow quick restart of similar task
     }
   }, [activeEntry]);
 
   const handleStart = () => {
-    onStart(description, projectId);
+    if (!projectId && projects.length > 0) {
+        onStart(description, projects[0].id);
+    } else {
+        onStart(description, projectId);
+    }
   };
 
+  const selectedProject = projects.find(p => p.id === projectId);
+
   return (
-    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col md:flex-row items-center gap-4 transition-all sticky top-0 z-10">
+    <div className="bg-white/70 backdrop-blur-xl p-2 rounded-3xl shadow-2xl border border-white/50 flex flex-col md:flex-row items-center gap-2 transition-all sticky top-0 z-20">
       <div className="flex-grow w-full relative">
         <input
           type="text"
-          placeholder="What are you working on?"
-          className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+          placeholder="A cosa stai lavorando?"
+          className="w-full px-6 py-4 rounded-2xl border-0 bg-transparent text-lg font-bold text-gray-800 placeholder:text-gray-300 focus:ring-0 focus:outline-none transition-all"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           disabled={!!activeEntry}
         />
       </div>
 
-      <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
+      <div className="flex items-center gap-3 w-full md:w-auto p-2">
         {activeEntry ? (
-           <div className="flex items-center gap-2">
-               <span className="font-semibold text-lg font-mono text-gray-700 min-w-[5rem]">
-                   {projects.find(p => p.id === projectId)?.name}
+           <div className="flex items-center gap-3 px-4 py-2 bg-indigo-50 rounded-2xl border border-indigo-100">
+               <div className="w-3 h-3 rounded-full bg-indigo-600 animate-pulse"></div>
+               <span className="font-bold text-sm text-indigo-900 truncate max-w-[120px]">
+                   {selectedProject?.name}
                </span>
            </div>
         ) : (
-            <div className="relative">
+            <div className="relative group">
                 <select
                     value={projectId}
                     onChange={(e) => setProjectId(e.target.value)}
-                    className="appearance-none bg-gray-50 border border-gray-200 text-gray-700 py-3 px-4 pr-8 rounded-lg leading-tight focus:outline-none focus:bg-white focus:border-indigo-500"
+                    className="appearance-none bg-gray-50 border border-gray-100 text-gray-700 font-bold text-sm py-3 pl-5 pr-12 rounded-2xl cursor-pointer hover:bg-white hover:shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
                 >
                     {projects.map(p => (
                     <option key={p.id} value={p.id}>
                         {p.name}
                     </option>
                     ))}
+                    {projects.length === 0 && <option value="">Nessun cliente</option>}
                 </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                    <ChevronDown size={18} />
                 </div>
             </div>
         )}
         
-        <div className="font-mono text-xl font-bold w-24 text-center text-slate-700">
-          {formatDuration(elapsed)}
+        <div className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl min-w-[120px] shadow-lg shadow-slate-200">
+          <TimerIcon size={16} className={activeEntry ? "animate-spin text-indigo-400" : "text-gray-500"} />
+          <span className="font-mono text-xl font-black tracking-wider">
+            {formatDuration(elapsed)}
+          </span>
         </div>
 
         {activeEntry ? (
           <button
             onClick={onStop}
-            className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-md hover:shadow-lg active:scale-95 transform"
+            className="bg-red-500 hover:bg-red-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center gap-2 shadow-xl shadow-red-200 active:scale-95 transform"
           >
-            <Square size={18} fill="currentColor" /> Stop
+            <Square size={16} fill="currentColor" /> Stop
           </button>
         ) : (
           <button
             onClick={handleStart}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-md hover:shadow-lg active:scale-95 transform"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center gap-2 shadow-xl shadow-indigo-200 active:scale-95 transform"
           >
-            <Play size={18} fill="currentColor" /> Start
+            <Play size={16} fill="currentColor" /> Start
           </button>
         )}
       </div>

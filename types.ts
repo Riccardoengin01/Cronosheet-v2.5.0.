@@ -11,7 +11,7 @@ export interface Project {
   name: string;
   color: string;
   defaultHourlyRate: number; 
-  defaultBillingType?: 'hourly' | 'daily'; // Aggiunto: preferenza predefinita
+  defaultBillingType?: 'hourly' | 'daily';
   shifts?: Shift[];
   user_id?: string; 
 }
@@ -20,6 +20,21 @@ export interface Expense {
   id: string;
   description: string;
   amount: number;
+}
+
+// Tipi di formazione secondo Accordo Stato Regioni
+export type CourseType = 'CSP' | 'CSE' | 'RSPP' | 'ASPP' | 'FIRST_AID' | 'FIRE_SAFETY' | 'WORKER' | 'PREPOSTO' | 'DIRIGENTE' | 'EQUIPMENT' | 'MANUAL';
+
+export interface Certification {
+  id: string;
+  user_id: string;
+  name: string;
+  course_type: CourseType;
+  organization: string;
+  issueDate: string;
+  expiryDate: string;
+  document_url?: string;
+  status?: 'active' | 'warning' | 'expired';
 }
 
 export interface TimeEntry {
@@ -85,11 +100,13 @@ export interface AppTheme {
 }
 
 export enum AppView {
+  DASHBOARD = 'DASHBOARD',
   TIMESHEET = 'TIMESHEET', 
   REPORTS = 'REPORTS', 
   CLIENTS = 'CLIENTS', 
   BILLING = 'BILLING',
   ARCHIVE = 'ARCHIVE',
+  SECURE_TRAIN = 'SECURE_TRAIN',
   ADMIN_PANEL = 'ADMIN_PANEL', 
   SETTINGS = 'SETTINGS' 
 }

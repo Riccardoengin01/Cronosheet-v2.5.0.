@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppView, TimeEntry, Project, UserProfile } from './types';
 import Sidebar from './components/Sidebar';
+import Dashboard from './components/Dashboard';
 import TimeLogTable from './components/TimeLogTable';
 import Reports from './components/Reports';
 import EntryModal from './components/EntryModal';
@@ -11,9 +12,13 @@ import AdminPanel from './components/AdminPanel';
 import UserSettings from './components/UserSettings';
 import Auth from './components/Auth';
 import DatabaseSetup from './components/DatabaseSetup'; 
+import Timer from './components/Timer';
+import AIAssistant from './components/AIAssistant';
+import SecureTrain from './components/SecureTrain';
 import * as DB from './services/db';
+import { generateId } from './utils';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
-import { Plus, Lock, LogOut, Loader2, AlertOctagon, CreditCard, PieChart, ArrowRight } from 'lucide-react';
+import { Plus, LogOut, Loader2 } from 'lucide-react';
 import { useLanguage } from './lib/i18n';
 
 function App() {
@@ -22,13 +27,14 @@ function App() {
   const [demoMode, setDemoMode] = useState(false);
   const { t } = useLanguage();
 
-  const [view, setView] = useState<AppView>(AppView.CLIENTS);
+  const [view, setView] = useState<AppView>(AppView.DASHBOARD);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingData, setLoadingData] = useState(false);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | undefined>(undefined);
+  const [activeEntry, setActiveEntry] = useState<TimeEntry | undefined>(undefined);
 
   useEffect(() => {
     if (!isSupabaseConfigured && !demoMode) {
@@ -93,6 +99,8 @@ function App() {
           const [p, e] = await Promise.all([DB.getProjects(userId), DB.getEntries(userId)]);
           setProjects(p);
           setEntries(e);
+          const running = e.find(entry => entry.endTime === null);
+          setActiveEntry(running);
       } catch (err) {
           console.error("Error fetching data:", err);
       } finally {
@@ -108,7 +116,7 @@ function App() {
       }
       await supabase.auth.signOut();
       setProfile(null);
-      setView(AppView.CLIENTS);
+      setView(AppView.DASHBOARD);
   };
 
   const handleDeleteEntry = async (id: string) => {
@@ -135,6 +143,37 @@ function App() {
     }
   };
 
+  const handleStartTimer = async (description: string, projectId: string) => {
+    if (profile) {
+      const newEntry: TimeEntry = {
+        id: generateId(),
+        description,
+        projectId,
+        startTime: Date.now(),
+        endTime: null,
+        duration: 0,
+        hourlyRate: projects.find(p => p.id === projectId)?.defaultHourlyRate || 0,
+        billingType: projects.find(p => p.id === projectId)?.defaultBillingType || 'hourly',
+        user_id: profile.id
+      };
+      await DB.saveEntry(newEntry, profile.id);
+      fetchData(profile.id);
+    }
+  };
+
+  const handleStopTimer = async () => {
+    if (profile && activeEntry) {
+      const endTime = Date.now();
+      const updatedEntry = {
+        ...activeEntry,
+        endTime,
+        duration: (endTime - activeEntry.startTime) / 1000
+      };
+      await DB.saveEntry(updatedEntry, profile.id);
+      fetchData(profile.id);
+    }
+  };
+
   const handleSaveProject = async (project: Project) => {
       if (profile) {
           await DB.saveProject(project, profile.id);
@@ -155,21 +194,37 @@ function App() {
     }
 
     switch (view) {
+      case AppView.DASHBOARD:
+        return <Dashboard entries={entries} projects={projects} userProfile={profile} onViewChange={setView} />;
       case AppView.TIMESHEET:
         return (
-          <div className="space-y-8 animate-fade-in">
-             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div className="space-y-8 animate-fade-in max-w-5xl mx-auto">
+             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-800">{t('menu.timesheet')}</h1>
+                    <h1 className="text-4xl font-black text-gray-900 tracking-tight">{t('menu.timesheet')}</h1>
+                    <p className="text-gray-500 font-medium">Monitora le tue ore e attività in tempo reale.</p>
                 </div>
                 <button 
                     onClick={handleManualEntryClick}
-                    className="flex items-center justify-center gap-2 text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-700 px-6 py-3 rounded-xl transition-all shadow-lg active:scale-95"
+                    className="flex items-center justify-center gap-2 text-base font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-6 py-3 rounded-2xl transition-all shadow-xl shadow-indigo-200 active:scale-95"
                 >
-                    <Plus size={20} /> {t('app.add_service')}
+                    <Plus size={20} strokeWidth={3} /> {t('app.add_service')}
                 </button>
              </div>
-             <TimeLogTable entries={entries} projects={projects} onDelete={handleDeleteEntry} onEdit={(e) => { setEditingEntry(e); setIsModalOpen(true); }} />
+             
+             <Timer 
+               projects={projects} 
+               activeEntry={activeEntry} 
+               onStart={handleStartTimer} 
+               onStop={handleStopTimer} 
+             />
+
+             <TimeLogTable 
+               entries={entries} 
+               projects={projects} 
+               onDelete={handleDeleteEntry} 
+               onEdit={(e) => { setEditingEntry(e); setIsModalOpen(true); }} 
+             />
           </div>
         );
       case AppView.CLIENTS:
@@ -178,7 +233,18 @@ function App() {
       case AppView.ARCHIVE:
           return <Billing entries={entries} projects={projects} userProfile={profile} onEntriesChange={() => profile && fetchData(profile.id)} view={view} />;
       case AppView.REPORTS:
-        return <Reports entries={entries} projects={projects} />;
+        return (
+          <div className="space-y-8 animate-fade-in max-w-6xl mx-auto">
+            <div>
+                <h1 className="text-4xl font-black text-gray-900 tracking-tight">{t('menu.reports')}</h1>
+                <p className="text-gray-500 font-medium">Visualizza statistiche e insights sul tuo lavoro.</p>
+            </div>
+            <AIAssistant entries={entries} projects={projects} />
+            <Reports entries={entries} projects={projects} />
+          </div>
+        );
+      case AppView.SECURE_TRAIN:
+          return profile ? <SecureTrain user={profile} /> : null;
       case AppView.ADMIN_PANEL:
           return <AdminPanel />;
       case AppView.SETTINGS:
@@ -191,8 +257,13 @@ function App() {
   if (loadingAuth) {
       return (
           <div className="h-screen w-screen flex flex-col items-center justify-center bg-gray-50">
-              <Loader2 className="animate-spin text-indigo-600 mb-4" size={48} />
-              <p className="text-gray-500 font-medium">{t('app.loading')}</p>
+              <div className="relative">
+                  <div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                  <div className="absolute inset-0 flex items-center justify-center text-indigo-600 font-bold text-xs uppercase">
+                      CS
+                  </div>
+              </div>
+              <p className="text-gray-400 font-bold mt-6 tracking-widest text-xs uppercase">{t('app.loading')}</p>
           </div>
       );
   }
@@ -222,24 +293,35 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
+    <div className="flex h-screen bg-white md:bg-gray-50/30 overflow-hidden font-sans">
       <Sidebar currentView={view} onChangeView={setView} userProfile={profile} />
       <main className="flex-1 overflow-y-auto relative scroll-smooth bg-gray-50/50">
+          <div className="absolute top-0 left-0 w-full h-40 bg-gradient-to-b from-indigo-50/30 to-transparent pointer-events-none"></div>
           {demoMode && (
-              <div className="bg-indigo-600 text-white text-[10px] font-bold text-center py-1 no-print">
+              <div className="bg-indigo-600 text-white text-[10px] font-bold text-center py-1 no-print relative z-50">
                   STAI USANDO LA VERSIONE DEMO - I DATI VERRANNO PERSI AL REFRESH
               </div>
           )}
           <div className="absolute top-4 right-4 z-50 flex items-center gap-4 no-print">
-               <button onClick={handleLogout} className="bg-white p-2 rounded-lg shadow-sm text-slate-400 hover:text-red-500 transition-colors border border-gray-100" title="Disconnetti">
-                   <LogOut size={18} />
+               <button 
+                 onClick={handleLogout} 
+                 className="bg-white/80 backdrop-blur-md p-2.5 rounded-xl shadow-sm text-gray-400 hover:text-red-500 hover:bg-white transition-all border border-gray-100" 
+                 title="Disconnetti"
+               >
+                   <LogOut size={20} />
                </button>
           </div>
-        <div className="max-w-7xl mx-auto p-4 md:p-8 pb-24 mt-10 md:mt-0">
+        <div className="max-w-7xl mx-auto p-4 md:p-10 pb-32 relative z-10">
             {renderContent()}
         </div>
       </main>
-      <EntryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveEntry} initialEntry={editingEntry} projects={projects} />
+      <EntryModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onSave={handleSaveEntry} 
+        initialEntry={editingEntry} 
+        projects={projects} 
+      />
     </div>
   );
 }

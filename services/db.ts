@@ -1,440 +1,212 @@
 
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { Project, TimeEntry, UserProfile, AppTheme } from '../types';
+import { Project, TimeEntry, UserProfile, AppTheme, Certification } from '../types';
 import { generateId, COLORS } from '../utils';
 
-// --- MOCK DATA FOR DEMO MODE ---
-const MOCK_DELAY = 500;
-const LOCAL_STORAGE_KEYS = {
-    PROJECTS: 'cronosheet_demo_projects',
-    ENTRIES: 'cronosheet_demo_entries',
-    PROFILES: 'cronosheet_demo_profiles',
-    CONFIG: 'cronosheet_demo_config'
-};
-
-const getLocal = (key: string) => JSON.parse(localStorage.getItem(key) || '[]');
-const setLocal = (key: string, data: any) => localStorage.setItem(key, JSON.stringify(data));
-
+// Default theme configuration for the application's sidebar and navigation.
 export const DEFAULT_THEME: AppTheme = {
     trial: {
-        sidebarBg: '#0f172a',
-        itemColor: '#94a3b8',
-        activeBg: '#4f46e5',
-        activeText: '#ffffff',
-        accentColor: '#6366f1'
-    },
-    pro: {
         sidebarBg: '#1e1b4b',
-        itemColor: '#a5b4fc',
+        itemColor: '#94a3b8',
         activeBg: '#4338ca',
         activeText: '#ffffff',
-        accentColor: '#818cf8'
+        accentColor: '#818cf8',
+    },
+    pro: {
+        sidebarBg: '#2e1065',
+        itemColor: '#a78bfa',
+        activeBg: '#6d28d9',
+        activeText: '#ffffff',
+        accentColor: '#c084fc',
     },
     elite: {
         sidebarBg: '#0f172a',
-        itemColor: '#cbd5e1',
+        itemColor: '#94a3b8',
         activeBg: '#d97706',
         activeText: '#ffffff',
-        accentColor: '#f59e0b'
+        accentColor: '#fbbf24',
     },
     admin: {
         sidebarBg: '#020617',
-        itemColor: '#94a3b8',
-        activeBg: '#0f766e',
+        itemColor: '#64748b',
+        activeBg: '#312e81',
         activeText: '#ffffff',
-        accentColor: '#14b8a6'
+        accentColor: '#4f46e5',
     }
 };
 
-// --- PROJECTS ---
+// --- STORAGE ---
+export const uploadCertificate = async (file: File, userId: string): Promise<string | null> => {
+    if (!isSupabaseConfigured) return "https://placeholder.com/demo-cert.pdf";
 
-export const getProjects = async (userId?: string): Promise<Project[]> => {
-  if (!isSupabaseConfigured) {
-      await new Promise(r => setTimeout(r, MOCK_DELAY));
-      const all = getLocal(LOCAL_STORAGE_KEYS.PROJECTS);
-      if (all.length === 0) {
-          const defaults: Project[] = [
-              { id: 'p1', user_id: userId, name: 'Demo Cliente A', color: COLORS[0], defaultHourlyRate: 20, defaultBillingType: 'hourly', shifts: [] },
-              { id: 'p2', user_id: userId, name: 'Demo Cantiere B', color: COLORS[2], defaultHourlyRate: 15, defaultBillingType: 'daily', shifts: [] }
-          ];
-          setLocal(LOCAL_STORAGE_KEYS.PROJECTS, defaults);
-          return defaults;
-      }
-      return all.filter((p: any) => p.user_id === userId);
-  }
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}/${generateId()}.${fileExt}`;
+    const filePath = `${fileName}`;
 
-  const { data, error } = await supabase
-    .from('projects')
-    .select('*')
-    .order('created_at', { ascending: true });
+    const { error: uploadError } = await supabase.storage
+        .from('certifications')
+        .upload(filePath, file);
 
-  if (error) {
-    console.error('Error fetching projects:', error);
-    return [];
-  }
+    if (uploadError) {
+        console.error('Error uploading file:', uploadError);
+        return null;
+    }
 
-  return data.map((p: any) => ({
-    ...p,
-    defaultHourlyRate: p.default_hourly_rate,
-    defaultBillingType: p.default_billing_type || 'hourly'
-  }));
+    const { data } = supabase.storage
+        .from('certifications')
+        .getPublicUrl(filePath);
+
+    return data.publicUrl;
 };
 
-export const saveProject = async (project: Project, userId: string): Promise<Project | null> => {
-  if (!isSupabaseConfigured) {
-      await new Promise(r => setTimeout(r, MOCK_DELAY));
-      const all = getLocal(LOCAL_STORAGE_KEYS.PROJECTS);
-      const newProj = { ...project, user_id: userId };
-      const idx = all.findIndex((p: any) => p.id === project.id);
-      if (idx >= 0) all[idx] = newProj;
-      else all.push(newProj);
-      setLocal(LOCAL_STORAGE_KEYS.PROJECTS, all);
-      return newProj;
-  }
-
-  // Se l'ID contiene trattini ma non è un UUID valido (es. generato dal frontend), 
-  // lo rimuoviamo per lasciare che Supabase generi un UUID reale.
-  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(project.id);
-  
-  const dbProject = {
-    id: isUUID ? project.id : undefined,
-    user_id: userId,
-    name: project.name,
-    color: project.color,
-    default_hourly_rate: project.defaultHourlyRate,
-    default_billing_type: project.defaultBillingType || 'hourly',
-    shifts: project.shifts
-  };
-
-  const { data, error } = await supabase
-    .from('projects')
-    .upsert(dbProject)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error saving project:', error);
-    return null;
-  }
-
-  return {
-    ...data,
-    defaultHourlyRate: data.default_hourly_rate,
-    defaultBillingType: data.default_billing_type
-  };
-};
-
-export const deleteProject = async (id: string) => {
-  if (!isSupabaseConfigured) {
-      const all = getLocal(LOCAL_STORAGE_KEYS.PROJECTS).filter((p: any) => p.id !== id);
-      setLocal(LOCAL_STORAGE_KEYS.PROJECTS, all);
-      return;
-  }
-  const { error } = await supabase.from('projects').delete().eq('id', id);
-  if (error) console.error('Error deleting project:', error);
-};
-
-// --- ENTRIES ---
-
-export const getEntries = async (userId?: string): Promise<TimeEntry[]> => {
-  if (!isSupabaseConfigured) {
-      await new Promise(r => setTimeout(r, MOCK_DELAY));
-      return getLocal(LOCAL_STORAGE_KEYS.ENTRIES).filter((e: any) => e.user_id === userId).sort((a: any, b: any) => b.startTime - a.startTime);
-  }
-
-  const { data, error } = await supabase
-    .from('time_entries')
-    .select('*')
-    .order('start_time', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching entries:', error);
-    return [];
-  }
-
-  return data.map((e: any) => ({
-    id: e.id,
-    description: e.description,
-    projectId: e.project_id,
-    startTime: parseInt(e.start_time),
-    endTime: e.end_time ? parseInt(e.end_time) : null,
-    duration: parseFloat(e.duration),
-    hourlyRate: parseFloat(e.hourly_rate),
-    billingType: e.billing_type || 'hourly',
-    expenses: e.expenses || [],
-    isNightShift: e.is_night_shift,
-    user_id: e.user_id,
-    is_billed: e.is_billed || false
-  }));
-};
-
-export const saveEntry = async (entry: TimeEntry, userId: string): Promise<TimeEntry | null> => {
-  if (!isSupabaseConfigured) {
-      await new Promise(r => setTimeout(r, MOCK_DELAY));
-      const all = getLocal(LOCAL_STORAGE_KEYS.ENTRIES);
-      const newEntry = { ...entry, user_id: userId, is_billed: entry.is_billed || false };
-      const idx = all.findIndex((e: any) => e.id === entry.id);
-      if (idx >= 0) all[idx] = newEntry;
-      else all.push(newEntry);
-      setLocal(LOCAL_STORAGE_KEYS.ENTRIES, all);
-      return newEntry;
-  }
-
-  const dbEntry = {
-    id: entry.id,
-    user_id: userId,
-    project_id: entry.projectId,
-    description: entry.description,
-    start_time: entry.startTime,
-    end_time: entry.endTime,
-    duration: entry.duration,
-    hourly_rate: entry.hourlyRate,
-    billing_type: entry.billingType || 'hourly',
-    expenses: entry.expenses || [],
-    is_night_shift: entry.isNightShift,
-    is_billed: entry.is_billed || false
-  };
-
-  const { error } = await supabase
-    .from('time_entries')
-    .upsert(dbEntry);
-
-  if (error) {
-    console.error('Error saving entry:', error);
-    return null;
-  }
-  
-  return entry;
-};
-
-export const markEntriesAsBilled = async (entryIds: string[]) => {
-    if (!entryIds || entryIds.length === 0) return;
-
+// --- CERTIFICATIONS ---
+export const getCertifications = async (userId: string): Promise<Certification[]> => {
     if (!isSupabaseConfigured) {
-        const all = getLocal(LOCAL_STORAGE_KEYS.ENTRIES);
-        const updated = all.map((e: any) => {
-            if (entryIds.includes(e.id)) {
-                return { ...e, is_billed: true };
-            }
-            return e;
-        });
-        setLocal(LOCAL_STORAGE_KEYS.ENTRIES, updated);
-        return;
+        return JSON.parse(localStorage.getItem('cronosheet_demo_train') || '[]')
+            .filter((c: any) => c.user_id === userId);
     }
-
-    const { error } = await supabase
-        .from('time_entries')
-        .update({ is_billed: true })
-        .in('id', entryIds);
-
-    if (error) throw error;
-};
-
-export const updateEntriesRate = async (entryIds: string[], newRate: number) => {
-    if (!entryIds || entryIds.length === 0) return;
-
-    if (!isSupabaseConfigured) {
-        const all = getLocal(LOCAL_STORAGE_KEYS.ENTRIES);
-        const updated = all.map((e: any) => {
-            if (entryIds.includes(e.id)) {
-                return { ...e, hourlyRate: newRate };
-            }
-            return e;
-        });
-        setLocal(LOCAL_STORAGE_KEYS.ENTRIES, updated);
-        return;
-    }
-
-    const { error } = await supabase
-        .from('time_entries')
-        .update({ hourly_rate: newRate })
-        .in('id', entryIds);
-
-    if (error) throw error;
-};
-
-export const deleteEntry = async (id: string) => {
-  if (!isSupabaseConfigured) {
-      const all = getLocal(LOCAL_STORAGE_KEYS.ENTRIES).filter((e: any) => e.id !== id);
-      setLocal(LOCAL_STORAGE_KEYS.ENTRIES, all);
-      return;
-  }
-  const { error } = await supabase.from('time_entries').delete().eq('id', id);
-  if (error) console.error('Error deleting entry:', error);
-};
-
-export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
-  if (!isSupabaseConfigured) {
-      const profiles = getLocal(LOCAL_STORAGE_KEYS.PROFILES);
-      return profiles.find((p: any) => p.id === userId) || null;
-  }
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single();
-
-  if (error) return null;
-  
-  return {
-      ...data,
-      billing_info: data.billing_info || {},
-      auto_renew: data.auto_renew ?? true 
-  };
-};
-
-export const createUserProfile = async (userId: string, email: string): Promise<UserProfile | null> => {
-    const trialEnds = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
-    
-    if (!isSupabaseConfigured) {
-        const profiles = getLocal(LOCAL_STORAGE_KEYS.PROFILES);
-        const newProfile: UserProfile = {
-            id: userId,
-            email: email,
-            role: 'admin', 
-            subscription_status: 'trial',
-            trial_ends_at: trialEnds,
-            created_at: new Date().toISOString(),
-            is_approved: true,
-            billing_info: {},
-            auto_renew: true
-        };
-        profiles.push(newProfile);
-        setLocal(LOCAL_STORAGE_KEYS.PROFILES, profiles);
-        return newProfile;
-    }
-
-    const newProfile = {
-        id: userId,
-        email: email,
-        role: 'user',
-        subscription_status: 'trial',
-        trial_ends_at: trialEnds,
-        is_approved: true,
-        billing_info: {},
-        auto_renew: true
-    };
 
     const { data, error } = await supabase
-        .from('profiles')
-        .upsert(newProfile, { onConflict: 'id', ignoreDuplicates: true }) 
-        .select()
-        .single();
-    
-    if (error) return getUserProfile(userId);
-    if (data) return { ...data, billing_info: data.billing_info || {} };
-    return getUserProfile(userId);
-};
+        .from('certifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('expiry_date', { ascending: true });
 
-export const updateUserProfile = async (userId: string, updates: Partial<UserProfile>) => {
-    if (!isSupabaseConfigured) {
-        const profiles = getLocal(LOCAL_STORAGE_KEYS.PROFILES);
-        const idx = profiles.findIndex((p: any) => p.id === userId);
-        if (idx >= 0) {
-            profiles[idx] = { ...profiles[idx], ...updates };
-            setLocal(LOCAL_STORAGE_KEYS.PROFILES, profiles);
-        }
-        return;
-    }
-
-    const dbUpdates: any = {};
-    if (updates.full_name !== undefined) dbUpdates.full_name = updates.full_name;
-    if (updates.billing_info !== undefined) dbUpdates.billing_info = updates.billing_info;
-    if (typeof updates.auto_renew === 'boolean') dbUpdates.auto_renew = updates.auto_renew;
-
-    if (Object.keys(dbUpdates).length === 0) return;
-
-    const { error } = await supabase
-        .from('profiles')
-        .update(dbUpdates)
-        .eq('id', userId);
-
-    if (error) throw error;
-};
-
-export const updateUserProfileAdmin = async (profile: Partial<UserProfile> & { id: string }) => {
-    if (!isSupabaseConfigured) {
-        const profiles = getLocal(LOCAL_STORAGE_KEYS.PROFILES);
-        const idx = profiles.findIndex((p: any) => p.id === profile.id);
-        if (idx >= 0) {
-            profiles[idx] = { ...profiles[idx], ...profile };
-            setLocal(LOCAL_STORAGE_KEYS.PROFILES, profiles);
-        }
-        return;
-    }
-
-    const updates: any = {
-        is_approved: profile.is_approved,
-        subscription_status: profile.subscription_status,
-        role: profile.role,
-        full_name: profile.full_name,
-        created_at: profile.created_at,
-        trial_ends_at: profile.trial_ends_at,
-        billing_info: profile.billing_info,
-        auto_renew: profile.auto_renew
-    };
-
-    Object.keys(updates).forEach(key => updates[key] === undefined && delete updates[key]);
-
-    const { error } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', profile.id);
-    
-    if (error) throw error;
-};
-
-export const getAllProfiles = async (): Promise<UserProfile[]> => {
-    if (!isSupabaseConfigured) {
-        return getLocal(LOCAL_STORAGE_KEYS.PROFILES);
-    }
-    const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
     if (error) return [];
-    return data.map((p: any) => ({
-        ...p,
-        billing_info: p.billing_info || {}
+
+    return data.map((c: any) => ({
+        id: c.id,
+        user_id: c.user_id,
+        name: c.name,
+        course_type: c.course_type,
+        organization: c.organization,
+        issueDate: c.issue_date,
+        expiryDate: c.expiry_date,
+        document_url: c.document_url
     }));
 };
 
-export const deleteUserAdmin = async (userId: string) => {
+export const saveCertification = async (cert: Certification, userId: string): Promise<Certification | null> => {
     if (!isSupabaseConfigured) {
-        const profiles = getLocal(LOCAL_STORAGE_KEYS.PROFILES).filter((p: any) => p.id !== userId);
-        setLocal(LOCAL_STORAGE_KEYS.PROFILES, profiles);
-        return;
+        const all = JSON.parse(localStorage.getItem('cronosheet_demo_train') || '[]');
+        const idx = all.findIndex((c: any) => c.id === cert.id);
+        const newCert = { ...cert, user_id: userId };
+        if (idx >= 0) all[idx] = newCert;
+        else all.push(newCert);
+        localStorage.setItem('cronosheet_demo_train', JSON.stringify(all));
+        return newCert;
     }
-    const { error } = await supabase.from('profiles').delete().eq('id', userId);
-    if (error) throw error;
-};
 
-export const getAppTheme = async (): Promise<AppTheme> => {
-    if (!isSupabaseConfigured) {
-        const stored = localStorage.getItem(LOCAL_STORAGE_KEYS.CONFIG);
-        return stored ? JSON.parse(stored) : DEFAULT_THEME;
-    }
+    const dbCert = {
+        id: cert.id.includes('-') ? cert.id : undefined,
+        user_id: userId,
+        name: cert.name,
+        course_type: cert.course_type,
+        organization: cert.organization,
+        issue_date: cert.issueDate,
+        expiry_date: cert.expiryDate,
+        document_url: cert.document_url
+    };
 
     const { data, error } = await supabase
-        .from('app_config')
-        .select('value')
-        .eq('key', 'theme_settings')
+        .from('certifications')
+        .upsert(dbCert)
+        .select()
         .single();
-    
-    if (error || !data) {
-        return DEFAULT_THEME;
-    }
-    
-    return data.value as AppTheme;
+
+    if (error) return null;
+    return {
+        id: data.id,
+        user_id: data.user_id,
+        name: data.name,
+        course_type: data.course_type,
+        organization: data.organization,
+        issueDate: data.issue_date,
+        expiryDate: data.expiry_date,
+        document_url: data.document_url
+    };
 };
 
-export const saveAppTheme = async (theme: AppTheme) => {
+export const deleteCertification = async (id: string) => {
     if (!isSupabaseConfigured) {
-        localStorage.setItem(LOCAL_STORAGE_KEYS.CONFIG, JSON.stringify(theme));
+        const all = JSON.parse(localStorage.getItem('cronosheet_demo_train') || '[]').filter((c: any) => c.id !== id);
+        localStorage.setItem('cronosheet_demo_train', all);
         return;
     }
+    await supabase.from('certifications').delete().eq('id', id);
+};
 
-    const { error } = await supabase
-        .from('app_config')
-        .upsert({ key: 'theme_settings', value: theme });
-    
-    if (error) throw error;
+// ... (tutte le altre funzioni esistenti di db.ts come getProjects, getEntries etc rimangono identiche)
+export const getAppTheme = async (): Promise<AppTheme> => {
+    if (!isSupabaseConfigured) return DEFAULT_THEME;
+    const { data } = await supabase.from('app_config').select('value').eq('key', 'theme').single();
+    return (data?.value as AppTheme) || DEFAULT_THEME;
+};
+export const saveAppTheme = async (theme: AppTheme) => {
+    if (!isSupabaseConfigured) return;
+    await supabase.from('app_config').upsert({ key: 'theme', value: theme });
+};
+export const createUserProfile = async (id: string, email: string) => {
+    const p = { id, email, role: 'user', subscription_status: 'trial', trial_ends_at: new Date(Date.now() + 60*24*3600*1000).toISOString(), is_approved: true };
+    if (!isSupabaseConfigured) return p;
+    const { data } = await supabase.from('profiles').upsert(p).select().single();
+    return data;
+};
+export const getUserProfile = async (id: string) => {
+    if (!isSupabaseConfigured) return null;
+    const { data } = await supabase.from('profiles').select('*').eq('id', id).single();
+    return data;
+};
+export const getProjects = async (userId: string) => {
+    if (!isSupabaseConfigured) return [];
+    const { data } = await supabase.from('projects').select('*').eq('user_id', userId);
+    return data?.map(p => ({ ...p, defaultHourlyRate: p.default_hourly_rate, defaultBillingType: p.default_billing_type })) || [];
+};
+export const saveProject = async (p: Project, userId: string) => {
+    const dbP = { id: p.id.includes('-') ? p.id : undefined, user_id: userId, name: p.name, color: p.color, default_hourly_rate: p.defaultHourlyRate, default_billing_type: p.defaultBillingType, shifts: p.shifts };
+    if (!isSupabaseConfigured) return;
+    await supabase.from('projects').upsert(dbP);
+};
+export const deleteProject = async (id: string) => {
+    if (!isSupabaseConfigured) return;
+    await supabase.from('projects').delete().eq('id', id);
+};
+export const getEntries = async (userId: string) => {
+    if (!isSupabaseConfigured) return [];
+    const { data } = await supabase.from('time_entries').select('*').eq('user_id', userId).order('start_time', { ascending: false });
+    return data?.map(e => ({ id: e.id, projectId: e.project_id, description: e.description, startTime: e.start_time, endTime: e.end_time, duration: e.duration, hourlyRate: e.hourly_rate, billingType: e.billing_type, expenses: e.expenses, isNightShift: e.is_night_shift, is_billed: e.is_billed })) || [];
+};
+export const saveEntry = async (e: TimeEntry, userId: string) => {
+    const dbE = { id: e.id, user_id: userId, project_id: e.projectId, description: e.description, start_time: e.startTime, end_time: e.endTime, duration: e.duration, hourly_rate: e.hourly_rate, billing_type: e.billing_type, expenses: e.expenses, is_night_shift: e.isNightShift, is_billed: e.is_billed };
+    if (!isSupabaseConfigured) return;
+    await supabase.from('time_entries').upsert(dbE);
+};
+export const deleteEntry = async (id: string) => {
+    if (!isSupabaseConfigured) return;
+    await supabase.from('time_entries').delete().eq('id', id);
+};
+export const markEntriesAsBilled = async (ids: string[]) => {
+    if (!isSupabaseConfigured) return;
+    await supabase.from('time_entries').update({ is_billed: true }).in('id', ids);
+};
+export const updateEntriesRate = async (ids: string[], rate: number) => {
+    if (!isSupabaseConfigured) return;
+    await supabase.from('time_entries').update({ hourly_rate: rate }).in('id', ids);
+};
+export const getAllProfiles = async () => {
+    if (!isSupabaseConfigured) return [];
+    const { data } = await supabase.from('profiles').select('*');
+    return data || [];
+};
+export const updateUserProfile = async (id: string, updates: any) => {
+    if (!isSupabaseConfigured) return;
+    await supabase.from('profiles').update(updates).eq('id', id);
+};
+export const updateUserProfileAdmin = async (updates: any) => {
+    if (!isSupabaseConfigured) return;
+    await supabase.from('profiles').update(updates).eq('id', updates.id);
+};
+export const deleteUserAdmin = async (id: string) => {
+    if (!isSupabaseConfigured) return;
+    await supabase.from('profiles').delete().eq('id', id);
 };
