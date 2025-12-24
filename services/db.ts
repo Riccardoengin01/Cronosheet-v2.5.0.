@@ -92,13 +92,17 @@ export const saveProject = async (project: Project, userId: string): Promise<Pro
       return newProj;
   }
 
+  // Se l'ID contiene trattini ma non è un UUID valido (es. generato dal frontend), 
+  // lo rimuoviamo per lasciare che Supabase generi un UUID reale.
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(project.id);
+  
   const dbProject = {
-    id: project.id,
+    id: isUUID ? project.id : undefined,
     user_id: userId,
     name: project.name,
     color: project.color,
     default_hourly_rate: project.defaultHourlyRate,
-    default_billing_type: project.defaultBillingType || 'hourly', // FIX: Corretto typo default__
+    default_billing_type: project.defaultBillingType || 'hourly',
     shifts: project.shifts
   };
 
@@ -191,11 +195,9 @@ export const saveEntry = async (entry: TimeEntry, userId: string): Promise<TimeE
     is_billed: entry.is_billed || false
   };
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('time_entries')
-    .upsert(dbEntry)
-    .select()
-    .single();
+    .upsert(dbEntry);
 
   if (error) {
     console.error('Error saving entry:', error);

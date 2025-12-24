@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Database, Copy, Check, RefreshCw, Terminal, Shield, Key, AlertTriangle, Play } from 'lucide-react';
+import { Database, Copy, Check, RefreshCw, Terminal, Shield, AlertTriangle } from 'lucide-react';
 
 const INIT_SCRIPT = `-- 1. Crea o Aggiorna Tabella PROFILES
 create table if not exists public.profiles (
@@ -22,15 +22,7 @@ create table if not exists public.app_config (
   value jsonb
 );
 
-alter table public.app_config enable row level security;
-drop policy if exists "Config viewable by everyone" on public.app_config;
-create policy "Config viewable by everyone" on public.app_config for select using (true);
-drop policy if exists "Config editable by admins" on public.app_config;
-create policy "Config editable by admins" on public.app_config for all using (
-  exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
-);
-
--- 3. Tabelle Progetti e Orari con colonne per Fatturazione
+-- 3. Tabelle Progetti e Orari
 create table if not exists public.projects (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
@@ -58,7 +50,7 @@ create table if not exists public.time_entries (
   created_at timestamptz default now()
 );
 
--- 4. MIGRAZIONE: Aggiunta colonne se le tabelle esistevano già
+-- 4. MIGRAZIONE: Aggiunta colonne se le tabelle esistevano già (Indispensabile per fix inserimento)
 do $$
 begin
   -- Per PROFILES
@@ -82,18 +74,12 @@ end $$;
 
 -- 5. Sicurezza (RLS)
 alter table public.profiles enable row level security;
-drop policy if exists "Public profiles are viewable by everyone" on public.profiles;
-create policy "Public profiles are viewable by everyone" on public.profiles for select using (true);
-drop policy if exists "Users can update own profile" on public.profiles;
-create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
-drop policy if exists "Users can insert their own profile" on public.profiles;
-create policy "Users can insert their own profile" on public.profiles for insert with check (auth.uid() = id);
-
 alter table public.projects enable row level security;
+alter table public.time_entries enable row level security;
+
 drop policy if exists "Users can CRUD their own projects" on public.projects;
 create policy "Users can CRUD their own projects" on public.projects for all using (auth.uid() = user_id);
 
-alter table public.time_entries enable row level security;
 drop policy if exists "Users can CRUD their own entries" on public.time_entries;
 create policy "Users can CRUD their own entries" on public.time_entries for all using (auth.uid() = user_id);
 `;
@@ -156,7 +142,7 @@ WHERE email = '${targetEmail}';`;
                             <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex gap-3">
                                 <AlertTriangle className="text-amber-600 shrink-0" />
                                 <div className="text-sm text-amber-800">
-                                    <strong>Importante:</strong> Se hai già tabelle esistenti, questo script aggiungerà le colonne <code>default_billing_type</code> e <code>billing_type</code> senza cancellare i tuoi dati. Rieseguilo ora.
+                                    <strong>Importante:</strong> Se non riesci a inserire clienti o spostare fatture, copia questo script ed eseguilo nel <strong>SQL Editor</strong> di Supabase. Aggiungerà le colonne mancanti.
                                 </div>
                             </div>
                             
@@ -166,7 +152,7 @@ WHERE email = '${targetEmail}';`;
                                         onClick={() => handleCopy(INIT_SCRIPT)}
                                         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${copied ? 'bg-green-500 text-white' : 'bg-slate-700 text-white hover:bg-slate-600'}`}
                                     >
-                                        {copied ? <Check size={14}/> : <Copy size={14}/>} Copia Tutto
+                                        {copied ? <Check size={14}/> : <Copy size={14}/>} Copia Script SQL
                                     </button>
                                 </div>
                                 <pre className="bg-slate-900 text-emerald-400 p-4 rounded-xl overflow-x-auto text-xs font-mono h-64 border-4 border-slate-100">
@@ -208,7 +194,7 @@ WHERE email = '${targetEmail}';`;
                             onClick={() => window.location.reload()}
                             className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg shadow-indigo-200"
                         >
-                            <RefreshCw size={20} /> Ricarica App
+                            <RefreshCw size={20} /> Ricarica Cronosheet
                         </button>
                     </div>
                 </div>

@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Project, TimeEntry, UserProfile, AppView } from '../types';
 import { formatCurrency, formatDuration, calculateEarnings, formatTime } from '../utils';
-import { Printer, Calendar, CheckSquare, Square, MapPin, ChevronDown, Archive, CheckCircle2, History, Check, Pencil, X, Settings2, ListFilter, Download, ToggleRight, ToggleLeft, Loader2 } from 'lucide-react';
+import { Printer, Calendar, CheckSquare, Square, MapPin, ChevronDown, Archive, Check, Pencil, X, Settings2, ListFilter, Download, ToggleRight, ToggleLeft, Loader2 } from 'lucide-react';
 import * as DB from '../services/db';
 import { useLanguage } from '../lib/i18n';
 
@@ -25,7 +25,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   const [applyBollo, setApplyBollo] = useState(false);
   const [applyInarcassa, setApplyInarcassa] = useState(true);
 
-  const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(new Set());
+  const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(new Set<string>());
 
   const [editingRateId, setEditingRateId] = useState<string | null>(null);
   const [tempRate, setTempRate] = useState<string>('');
@@ -44,16 +44,16 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       return sorted;
   }, [entries]);
 
-  // Fix: Explicitly type the result as string[] and ensure the mapping produces strings to avoid unknown[] inference.
   const availableMonthsInYear = useMemo<string[]>(() => {
-      const months = new Set<string>();
+      const monthsSet = new Set<string>();
       entries.forEach(e => {
-          const entryDate = new Date(e.startTime);
-          if (entryDate.getFullYear().toString() === selectedYear) {
-              months.add(entryDate.toISOString().slice(0, 7));
+          const d = new Date(e.startTime);
+          if (d.getFullYear().toString() === selectedYear) {
+              monthsSet.add(d.toISOString().slice(0, 7));
           }
       });
-      return Array.from(months).sort().reverse();
+      // Fix: Use spread operator instead of Array.from to ensure correct string[] type inference from Set<string>
+      return [...monthsSet].sort().reverse();
   }, [entries, selectedYear]);
 
   const filteredEntries = useMemo(() => {
@@ -62,8 +62,9 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
         if (!isArchive && entryIsBilled) return false;
         if (isArchive && !entryIsBilled) return false;
         
-        const entryMonth = new Date(e.startTime).toISOString().slice(0, 7);
-        const entryYear = new Date(e.startTime).getFullYear().toString();
+        const entryDate = new Date(e.startTime);
+        const entryMonth = entryDate.toISOString().slice(0, 7);
+        const entryYear = entryDate.getFullYear().toString();
 
         const matchesProject = selectedProjectIds.length === 0 || selectedProjectIds.includes(e.projectId);
         const matchesMonth = selectedMonths.length === 0 || selectedMonths.includes(entryMonth);
@@ -74,7 +75,6 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   }, [entries, selectedProjectIds, selectedMonths, isArchive, selectedYear]);
 
   const baseTotalAmount = useMemo(() => filteredEntries.reduce((acc, curr) => acc + calculateEarnings(curr), 0), [filteredEntries]);
-  const totalHours = useMemo(() => filteredEntries.reduce((acc, curr) => acc + (curr.duration || 0), 0) / 3600, [filteredEntries]);
 
   useEffect(() => {
       if (baseTotalAmount > 100) setApplyBollo(true);
@@ -115,7 +115,6 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       );
   };
 
-  // Fix: Corrected toggleAllMonthsInYear implementation to avoid type ambiguity with functional updates and unknown arrays.
   const toggleAllMonthsInYear = () => {
       const allSelected = availableMonthsInYear.every(m => selectedMonths.includes(m));
       if (allSelected) {
@@ -128,9 +127,9 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
 
   const handleSelectAll = () => {
       if (selectedEntryIds.size === filteredEntries.length && filteredEntries.length > 0) {
-          setSelectedEntryIds(new Set());
+          setSelectedEntryIds(new Set<string>());
       } else {
-          setSelectedEntryIds(new Set(filteredEntries.map(e => e.id)));
+          setSelectedEntryIds(new Set<string>(filteredEntries.map(e => e.id)));
       }
   };
 
@@ -143,13 +142,13 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       
       try {
           await DB.markEntriesAsBilled(idsToMark);
-          setSelectedEntryIds(new Set()); // Pulisce selezione locale prima del refresh
+          setSelectedEntryIds(new Set<string>()); 
           if (onEntriesChange) {
               await onEntriesChange();
           }
       } catch (e: any) { 
           console.error("Errore Billing MarkAsBilled:", e);
-          alert("Errore durante lo spostamento: " + (e.message || "Problema di connessione al database. Verifica i permessi RLS.")); 
+          alert("Errore durante lo spostamento: " + (e.message || "Problema di connessione al database. Verifica i permessi RLS e lo script SQL.")); 
       } finally { 
           setIsProcessing(false); 
       }
@@ -173,7 +172,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       setIsProcessing(true);
       try {
           await DB.updateEntriesRate(Array.from(selectedEntryIds), newRate);
-          setSelectedEntryIds(new Set());
+          setSelectedEntryIds(new Set<string>());
           setShowBulkRateInput(false);
           setBulkRateValue('');
           if (onEntriesChange) await onEntriesChange();
@@ -384,7 +383,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                               <tr key={entry.id} className={`hover:bg-indigo-50/20 transition-colors print:break-inside-avoid ${selectedEntryIds.has(entry.id) ? 'bg-indigo-50/40' : ''}`}>
                                   <td className="px-3 py-4 print:hidden">
                                       <button 
-                                          onClick={() => setSelectedEntryIds(prev => { const n = new Set(prev); if(n.has(entry.id)) n.delete(entry.id); else n.add(entry.id); return n; })} 
+                                          onClick={() => setSelectedEntryIds(prev => { const n = new Set<string>(prev); if(n.has(entry.id)) n.delete(entry.id); else n.add(entry.id); return n; })} 
                                           className={`flex items-center transition-colors ${selectedEntryIds.has(entry.id) ? 'text-indigo-600' : 'text-gray-300 hover:text-gray-400'}`}
                                       >
                                           {selectedEntryIds.has(entry.id) ? <CheckSquare size={16} /> : <Square size={16} />}
