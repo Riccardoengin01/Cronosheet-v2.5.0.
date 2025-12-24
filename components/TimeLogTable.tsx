@@ -71,32 +71,32 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
   }
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-5xl mx-auto">
-      <div className="flex flex-wrap items-center justify-between gap-4 px-2 no-print relative z-30">
+    <div className="space-y-6 animate-fade-in max-w-5xl mx-auto relative">
+      <div className="flex flex-wrap items-center justify-between gap-4 px-2 no-print relative z-[60]">
           <div className="flex items-center gap-3">
               <div className="flex items-center bg-white border border-slate-200 p-1 rounded-xl shadow-sm">
                   {availableYears.map(y => (
-                      <button key={y} onClick={() => setSelectedYear(y)} className={`px-4 py-2 text-xs font-black uppercase rounded-lg transition-all ${selectedYear === y ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:bg-slate-50'}`}>
+                      <button key={y} onClick={() => setSelectedYear(y)} className={`px-4 py-2 text-xs font-black uppercase rounded-lg transition-all cursor-pointer ${selectedYear === y ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:bg-slate-50'}`}>
                           {y}
                       </button>
                   ))}
               </div>
 
               <div className="relative" ref={clientDropdownRef}>
-                  <button onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase border border-slate-200 text-slate-600 bg-white hover:border-indigo-200 transition-all shadow-sm">
+                  <button onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase border border-slate-200 text-slate-600 bg-white hover:border-indigo-200 transition-all shadow-sm cursor-pointer">
                       <MapPin size={14} className="text-indigo-400" /> 
-                      <span>{selectedProjectIds.length === projects.length ? 'Tutti i Clienti' : `${selectedProjectIds.length} Clienti`}</span>
-                      <ChevronDown size={14} className={`transition-transform ${isClientDropdownOpen ? 'rotate-180' : ''}`} />
+                      <span className="pointer-events-none">{selectedProjectIds.length === projects.length ? 'Tutti i Clienti' : `${selectedProjectIds.length} Clienti`}</span>
+                      <ChevronDown size={14} className={`transition-transform pointer-events-none ${isClientDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
                   {isClientDropdownOpen && (
-                      <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 p-3 animate-slide-up max-h-80 overflow-y-auto">
+                      <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[100] p-3 animate-slide-up max-h-80 overflow-y-auto">
                           <div className="flex justify-between mb-2 pb-2 border-b border-slate-50">
-                             <button onClick={() => setSelectedProjectIds(projects.map(p => p.id))} className="text-[9px] font-black text-indigo-600 uppercase hover:underline">Tutti</button>
-                             <button onClick={() => setSelectedProjectIds([])} className="text-[9px] font-black text-slate-400 uppercase hover:underline">Nessuno</button>
+                             <button onClick={() => setSelectedProjectIds(projects.map(p => p.id))} className="text-[9px] font-black text-indigo-600 uppercase hover:underline cursor-pointer">Tutti</button>
+                             <button onClick={() => setSelectedProjectIds([])} className="text-[9px] font-black text-slate-400 uppercase hover:underline cursor-pointer">Nessuno</button>
                           </div>
                           <div className="space-y-1">
                               {projects.map(p => (
-                                  <button key={p.id} onClick={() => toggleProject(p.id)} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${selectedProjectIds.includes(p.id) ? 'bg-indigo-50 text-indigo-800' : 'hover:bg-slate-50'}`}>
+                                  <button key={p.id} onClick={() => toggleProject(p.id)} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${selectedProjectIds.includes(p.id) ? 'bg-indigo-50 text-indigo-800' : 'hover:bg-slate-50'}`}>
                                       {selectedProjectIds.includes(p.id) ? <CheckSquare size={16} className="text-indigo-600"/> : <Square size={16} className="text-slate-300"/>} 
                                       <span className="truncate text-left flex-grow">{p.name}</span>
                                   </button>
@@ -112,7 +112,7 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
           </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 relative z-10">
         {grouped.map(group => (
             <div key={group.date} className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
                 <div className="bg-slate-50/50 px-5 py-3 border-b border-slate-100 flex justify-between items-center text-slate-400">
@@ -153,8 +153,8 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
                                         <div className="text-sm font-black text-slate-900 font-mono leading-none">{formatCurrency(earnings)}</div>
                                     </div>
                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => onEdit(entry)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-lg transition-all"><Pencil size={16} /></button>
-                                        <button onClick={() => onDelete(entry.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-white rounded-lg transition-all"><Trash2 size={16} /></button>
+                                        <button onClick={() => onEdit(entry)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-lg transition-all cursor-pointer"><Pencil size={16} /></button>
+                                        <button onClick={() => onDelete(entry.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-white rounded-lg transition-all cursor-pointer"><Trash2 size={16} /></button>
                                     </div>
                                 </div>
                             </div>

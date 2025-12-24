@@ -5,7 +5,7 @@ import { generateId, COLORS } from '../utils';
 
 export const DEFAULT_THEME: AppTheme = {
     trial: { sidebarBg: '#1e1b4b', itemColor: '#94a3b8', activeBg: '#4338ca', activeText: '#ffffff', accentColor: '#818cf8' },
-    pro: { sidebarBg: '#2e1065', itemColor: '#a78bfa', activeBg: '#6d28d9', activeText: '#ffffff', accentColor: '#c084fc' },
+    pro: { sidebarBg: '#2e1065', itemColor: '#a78bfa', activeBg: '#6d28d9', activeText: '#ffffff', accentColor: '#4f46e5' },
     elite: { sidebarBg: '#0f172a', itemColor: '#94a3b8', activeBg: '#d97706', activeText: '#ffffff', accentColor: '#fbbf24' },
     admin: { sidebarBg: '#020617', itemColor: '#64748b', activeBg: '#312e81', activeText: '#ffffff', accentColor: '#4f46e5' }
 };
@@ -151,20 +151,20 @@ export const deleteEntry = async (id: string) => {
 };
 
 export const markEntriesAsBilled = async (ids: string[], invoiceNumber?: string) => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || ids.length === 0) return;
     await supabase.from('time_entries').update({ 
-        is_billed: true, 
-        invoice_number: invoiceNumber 
+        is_billed: invoiceNumber !== undefined && invoiceNumber !== null, 
+        invoice_number: invoiceNumber || null 
     }).in('id', ids);
 };
 
 export const markEntriesAsPaid = async (ids: string[], status: boolean = true) => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || ids.length === 0) return;
     await supabase.from('time_entries').update({ is_paid: status }).in('id', ids);
 };
 
 export const updateEntriesRate = async (ids: string[], rate: number) => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || ids.length === 0) return;
     await supabase.from('time_entries').update({ hourly_rate: rate }).in('id', ids);
 };
 
