@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
-import { Database, Copy, Check, RefreshCw, Terminal, Shield, AlertTriangle, FileUp, Info } from 'lucide-react';
+import { Database, Copy, Check, RefreshCw, AlertTriangle } from 'lucide-react';
 
-const FULL_INIT_SCRIPT = `-- 🚀 SCRIPT DI RIPRISTINO V4 (Incassi & Tasse Ingegneri)
+const FULL_INIT_SCRIPT = `-- 🚀 SCRIPT DI RIPRISTINO V5 (Fiscalità Trasparente & Fix Incassi)
 
 -- 1. PROFILI (Idempotente)
 create table if not exists public.profiles (
@@ -47,7 +47,7 @@ create table if not exists public.time_entries (
   created_at timestamptz default now()
 );
 
--- 4. BUSINESS EXPENSES (COSTI FISSI)
+-- 4. BUSINESS EXPENSES
 create table if not exists public.business_expenses (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
@@ -83,29 +83,24 @@ alter table public.certifications enable row level security;
 -- POLICIES (Sicure contro duplicati)
 DO $$ 
 BEGIN
-    -- Profiles
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'manage_profiles') THEN
         create policy "manage_profiles" on public.profiles for all using (auth.uid() = id);
     END IF;
-    -- Projects
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'manage_projects') THEN
         create policy "manage_projects" on public.projects for all using (auth.uid() = user_id);
     END IF;
-    -- Entries
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'manage_entries') THEN
         create policy "manage_entries" on public.time_entries for all using (auth.uid() = user_id);
     END IF;
-    -- Expenses
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'manage_bus_expenses') THEN
         create policy "manage_bus_expenses" on public.business_expenses for all using (auth.uid() = user_id);
     END IF;
-    -- Certs
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'manage_certs') THEN
         create policy "manage_certs" on public.certifications for all using (auth.uid() = user_id);
     END IF;
 END $$;
 
--- FIX COLONNA IS_PAID (Se la tabella esisteva già senza)
+-- AGGIUNTA COLONNA IS_PAID SE MANCANTE
 DO $$ 
 BEGIN 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='time_entries' AND column_name='is_paid') THEN
@@ -131,8 +126,8 @@ const DatabaseSetup = () => {
                     <div className="flex items-center gap-4">
                         <div className="bg-white/20 p-3 rounded-lg"><Database size={32} /></div>
                         <div>
-                            <h1 className="text-2xl font-bold uppercase tracking-tight">Setup V4: Executive Edition</h1>
-                            <p className="opacity-90">Aggiornamento Incassi e Calcolo Fiscale Ingegneri.</p>
+                            <h1 className="text-2xl font-bold uppercase tracking-tight">Database Ledger V5</h1>
+                            <p className="opacity-90 text-xs">Riparazione Incassi & Trasparenza Coefficiente 78%.</p>
                         </div>
                     </div>
                 </div>
@@ -140,8 +135,8 @@ const DatabaseSetup = () => {
                     <div className="bg-amber-50 border-l-4 border-amber-500 p-4 flex gap-3">
                         <AlertTriangle className="text-amber-600 shrink-0" size={24}/>
                         <div>
-                            <p className="text-sm font-bold text-amber-800 tracking-tight">Riparazione Database Riccardo</p>
-                            <p className="text-xs text-amber-700 leading-relaxed">Copia il codice sotto, vai su <strong>Supabase > SQL Editor > New Query</strong>, incolla e premi <strong>RUN</strong>. Questo abiliterà il salvataggio degli incassi.</p>
+                            <p className="text-sm font-bold text-amber-800 tracking-tight">Manutenzione Necessaria</p>
+                            <p className="text-xs text-amber-700 leading-relaxed">Riccardo, copia il codice sotto, vai su <strong>Supabase > SQL Editor</strong>, incolla e premi <strong>RUN</strong>. Questo script corregge gli errori di policy e abilita il tasto "Segna Incassato".</p>
                         </div>
                     </div>
                     <div className="relative">
@@ -151,7 +146,7 @@ const DatabaseSetup = () => {
                         <pre className="bg-slate-900 text-emerald-400 p-4 rounded-xl overflow-x-auto text-[10px] font-mono h-64 border-4 border-slate-100 shadow-inner"><code>{FULL_INIT_SCRIPT}</code></pre>
                     </div>
                     <button onClick={() => window.location.reload()} className="w-full bg-emerald-600 text-white py-4 rounded-xl font-black uppercase tracking-[0.2em] shadow-xl shadow-emerald-100 flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all active:scale-95">
-                        <RefreshCw size={20} /> Riavvia App e Applica
+                        <RefreshCw size={20} /> Applica Modifiche App
                     </button>
                 </div>
             </div>
