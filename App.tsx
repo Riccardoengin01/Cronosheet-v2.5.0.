@@ -19,7 +19,7 @@ import BusinessExpenses from './components/BusinessExpenses';
 import * as DB from './services/db';
 import { generateId } from './utils';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
-import { Plus, LogOut, Loader2, AlertTriangle } from 'lucide-react';
+import { Plus, LogOut, Loader2, AlertTriangle, Clock } from 'lucide-react';
 import { useLanguage } from './lib/i18n';
 
 function App() {
@@ -33,6 +33,7 @@ function App() {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingData, setLoadingData] = useState(false);
+  const [showTimer, setShowTimer] = useState(false);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | undefined>(undefined);
@@ -94,6 +95,8 @@ function App() {
           setEntries(e);
           const running = e.find(entry => entry.endTime === null);
           setActiveEntry(running);
+          // Se c'è un timer attivo, mostralo automaticamente
+          if (running) setShowTimer(true);
       } catch (err) {
           console.error("Error fetching data:", err);
       } finally {
@@ -184,16 +187,33 @@ function App() {
       case AppView.TIMESHEET:
         return (
           <div className="space-y-8 animate-fade-in max-w-5xl mx-auto">
-             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
                 <div>
-                    <h1 className="text-4xl font-black text-gray-900 tracking-tight">{t('menu.timesheet')}</h1>
-                    <p className="text-gray-500 font-medium">Monitora le tue ore e attività in tempo reale.</p>
+                    <h1 className="text-4xl font-black text-gray-900 tracking-tight uppercase">Ingresso Dati</h1>
+                    <p className="text-gray-400 font-bold text-xs uppercase tracking-widest mt-1">Registra le tue prestazioni professionali</p>
                 </div>
-                <button onClick={handleManualEntryClick} className="flex items-center justify-center gap-2 text-base font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-6 py-3 rounded-2xl transition-all shadow-xl shadow-indigo-200 active:scale-95">
-                    <Plus size={20} strokeWidth={3} /> {t('app.add_service')}
-                </button>
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => setShowTimer(!showTimer)} 
+                    className={`flex items-center justify-center gap-2 text-xs font-black px-6 py-3 rounded-2xl transition-all border ${showTimer ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-white text-slate-400 border-slate-200 hover:border-indigo-200'}`}
+                  >
+                      <Clock size={18} /> {showTimer ? "Chiudi Timer" : "Usa Cronometro"}
+                  </button>
+                  <button onClick={handleManualEntryClick} className="flex-1 md:flex-none flex items-center justify-center gap-2 text-xs font-black text-white bg-slate-900 hover:bg-indigo-600 px-8 py-4 rounded-2xl transition-all shadow-xl shadow-slate-200 active:scale-95 uppercase tracking-widest">
+                      <Plus size={20} strokeWidth={3} /> {t('app.add_service')}
+                  </button>
+                </div>
              </div>
-             <Timer projects={projects} activeEntry={activeEntry} onStart={handleStartTimer} onStop={handleStopTimer} />
+
+             {showTimer && (
+               <div className="animate-slide-down">
+                 <div className="flex items-center gap-2 mb-2 px-2">
+                    <span className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em]">Tracking in tempo reale</span>
+                 </div>
+                 <Timer projects={projects} activeEntry={activeEntry} onStart={handleStartTimer} onStop={handleStopTimer} />
+               </div>
+             )}
+
              <TimeLogTable entries={entries} projects={projects} onDelete={handleDeleteEntry} onEdit={(e) => { setEditingEntry(e); setIsModalOpen(true); }} />
           </div>
         );

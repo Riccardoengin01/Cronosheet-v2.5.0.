@@ -107,6 +107,7 @@ export const getEntries = async (userId: string) => {
         if (error) throw error;
         return data.map(e => ({
             id: e.id, projectId: e.project_id, description: e.description,
+            activityTypeId: e.activity_type_id, // FIX: Aggiunto mapping mancante
             startTime: e.start_time, endTime: e.end_time, duration: e.duration,
             hourlyRate: e.hourly_rate, billingType: e.billing_type, expenses: e.expenses,
             isNightShift: e.is_night_shift, is_billed: e.is_billed, is_paid: e.is_paid,
@@ -121,6 +122,7 @@ export const saveEntry = async (e: TimeEntry, userId: string) => {
         id: e.id.length > 20 ? e.id : undefined,
         user_id: userId,
         project_id: e.projectId,
+        activity_type_id: e.activityTypeId, // Salvataggio corretto
         description: e.description,
         start_time: e.startTime,
         end_time: e.endTime,
