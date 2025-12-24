@@ -2,8 +2,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Project, TimeEntry, UserProfile, AppView } from '../types';
 import { formatCurrency, formatDuration, calculateEarnings, formatTime } from '../utils';
-/* Added missing Receipt import */
-import { Printer, Calendar, CheckSquare, Square, MapPin, ChevronDown, Archive, Check, Pencil, X, Settings2, ListFilter, Download, ToggleRight, ToggleLeft, Loader2, Receipt } from 'lucide-react';
+// Added Clock to the lucide-react imports to fix the "Cannot find name 'Clock'" error.
+import { Printer, Calendar, Clock, CheckSquare, Square, MapPin, ChevronDown, Archive, Check, Pencil, X, Settings2, ListFilter, Download, ToggleRight, ToggleLeft, Loader2, Receipt, Wallet, Banknote } from 'lucide-react';
 import * as DB from '../services/db';
 import { useLanguage } from '../lib/i18n';
 
@@ -85,15 +85,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       if (projects.length > 0 && selectedProjectIds.length === 0) {
           setSelectedProjectIds(projects.map(p => p.id));
       }
-      if (availableMonthsInYear.length > 0 && selectedMonths.length === 0) {
-           const currentMonth = new Date().toISOString().slice(0, 7);
-           if (availableMonthsInYear.includes(currentMonth)) {
-               setSelectedMonths([currentMonth]);
-           } else {
-               setSelectedMonths([availableMonthsInYear[0]]);
-           }
-      }
-  }, [projects, availableMonthsInYear]);
+  }, [projects]);
 
   useEffect(() => {
       function handleClickOutside(event: MouseEvent) {
@@ -147,10 +139,26 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
               await onEntriesChange();
           }
       } catch (e: any) { 
-          console.error("Errore Billing MarkAsBilled:", e);
           alert("Errore durante lo spostamento."); 
       } finally { 
           setIsProcessing(false); 
+      }
+  };
+
+  const handleMarkAsPaid = async (status: boolean = true) => {
+      if (selectedEntryIds.size === 0) return;
+      const action = status ? "incassati" : "stornati come non pagati";
+      if (!confirm(`Segnare come ${action} ${selectedEntryIds.size} servizi selezionati?`)) return;
+      
+      setIsProcessing(true);
+      try {
+          await DB.markEntriesAsPaid([...selectedEntryIds], status);
+          setSelectedEntryIds(new Set<string>());
+          if (onEntriesChange) await onEntriesChange();
+      } catch (e) {
+          alert("Errore aggiornamento stato incasso");
+      } finally {
+          setIsProcessing(false);
       }
   };
 
@@ -181,7 +189,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
 
   const handleExportCSV = () => {
       if (filteredEntries.length === 0) return;
-      const headers = ["Data", "Cliente", "Orario", "Descrizione", "Unità/Durata", "Tariffa (€)", "Extra (€)", "Totale (€)"];
+      const headers = ["Data", "Cliente", "Orario", "Descrizione", "Unità/Durata", "Tariffa (€)", "Extra (€)", "Totale (€)", "Stato Incasso"];
       const rows = filteredEntries.map(e => {
           const project = projects.find(p => p.id === e.projectId);
           const isDaily = e.billingType === 'daily';
@@ -197,7 +205,8 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
               unit,
               (e.hourlyRate || 0).toFixed(2).replace('.', ','),
               expenses.toFixed(2).replace('.', ','),
-              earnings.toFixed(2).replace('.', ',')
+              earnings.toFixed(2).replace('.', ','),
+              e.is_paid ? 'INCASSATO' : 'PENDENTE'
           ];
       });
       const csvContent = [headers, ...rows].map(r => r.join(";")).join("\n");
@@ -223,17 +232,26 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
     <div className="space-y-6 animate-fade-in max-w-5xl mx-auto pb-10 print:pb-0">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print">
            <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-               {isArchive ? "Archivio Cronologico" : "Riepilogo Prestazioni"}
+               {isArchive ? "Archivio & Incassi" : "Emissione Riepilogo"}
            </h1>
            
            {selectedEntryIds.size > 0 && (
                <div className="animate-slide-up flex flex-wrap items-center gap-2 bg-indigo-50 border border-indigo-100 px-4 py-2 rounded-2xl shadow-sm">
                    <span className="text-xs font-black text-indigo-800 uppercase tracking-widest">{selectedEntryIds.size} {t('billing.selected')}</span>
-                   {!isArchive && (
+                   {isArchive ? (
+                       <div className="flex gap-2">
+                           <button onClick={() => handleMarkAsPaid(true)} className="text-xs font-black bg-emerald-600 text-white px-4 py-1.5 rounded-xl hover:bg-emerald-700 flex items-center gap-1.5 uppercase tracking-widest shadow-lg shadow-emerald-100">
+                               <Check size={14}/> Segna Incassato
+                           </button>
+                           <button onClick={() => handleMarkAsPaid(false)} className="text-xs font-black bg-white border border-slate-200 text-slate-400 px-4 py-1.5 rounded-xl hover:bg-red-50 hover:text-red-500 transition-colors uppercase tracking-widest">
+                               Pendente
+                           </button>
+                       </div>
+                   ) : (
                        <>
                            {!showBulkRateInput ? (
                                <button onClick={() => setShowBulkRateInput(true)} className="text-xs font-bold bg-white border border-indigo-200 text-indigo-600 px-3 py-1.5 rounded-xl hover:bg-indigo-100 flex items-center gap-1.5 shadow-sm">
-                                   <Pencil size={14}/> Cambia Tariffa
+                                   <Pencil size={14}/> Modifica Tariffe
                                </button>
                            ) : (
                                <div className="flex items-center gap-1 bg-white p-0.5 rounded-xl border border-indigo-300">
@@ -243,7 +261,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                </div>
                            )}
                            <button onClick={handleMarkAsBilled} disabled={isProcessing} className="text-xs font-black bg-indigo-600 text-white px-4 py-1.5 rounded-xl hover:bg-indigo-700 flex items-center gap-1.5 shadow-lg shadow-indigo-100 uppercase tracking-widest">
-                                {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <><Archive size={14}/> Archivia Selezionati</>}
+                                {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <><Archive size={14}/> Fattura & Archivia</>}
                            </button>
                        </>
                    )}
@@ -306,36 +324,25 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                     })}
                 </div>
             </div>
-            
-            {!isArchive && (
-                <div className="bg-slate-50/50 p-5 rounded-[2rem] border border-slate-100 space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <button onClick={() => setApplyBollo(!applyBollo)} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${applyBollo ? 'bg-white border-indigo-200 shadow-sm' : 'bg-transparent border-gray-100 opacity-60'}`}>
-                            <span className="text-xs font-black uppercase tracking-widest text-slate-700">Bollo (€ 2,00)</span>
-                            {applyBollo ? <ToggleRight className="text-indigo-600" size={28} /> : <ToggleLeft className="text-gray-300" size={28} />}
-                        </button>
-                        <button onClick={() => setApplyInarcassa(!applyInarcassa)} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${applyInarcassa ? 'bg-white border-indigo-200 shadow-sm' : 'bg-transparent border-gray-100 opacity-60'}`}>
-                            <span className="text-xs font-black uppercase tracking-widest text-slate-700">Cassa (4%)</span>
-                            {applyInarcassa ? <ToggleRight className="text-indigo-600" size={28} /> : <ToggleLeft className="text-gray-300" size={28} />}
-                        </button>
-                    </div>
-                </div>
-            )}
         </div>
 
         <div className="lg:col-span-1 border-t lg:border-t-0 lg:border-l border-gray-100 pt-8 lg:pt-0 lg:pl-8 flex flex-col justify-center">
             <div className="bg-slate-900 text-white p-6 rounded-[2rem] w-full mb-6 shadow-xl relative overflow-hidden">
                 <div className="absolute right-0 bottom-0 opacity-10 -mr-4 -mb-4"><Receipt size={100} /></div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-1">Totale {isArchive ? 'Archiviati' : 'Documento'}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-1">Totale {isArchive ? 'Visualizzato' : 'Documento'}</p>
                 <p className="text-3xl font-black">{formatCurrency(isArchive ? baseTotalAmount : grandTotalAmount)}</p>
-                <p className="text-[10px] font-bold text-slate-400 mt-2">{filteredEntries.length} servizi processati</p>
+                {isArchive && (
+                    <p className="text-[10px] font-bold text-emerald-400 mt-2 uppercase tracking-tighter">
+                        Incassato: {formatCurrency(filteredEntries.filter(e => e.is_paid).reduce((acc, e) => acc + calculateEarnings(e), 0))}
+                    </p>
+                )}
             </div>
             <div className="flex flex-col gap-4">
                 <button onClick={() => window.print()} disabled={filteredEntries.length === 0} className="w-full flex justify-center items-center gap-2 bg-indigo-600 disabled:bg-slate-200 text-white px-8 py-4 rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 font-black uppercase tracking-widest text-xs transition-all active:scale-95">
-                    <Printer size={18} /> {t('billing.print')}
+                    <Printer size={18} /> Genera PDF
                 </button>
                 <button onClick={handleExportCSV} disabled={filteredEntries.length === 0} className="w-full flex justify-center items-center gap-2 bg-white border border-gray-200 text-slate-700 px-8 py-4 rounded-2xl hover:bg-gray-50 shadow-sm font-black uppercase tracking-widest text-xs transition-all active:scale-95">
-                    <Download size={18} /> {t('billing.export')}
+                    <Download size={18} /> Export CSV
                 </button>
             </div>
         </div>
@@ -345,13 +352,13 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
           <div className="border-b-4 border-slate-900 pb-10 mb-10 flex flex-col md:flex-row justify-between items-start gap-6">
               <div>
                   <h1 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-3">
-                      {isArchive ? 'Archivio Fatture' : 'Riepilogo Servizi'}
+                      {isArchive ? 'Libro Incassi' : 'Riepilogo Servizi'}
                   </h1>
-                  <p className="text-indigo-600 font-black text-xs uppercase tracking-[0.2em]">Prestazioni Professionali d'Ingegneria</p>
+                  <p className="text-indigo-600 font-black text-xs uppercase tracking-[0.2em]">Registro Prestazioni Professionali d'Ingegneria</p>
               </div>
               <div className="text-left md:text-right">
-                  <h3 className="text-xl font-black text-slate-900">
-                    {selectedProjectIds.length === 1 ? projects.find(p => p.id === selectedProjectIds[0])?.name : 'Riepilogo Cumulativo'}
+                  <h3 className="text-xl font-black text-slate-900 uppercase">
+                    {selectedProjectIds.length === 1 ? projects.find(p => p.id === selectedProjectIds[0])?.name : 'Contabilità Cumulativa'}
                   </h3>
                   <p className="text-slate-500 font-bold capitalize mt-1 text-sm">Periodo: {periodString}</p>
               </div>
@@ -367,12 +374,11 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                               </button>
                           </th>
                           <th className="px-4 py-5">DATA</th>
-                          <th className="px-4 py-5">CLIENTE</th>
-                          <th className="px-4 py-5">ORARIO</th>
                           <th className="px-4 py-5">DESCRIZIONE</th>
                           <th className="px-4 py-5 text-center">UNITÀ</th>
                           <th className="px-4 py-5 text-center">TARIFFA</th>
                           <th className="px-4 py-5 text-right">TOTALE</th>
+                          {isArchive && <th className="px-4 py-5 text-right print:hidden">STATO</th>}
                       </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -384,7 +390,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
 
                           return (
                               <tr key={entry.id} className={`hover:bg-slate-50/50 transition-colors print:break-inside-avoid ${selectedEntryIds.has(entry.id) ? 'bg-indigo-50/30' : ''}`}>
-                                  <td className="px-4 py-6 print:hidden">
+                                  <td className="px-4 py-5 print:hidden">
                                       <button 
                                           onClick={() => setSelectedEntryIds(prev => { const n = new Set<string>(prev); if(n.has(entry.id)) n.delete(entry.id); else n.add(entry.id); return n; })} 
                                           className={`flex items-center transition-colors ${selectedEntryIds.has(entry.id) ? 'text-indigo-600' : 'text-slate-200 hover:text-slate-300'}`}
@@ -392,39 +398,42 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                           {selectedEntryIds.has(entry.id) ? <CheckSquare size={20} /> : <Square size={20} />}
                                       </button>
                                   </td>
-                                  <td className="px-4 py-6 font-black text-slate-900">
+                                  <td className="px-4 py-5 font-black text-slate-900">
                                       {new Date(entry.startTime).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                                   </td>
-                                  <td className="px-4 py-6 text-slate-800 font-bold uppercase text-[10px] tracking-tight truncate max-w-[140px]">
-                                      {project?.name || '-'}
+                                  <td className="px-4 py-5">
+                                      <div className="font-bold text-slate-800 uppercase text-[10px] tracking-tight">{project?.name}</div>
+                                      <div className="text-slate-400 italic text-[10px] truncate max-w-[200px]">{entry.description || '-'}</div>
                                   </td>
-                                  <td className="px-4 py-6 text-slate-500 font-mono text-[10px]">
-                                      {formatTime(entry.startTime)}–{entry.endTime ? formatTime(entry.endTime) : ''}
+                                  <td className="px-4 py-5 text-center font-black text-slate-900 font-mono">
+                                      {isDaily ? `1 GG` : `${((entry.duration || 0)/3600).toFixed(1)}H`}
                                   </td>
-                                  <td className="px-4 py-6 text-slate-400 italic truncate max-w-[180px]">
-                                      {entry.description || '-'}
-                                  </td>
-                                  <td className="px-4 py-6 text-center font-black text-slate-900 font-mono">
-                                      {isDaily ? `1 GG` : formatDuration(entry.duration).slice(0, 5)}
-                                  </td>
-                                  <td className="px-4 py-6 text-center" onClick={() => { if (!isArchive) { setEditingRateId(entry.id); setTempRate(entry.hourlyRate?.toString() || '0'); } }}>
+                                  <td className="px-4 py-5 text-center" onClick={() => { if (!isArchive) { setEditingRateId(entry.id); setTempRate(entry.hourlyRate?.toString() || '0'); } }}>
                                       {isEditingRate ? (
                                           <div className="flex items-center justify-center gap-1" onClick={e => e.stopPropagation()}>
                                               <input type="number" step="0.01" autoFocus className="w-16 px-2 py-1 border-2 border-indigo-500 rounded-xl text-right font-mono font-bold shadow-lg outline-none" value={tempRate} onChange={e => setTempRate(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleUpdateRate(entry)} />
                                           </div>
                                       ) : (
-                                          <span className="text-slate-700 font-bold font-mono">{formatCurrency(entry.hourlyRate || 0)}{isDaily ? '/gg' : ''}</span>
+                                          <span className="text-slate-700 font-bold font-mono">{formatCurrency(entry.hourlyRate || 0)}</span>
                                       )}
                                   </td>
-                                  <td className="px-4 py-6 text-right font-black text-indigo-600 text-sm">
+                                  <td className="px-4 py-5 text-right font-black text-slate-900 text-sm">
                                       {formatCurrency(earnings)}
                                   </td>
+                                  {isArchive && (
+                                    <td className="px-4 py-5 text-right print:hidden">
+                                        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black border ${entry.is_paid ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
+                                            {entry.is_paid ? <Banknote size={10}/> : <Clock size={10}/>}
+                                            {entry.is_paid ? 'INCASSATO' : 'PENDENTE'}
+                                        </div>
+                                    </td>
+                                  )}
                               </tr>
                           );
                       })}
                       {filteredEntries.length === 0 && (
                           <tr>
-                              <td colSpan={8} className="px-4 py-16 text-center text-slate-300 font-bold italic text-lg">
+                              <td colSpan={isArchive ? 7 : 6} className="px-4 py-16 text-center text-slate-300 font-bold italic text-lg">
                                   Nessun servizio nel periodo selezionato.
                               </td>
                           </tr>
@@ -443,14 +452,14 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                     
                     {!isArchive && applyBollo && (
                         <div className="flex justify-between text-slate-400 text-[10px] font-black tracking-widest uppercase">
-                            <span className="italic normal-case font-bold">Imposta di Bollo:</span>
+                            <span className="italic normal-case font-bold">Imposta di Bollo (D.P.R. 642/72):</span>
                             <span className="font-mono text-slate-900">{formatCurrency(bolloAmount)}</span>
                         </div>
                     )}
 
                     {!isArchive && applyInarcassa && (
                         <div className="flex justify-between text-slate-400 text-[10px] font-black tracking-widest uppercase">
-                            <span className="italic normal-case font-bold">Cassa Previdenza (4%):</span>
+                            <span className="italic normal-case font-bold">Contributo Integrativo Inarcassa (4%):</span>
                             <span className="font-mono text-slate-900">{formatCurrency(cassaAmount)}</span>
                         </div>
                     )}
@@ -459,13 +468,20 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                         <span className="tracking-tighter">TOTALE:</span>
                         <span className="text-indigo-600">{formatCurrency(isArchive ? baseTotalAmount : grandTotalAmount)}</span>
                     </div>
+                    
+                    {isArchive && (
+                        <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 mt-4 flex justify-between items-center">
+                            <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Saldo Incassato Reale:</span>
+                            <span className="text-xl font-black text-emerald-600">{formatCurrency(filteredEntries.filter(e => e.is_paid).reduce((acc, e) => acc + calculateEarnings(e), 0))}</span>
+                        </div>
+                    )}
                 </div>
             </div>
           )}
 
-          <div className="mt-20 text-center text-[10px] font-bold text-slate-300 border-t border-dashed border-slate-100 pt-8 flex justify-between uppercase tracking-widest">
-              <span>Cronosheet Document System</span>
-              <span>© {new Date().getFullYear()} Riccardo Righini</span>
+          <div className="mt-20 text-center text-[8px] font-bold text-slate-300 border-t border-dashed border-slate-100 pt-8 flex justify-between uppercase tracking-widest">
+              <span>Secure Professional Ledger System</span>
+              <span>© {new Date().getFullYear()} Engineer Riccardo Righini</span>
           </div>
       </div>
     </div>

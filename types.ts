@@ -60,6 +60,7 @@ export interface TimeEntry {
   isNightShift?: boolean;
   user_id?: string;
   is_billed?: boolean; 
+  is_paid?: boolean; // Nuova proprietà per contabilità per cassa
 }
 
 export interface DayGroup {

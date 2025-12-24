@@ -136,8 +136,8 @@ export const getEntries = async (userId: string) => {
         return data.map(e => ({
             id: e.id, projectId: e.project_id, description: e.description,
             startTime: e.start_time, endTime: e.end_time, duration: e.duration,
-            hourlyRate: e.hourly_rate, billing_type: e.billing_type, expenses: e.expenses,
-            isNightShift: e.is_night_shift, is_billed: e.is_billed
+            hourlyRate: e.hourly_rate, billingType: e.billing_type, expenses: e.expenses,
+            isNightShift: e.is_night_shift, is_billed: e.is_billed, is_paid: e.is_paid
         }));
     } catch (e) {
         return [];
@@ -158,7 +158,8 @@ export const saveEntry = async (e: TimeEntry, userId: string) => {
         billing_type: e.billingType,
         expenses: e.expenses,
         is_night_shift: e.isNightShift,
-        is_billed: e.is_billed
+        is_billed: e.is_billed,
+        is_paid: e.is_paid
     };
     const { error } = await supabase.from('time_entries').upsert(dbE);
     return !error;
@@ -172,6 +173,11 @@ export const deleteEntry = async (id: string) => {
 export const markEntriesAsBilled = async (ids: string[]) => {
     if (!isSupabaseConfigured) return;
     await supabase.from('time_entries').update({ is_billed: true }).in('id', ids);
+};
+
+export const markEntriesAsPaid = async (ids: string[], status: boolean = true) => {
+    if (!isSupabaseConfigured) return;
+    await supabase.from('time_entries').update({ is_paid: status }).in('id', ids);
 };
 
 export const updateEntriesRate = async (ids: string[], rate: number) => {

@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Project, TimeEntry } from '../types';
-import { groupEntriesByDay, formatTime, formatDurationHuman, formatDuration, formatCurrency, calculateEarnings } from '../utils';
-import { Trash2, MapPin, Clock, Pencil, Moon, Filter, X, CheckSquare, Square, Calendar, ChevronDown, Search, ListFilter, User, Archive, Wallet, PlusCircle } from 'lucide-react';
+import { groupEntriesByDay, formatTime, formatDurationHuman, formatCurrency, calculateEarnings } from '../utils';
+import { Trash2, MapPin, Clock, Pencil, Moon, CheckSquare, Square, Calendar, ChevronDown, Search, ListFilter, Archive, Wallet, PlusCircle } from 'lucide-react';
 import { useLanguage } from '../lib/i18n';
 
 interface TimeLogTableProps {
@@ -59,38 +59,8 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
   }, []);
 
   const toggleProject = (id: string) => {
-      setSelectedProjectIds(prev => 
-          prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
-      );
+      setSelectedProjectIds(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
   };
-
-  const toggleAllProjects = () => {
-      if (selectedProjectIds.length === projects.length) {
-          setSelectedProjectIds([]);
-      } else {
-          setSelectedProjectIds(projects.map(p => p.id));
-      }
-  };
-
-  const toggleMonth = (month: string) => {
-      setSelectedMonths(prev => 
-          prev.includes(month) ? prev.filter(m => m !== month) : [...prev, month]
-      );
-  };
-
-  const toggleAllMonthsInYear = () => {
-      const allSelected = availableMonthsInYear.every(m => selectedMonths.includes(m));
-      if (allSelected) {
-          setSelectedMonths(prev => prev.filter(m => !availableMonthsInYear.includes(m)));
-      } else {
-          const toAdd = availableMonthsInYear.filter(m => !selectedMonths.includes(m));
-          setSelectedMonths(prev => [...prev, ...toAdd]);
-      }
-  };
-
-  const filteredProjectsList = projects.filter(p => 
-      p.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
-  );
 
   const filteredEntries = useMemo(() => {
       return pendingEntries.filter(entry => {
@@ -98,8 +68,7 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
           const entryMonth = entryDate.toISOString().slice(0, 7);
           const matchesProject = selectedProjectIds.length > 0 ? selectedProjectIds.includes(entry.projectId) : false;
           let matchesMonth = selectedMonths.length > 0 ? selectedMonths.includes(entryMonth) : entryDate.getFullYear().toString() === selectedYear;
-          const matchesYear = entryDate.getFullYear().toString() === selectedYear;
-          return matchesProject && (selectedMonths.length > 0 ? matchesMonth : matchesYear);
+          return matchesProject && (selectedMonths.length > 0 ? matchesMonth : entryDate.getFullYear().toString() === selectedYear);
       });
   }, [pendingEntries, selectedProjectIds, selectedMonths, selectedYear]);
 
@@ -107,276 +76,116 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
   const totalFilteredEarnings = filteredEntries.reduce((acc, e) => acc + calculateEarnings(e), 0);
   const totalDuration = filteredEntries.reduce((acc, e) => acc + (e.duration || 0), 0);
 
-  const formatMonthLabel = (m: string) => {
-      const [y, mo] = m.split('-');
-      const date = new Date(parseInt(y), parseInt(mo) - 1, 1);
-      return date.toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US', { month: 'long' });
-  };
-
   if (pendingEntries.length === 0) {
       return (
-          <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-300">
-              <div className="bg-indigo-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Archive className="w-10 h-10 text-indigo-300" />
-              </div>
-              <h3 className="text-xl font-black text-gray-900">{t('log.no_entries_found')}</h3>
-              <p className="text-gray-400 mt-2">Tutto il lavoro è stato fatturato o archiviato.</p>
+          <div className="text-center py-10 bg-white rounded-[2rem] border border-dashed border-gray-200">
+              <Archive className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+              <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">{t('log.no_entries_found')}</h3>
           </div>
       )
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="bg-white rounded-3xl border border-gray-200 shadow-sm p-6 no-print">
-          <div className="flex flex-col gap-6">
-              <div className="flex flex-col md:flex-row gap-6 md:items-end border-b border-gray-100 pb-6">
-                  <div className="w-full md:w-48">
-                      <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
-                          <Calendar size={14} /> {t('log.year_ref')}
-                      </label>
-                      <div className="relative">
-                          <select
-                              value={selectedYear}
-                              onChange={(e) => setSelectedYear(e.target.value)}
-                              className="w-full appearance-none bg-slate-50 hover:bg-slate-100 text-slate-900 font-bold text-lg py-3 pl-4 pr-10 rounded-2xl cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 border border-transparent"
-                          >
-                              {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
-                          </select>
-                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-500 pointer-events-none" size={20} />
+    <div className="space-y-4 animate-fade-in max-w-5xl mx-auto">
+      {/* Filtri Compatti */}
+      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 no-print flex flex-col md:flex-row gap-4 items-center">
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl">
+              {availableYears.map(y => (
+                  <button key={y} onClick={() => setSelectedYear(y)} className={`px-4 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${selectedYear === y ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400'}`}>
+                      {y}
+                  </button>
+              ))}
+          </div>
+
+          <div className="relative shrink-0" ref={clientDropdownRef}>
+              <button onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)} className="flex items-center gap-2 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase border border-gray-100 text-slate-700 bg-white">
+                  <MapPin size={14} className="text-indigo-500" /> 
+                  <span>{selectedProjectIds.length === projects.length ? 'Tutti i Clienti' : `${selectedProjectIds.length} Selezionati`}</span>
+                  <ChevronDown size={14} />
+              </button>
+              {isClientDropdownOpen && (
+                  <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 p-3 animate-slide-up">
+                      <div className="max-h-40 overflow-y-auto custom-scrollbar">
+                          {projects.map(p => (
+                              <button key={p.id} onClick={() => toggleProject(p.id)} className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${selectedProjectIds.includes(p.id) ? 'bg-indigo-50 text-indigo-800' : 'hover:bg-gray-50'}`}>
+                                  {selectedProjectIds.includes(p.id) ? <CheckSquare size={14} className="text-indigo-600"/> : <Square size={14} className="text-gray-300"/>} 
+                                  <span className="truncate">{p.name}</span>
+                              </button>
+                          ))}
                       </div>
                   </div>
+              )}
+          </div>
 
-                  <div className="w-full md:flex-grow relative" ref={clientDropdownRef}>
-                      <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
-                          <MapPin size={14} /> {t('log.filter_client')}
-                      </label>
-                      <button 
-                          onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)}
-                          className={`flex items-center justify-between w-full px-5 py-3 rounded-2xl text-base font-bold border transition-all ${
-                              selectedProjectIds.length > 0 && selectedProjectIds.length < projects.length
-                              ? 'bg-white border-indigo-300 text-indigo-700 shadow-sm ring-2 ring-indigo-50'
-                              : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
-                          }`}
-                      >
-                          <div className="flex items-center gap-2 truncate">
-                              <span>
-                                  {selectedProjectIds.length === projects.length 
-                                    ? t('log.all_clients') 
-                                    : `${selectedProjectIds.length} ${t('log.selected_clients')}`}
-                              </span>
-                          </div>
-                          <ChevronDown size={18} className={`transition-transform text-gray-400 ${isClientDropdownOpen ? 'rotate-180' : ''}`} />
-                      </button>
-
-                      {isClientDropdownOpen && (
-                          <div className="absolute top-full left-0 mt-3 w-full md:w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 p-4 animate-slide-up">
-                              <div className="relative mb-4">
-                                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                  <input 
-                                      type="text" 
-                                      placeholder={t('log.search_placeholder')}
-                                      className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 bg-gray-50"
-                                      value={clientSearchTerm}
-                                      onChange={e => setClientSearchTerm(e.target.value)}
-                                      autoFocus
-                                  />
-                              </div>
-                              <div className="flex justify-between items-center mb-3 px-1">
-                                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Clienti</span>
-                                  <button onClick={toggleAllProjects} className="text-[10px] text-indigo-600 font-black hover:underline uppercase">
-                                      {selectedProjectIds.length === projects.length ? t('billing.deselect_all') : t('billing.select_all')}
-                                  </button>
-                              </div>
-                              <div className="max-h-48 overflow-y-auto space-y-1 custom-scrollbar pr-2">
-                                  {filteredProjectsList.map(p => {
-                                      const isSelected = selectedProjectIds.includes(p.id);
-                                      return (
-                                          <button
-                                              key={p.id}
-                                              onClick={() => toggleProject(p.id)}
-                                              className={`flex items-center gap-3 w-full px-3 py-2 rounded-xl text-sm transition-colors text-left ${
-                                                  isSelected ? 'bg-indigo-50 text-indigo-800' : 'hover:bg-gray-50 text-gray-600'
-                                              }`}
-                                          >
-                                              {isSelected ? <CheckSquare size={18} className="shrink-0 text-indigo-600"/> : <Square size={18} className="shrink-0 text-gray-300"/>}
-                                              <span className="truncate font-bold">{p.name}</span>
-                                          </button>
-                                      )
-                                  })}
-                              </div>
-                          </div>
-                      )}
-                  </div>
-              </div>
-
-              <div>
-                 <div className="flex justify-between items-center mb-3">
-                     <label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
-                         <ListFilter size={14} /> {t('log.months_available')}
-                     </label>
-                     <button 
-                        onClick={toggleAllMonthsInYear} 
-                        className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 uppercase"
-                     >
-                         {availableMonthsInYear.every(m => selectedMonths.includes(m)) ? t('log.deselect_all') : t('log.select_all')}
-                     </button>
-                 </div>
-                 
-                 <div className="flex flex-wrap gap-2">
-                      {availableMonthsInYear.length === 0 && (
-                          <span className="text-sm text-gray-400 italic py-2">{t('log.no_data_year')} {selectedYear}</span>
-                      )}
-                      {availableMonthsInYear.map(m => {
-                          const isSelected = selectedMonths.includes(m);
-                          return (
-                              <button
-                                  key={m}
-                                  onClick={() => toggleMonth(m)}
-                                  className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs border transition-all capitalize shadow-sm font-bold ${
-                                      isSelected 
-                                      ? 'bg-amber-50 border-amber-300 text-amber-900 ring-2 ring-amber-50' 
-                                      : 'bg-white border-gray-100 text-gray-500 hover:border-gray-200 hover:bg-gray-50'
-                                  }`}
-                              >
-                                  {isSelected ? <CheckSquare size={16} className="text-amber-600" /> : <Square size={16} className="text-gray-300" />}
-                                  {formatMonthLabel(m)}
-                              </button>
-                          )
-                      })}
-                 </div>
-              </div>
+          <div className="flex flex-grow justify-end gap-2 text-xs font-black text-indigo-600 font-mono">
+                <div className="bg-slate-900 text-white px-3 py-1.5 rounded-xl shadow-sm">
+                    {formatCurrency(totalFilteredEarnings)}
+                </div>
+                <div className="bg-white border border-slate-100 text-slate-500 px-3 py-1.5 rounded-xl">
+                    {formatDurationHuman(totalDuration)}
+                </div>
           </div>
       </div>
-      
-      {filteredEntries.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 no-print">
-              <div className="bg-slate-900 text-white p-6 rounded-[2rem] shadow-xl col-span-2 md:col-span-1">
-                  <span className="text-indigo-300 text-[10px] font-black uppercase tracking-widest block mb-1">Fatturato Lordo</span>
-                  <span className="font-black text-3xl">{formatCurrency(totalFilteredEarnings)}</span>
-              </div>
-              <div className="bg-white border border-gray-100 p-6 rounded-[2rem] shadow-sm col-span-2 md:col-span-1">
-                  <span className="text-gray-400 text-[10px] font-black uppercase tracking-widest block mb-1">{t('log.total_hours')}</span>
-                  <span className="font-black text-3xl text-slate-800">{formatDurationHuman(totalDuration)}</span>
-              </div>
-              <div className="bg-white border border-gray-100 p-6 rounded-[2rem] shadow-sm col-span-1">
-                  <span className="text-gray-400 text-[10px] font-black uppercase tracking-widest block mb-1">{t('log.entries')}</span>
-                  <span className="font-black text-3xl text-slate-800">{filteredEntries.length}</span>
-              </div>
-              <div className="bg-white border border-gray-100 p-6 rounded-[2rem] shadow-sm col-span-1">
-                  <span className="text-gray-400 text-[10px] font-black uppercase tracking-widest block mb-1">{t('log.days_worked')}</span>
-                  <span className="font-black text-3xl text-slate-800">{grouped.length}</span>
-              </div>
-          </div>
-      )}
 
-      {filteredEntries.length === 0 ? (
-          <div className="text-center py-20 text-gray-400 font-bold bg-white rounded-3xl border border-gray-100">
-              {t('log.no_entries_found')}
-          </div>
-      ) : (
-        grouped.map(group => (
-            <div key={group.date} className="bg-white border border-gray-100 rounded-[2rem] overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-            <div className="bg-slate-50/50 px-8 py-4 border-b border-gray-100 flex justify-between items-center">
-                <h3 className="font-black text-slate-800 capitalize tracking-tight text-base">
-                {new Date(group.date).toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                </h3>
-                <div className="flex items-center gap-3">
-                    <div className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border border-indigo-100">
-                        {formatDurationHuman(group.totalDuration)}
-                    </div>
+      {/* Lista Log Denso */}
+      <div className="space-y-3">
+        {grouped.map(group => (
+            <div key={group.date} className="bg-white border border-gray-100 rounded-[1.5rem] overflow-hidden shadow-sm">
+                <div className="bg-slate-50/50 px-6 py-2 border-b border-gray-100 flex justify-between items-center">
+                    <h3 className="font-black text-slate-800 uppercase tracking-tighter text-[11px]">
+                        {new Date(group.date).toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US', { weekday: 'short', day: 'numeric', month: 'long' })}
+                    </h3>
+                    <span className="text-[10px] font-black text-slate-400">{formatDurationHuman(group.totalDuration)}</span>
+                </div>
+                
+                <div className="divide-y divide-gray-50">
+                    {group.entries.map(entry => {
+                        const project = projects.find(p => p.id === entry.projectId);
+                        const earnings = calculateEarnings(entry);
+                        const totalExpenses = entry.expenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
+                        const baseEarnings = earnings - totalExpenses;
+                        
+                        return (
+                            <div key={entry.id} className="px-6 py-3 flex flex-col md:flex-row items-center gap-4 hover:bg-slate-50/30 transition-colors group">
+                                <div className="flex-grow min-w-0 flex items-center gap-4">
+                                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: project?.color }}></div>
+                                    <div className="truncate">
+                                        <p className="font-black text-slate-800 text-xs leading-none mb-1 truncate">{entry.description || 'Intervento Tecnico'}</p>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">{project?.name}</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-6 shrink-0">
+                                    <div className="flex flex-col items-end">
+                                        <div className="flex items-center gap-2">
+                                            <div className="text-right">
+                                                <div className="text-[8px] font-black text-slate-400 uppercase">Tariffa</div>
+                                                <div className="text-[10px] font-bold text-slate-600 font-mono">{formatCurrency(baseEarnings)}</div>
+                                            </div>
+                                            {totalExpenses > 0 && (
+                                                <div className="text-right pl-2 border-l border-slate-100">
+                                                    <div className="text-[8px] font-black text-amber-500 uppercase">Extra</div>
+                                                    <div className="text-[10px] font-bold text-amber-600 font-mono">+{formatCurrency(totalExpenses)}</div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="text-right min-w-[70px]">
+                                        <div className="text-[8px] font-black text-indigo-500 uppercase">Totale</div>
+                                        <div className="text-xs font-black text-slate-900 font-mono">{formatCurrency(earnings)}</div>
+                                    </div>
+                                    <div className="flex items-center gap-1 ml-2">
+                                        <button onClick={() => onEdit(entry)} className="p-1.5 text-slate-300 hover:text-indigo-600 transition-colors"><Pencil size={14} /></button>
+                                        <button onClick={() => onDelete(entry.id)} className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
-            
-            <div className="divide-y divide-gray-50">
-                {group.entries.map(entry => {
-                const project = projects.find(p => p.id === entry.projectId);
-                const earnings = calculateEarnings(entry);
-                const isDaily = entry.billingType === 'daily';
-                const hasNoTime = isDaily && !entry.endTime && entry.duration === 0;
-                const totalExpenses = entry.expenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0;
-                const baseEarnings = earnings - totalExpenses;
-                
-                return (
-                    <div key={entry.id} className="px-8 py-5 flex flex-col md:flex-row items-start md:items-center gap-6 hover:bg-slate-50/30 transition-colors group">
-                        <div className="flex-grow min-w-0">
-                            <div className="flex flex-wrap items-center gap-2 mb-2">
-                                <span 
-                                    className="text-[9px] px-2.5 py-1 rounded-lg font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm"
-                                    style={{ color: project?.color, backgroundColor: `${project?.color}10`, border: `1px solid ${project?.color}20` }}
-                                >
-                                    <MapPin size={10} />
-                                    {project?.name || 'Unknown'}
-                                </span>
-                                {isDaily && (
-                                    <span className="text-[9px] px-2.5 py-1 rounded-lg bg-slate-900 text-white font-black flex items-center gap-1.5 uppercase tracking-widest">
-                                        GIORNATA
-                                    </span>
-                                )}
-                                {entry.isNightShift && !hasNoTime && (
-                                    <span className="text-[9px] px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-600 font-black flex items-center gap-1.5 uppercase tracking-widest">
-                                        <Moon size={10} /> NOTTE
-                                    </span>
-                                )}
-                            </div>
-                            <h4 className="font-bold text-slate-900 text-base leading-tight truncate" title={entry.description}>
-                                {entry.description || <span className="text-gray-300 font-medium italic">Nessun dettaglio tecnico</span>}
-                            </h4>
-                        </div>
-
-                        {/* Breakdown Economico Dettagliato */}
-                        <div className="flex flex-col items-end shrink-0 md:w-56">
-                            <div className="flex items-center gap-2">
-                                <div className="text-right">
-                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                                        {isDaily ? 'Tariffa' : 'Prestazione'}
-                                    </div>
-                                    <div className="text-xs font-bold text-slate-600 font-mono">
-                                        {formatCurrency(baseEarnings)}
-                                    </div>
-                                </div>
-                                
-                                {totalExpenses > 0 && (
-                                    <div className="flex items-center gap-2 pl-2 border-l border-slate-100">
-                                        <div className="text-right">
-                                            <div className="text-[10px] font-black text-amber-500 uppercase tracking-tighter flex items-center gap-1">
-                                                <PlusCircle size={8}/> Extra
-                                            </div>
-                                            <div className="text-xs font-bold text-amber-600 font-mono">
-                                                {formatCurrency(totalExpenses)}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="flex items-center gap-2 pl-3 border-l-2 border-slate-200 ml-2">
-                                    <div className="text-right">
-                                        <div className="text-[10px] font-black text-indigo-500 uppercase tracking-tighter">Totale</div>
-                                        <div className="text-base font-black text-slate-900 tracking-tighter">
-                                            {formatCurrency(earnings)}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center justify-between w-full md:w-auto gap-4 border-t md:border-t-0 border-gray-50 pt-3 md:pt-0">
-                            <div className="text-xs text-slate-500 font-bold bg-slate-100 px-3 py-1.5 rounded-xl flex items-center gap-2">
-                                <Clock size={14} className="text-slate-400" />
-                                {hasNoTime ? "Intera" : <span className="font-mono">{formatTime(entry.startTime)} — {formatTime(entry.endTime)}</span>}
-                            </div>
-
-                            <div className="flex items-center gap-1">
-                                <button onClick={() => onEdit(entry)} className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"><Pencil size={18} /></button>
-                                <button onClick={() => onDelete(entry.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={18} /></button>
-                            </div>
-                        </div>
-                    </div>
-                );
-                })}
-            </div>
-            </div>
-        ))
-      )}
+        ))}
+      </div>
     </div>
   );
 };
