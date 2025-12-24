@@ -2,21 +2,19 @@
 import React, { useState } from 'react';
 import { Database, Copy, Check, RefreshCw, Terminal, Shield, AlertTriangle, FileUp, Info } from 'lucide-react';
 
-const INIT_SCRIPT = `-- 1. Tabelle Profili e Progetti
+const INIT_SCRIPT = `-- 1. TABELLA PROFILI
 create table if not exists public.profiles (
   id uuid references auth.users on delete cascade not null primary key,
   email text,
   full_name text,
   role text default 'user',
   subscription_status text default 'trial',
-  trial_ends_at timestamptz,
-  auto_renew boolean default true,
+  trial_ends_at timestamptz default now() + interval '60 days',
   is_approved boolean default true,
-  created_at timestamptz default now(),
-  billing_info jsonb default '{}'::jsonb
+  created_at timestamptz default now()
 );
 
--- 2. Tabella Certificazioni (Aggiornata con dettagli e file)
+-- 2. TABELLA CERTIFICAZIONI
 create table if not exists public.certifications (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
@@ -30,13 +28,38 @@ create table if not exists public.certifications (
   created_at timestamptz default now()
 );
 
--- Abilita RLS
+-- 3. ABILITA SICUREZZA (RLS)
+alter table public.profiles enable row level security;
 alter table public.certifications enable row level security;
-drop policy if exists "Users can CRUD their own certs" on public.certifications;
-create policy "Users can CRUD their own certs" on public.certifications for all using (auth.uid() = user_id);
+
+-- 4. POLICY PER PROFILI (Permetti agli utenti di gestire il proprio profilo)
+drop policy if exists "Users can manage own profile" on public.profiles;
+create policy "Users can manage own profile" on public.profiles 
+for all using (auth.uid() = id) with check (auth.uid() = id);
+
+-- 5. POLICY PER CERTIFICAZIONI (Permetti agli utenti di gestire i propri certificati)
+drop policy if exists "Users can manage own certs" on public.certifications;
+create policy "Users can manage own certs" on public.certifications 
+for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- 6. TRIGGER AUTOMATICO (Crea profilo al momento della registrazione)
+-- Questo assicura che ogni nuovo utente abbia una riga in 'profiles'
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, email, full_name, is_approved)
+  values (new.id, new.email, new.raw_user_meta_data->>'full_name', true);
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
 `;
 
-const STORAGE_POLICY_SCRIPT = `-- ESEGUI QUESTO SOLO SE L'UPLOAD NON FUNZIONA
+const STORAGE_POLICY_SCRIPT = `-- ESEGUI QUESTO SOLO SE L'UPLOAD DEI FILE NON FUNZIONA
 -- Concede il permesso di caricare/leggere file nel bucket 'certifications'
 CREATE POLICY "Accesso Totale Certificati" ON storage.objects
 FOR ALL 
@@ -83,13 +106,18 @@ const DatabaseSetup = () => {
 
                 <div className="p-8 space-y-6">
                     {activeTab === 'init' && (
-                        <div className="animate-fade-in">
-                            <p className="text-sm text-gray-600 mb-4 font-medium">Incolla questo nell'SQL Editor di Supabase per creare le tabelle:</p>
+                        <div className="animate-fade-in space-y-4">
+                            <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex gap-3">
+                                <AlertTriangle className="text-amber-600 shrink-0" />
+                                <p className="text-xs text-amber-800 leading-relaxed">
+                                    <strong>IMPORTANTE:</strong> Se ricevi errori nel salvataggio, significa che non hai ancora creato le tabelle. Copia questo codice e incollalo nell'<strong>SQL Editor</strong> di Supabase, poi premi <strong>RUN</strong>.
+                                </p>
+                            </div>
                             <div className="relative">
-                                <button onClick={() => handleCopy(INIT_SCRIPT)} className="absolute top-3 right-3 bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-700">
-                                    {copied ? <Check size={14}/> : <Copy size={14}/>} Copia Tabelle
+                                <button onClick={() => handleCopy(INIT_SCRIPT)} className="absolute top-3 right-3 bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-700 flex items-center gap-2">
+                                    {copied ? <Check size={14}/> : <Copy size={14}/>} Copia Codice SQL
                                 </button>
-                                <pre className="bg-slate-900 text-emerald-400 p-4 rounded-xl overflow-x-auto text-xs font-mono h-48 border-4 border-slate-50"><code>{INIT_SCRIPT}</code></pre>
+                                <pre className="bg-slate-900 text-emerald-400 p-4 rounded-xl overflow-x-auto text-xs font-mono h-64 border-4 border-slate-50"><code>{INIT_SCRIPT}</code></pre>
                             </div>
                         </div>
                     )}

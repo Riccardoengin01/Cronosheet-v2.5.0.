@@ -57,7 +57,6 @@ export const uploadCertificate = async (file: File, userId: string): Promise<str
 
         if (uploadError) {
             console.error('ERRORE STORAGE SUPABASE:', uploadError.message);
-            // Spesso l'errore è dovuto alla mancanza del bucket 'certifications' o permessi RLS
             return null;
         }
 
@@ -79,25 +78,33 @@ export const getCertifications = async (userId: string): Promise<Certification[]
             .filter((c: any) => c.user_id === userId);
     }
 
-    const { data, error } = await supabase
-        .from('certifications')
-        .select('*')
-        .eq('user_id', userId)
-        .order('expiry_date', { ascending: true });
+    try {
+        const { data, error } = await supabase
+            .from('certifications')
+            .select('*')
+            .eq('user_id', userId)
+            .order('expiry_date', { ascending: true });
 
-    if (error) return [];
+        if (error) {
+            console.error("Errore fetch certificazioni:", error.message);
+            return [];
+        }
 
-    return data.map((c: any) => ({
-        id: c.id,
-        user_id: c.user_id,
-        name: c.name,
-        course_type: c.course_type,
-        organization: c.organization,
-        issueDate: c.issue_date,
-        expiryDate: c.expiry_date,
-        document_url: c.document_url,
-        details: c.details
-    }));
+        return data.map((c: any) => ({
+            id: c.id,
+            user_id: c.user_id,
+            name: c.name,
+            course_type: c.course_type,
+            organization: c.organization,
+            issueDate: c.issue_date,
+            expiryDate: c.expiry_date,
+            document_url: c.document_url,
+            details: c.details
+        }));
+    } catch (e) {
+        console.error("Exception in getCertifications:", e);
+        return [];
+    }
 };
 
 export const saveCertification = async (cert: Certification, userId: string): Promise<Certification | null> => {
@@ -112,7 +119,7 @@ export const saveCertification = async (cert: Certification, userId: string): Pr
     }
 
     const dbCert = {
-        id: cert.id.includes('-') ? cert.id : undefined, // Assicura UUID valido o lascia generare
+        id: cert.id.length > 20 ? cert.id : undefined, // Assicura UUID valido
         user_id: userId,
         name: cert.name,
         course_type: cert.course_type,
@@ -123,28 +130,33 @@ export const saveCertification = async (cert: Certification, userId: string): Pr
         details: cert.details
     };
 
-    const { data, error } = await supabase
-        .from('certifications')
-        .upsert(dbCert)
-        .select()
-        .single();
+    try {
+        const { data, error } = await supabase
+            .from('certifications')
+            .upsert(dbCert)
+            .select()
+            .single();
 
-    if (error) {
-        console.error('Error saving certification:', error.message);
+        if (error) {
+            console.error('ERRORE DATABASE SUPABASE:', error.message, error.details, error.hint);
+            return null;
+        }
+        
+        return {
+            id: data.id,
+            user_id: data.user_id,
+            name: data.name,
+            course_type: data.course_type,
+            organization: data.organization,
+            issueDate: data.issue_date,
+            expiryDate: data.expiry_date,
+            document_url: data.document_url,
+            details: data.details
+        };
+    } catch (e) {
+        console.error("Exception in saveCertification:", e);
         return null;
     }
-    
-    return {
-        id: data.id,
-        user_id: data.user_id,
-        name: data.name,
-        course_type: data.course_type,
-        organization: data.organization,
-        issueDate: data.issue_date,
-        expiryDate: data.expiry_date,
-        document_url: data.document_url,
-        details: data.details
-    };
 };
 
 export const deleteCertification = async (id: string) => {
@@ -170,8 +182,13 @@ export const saveAppTheme = async (theme: AppTheme) => {
 export const createUserProfile = async (id: string, email: string) => {
     const p = { id, email, role: 'user', subscription_status: 'trial', trial_ends_at: new Date(Date.now() + 60*24*3600*1000).toISOString(), is_approved: true };
     if (!isSupabaseConfigured) return p;
-    const { data } = await supabase.from('profiles').upsert(p).select().single();
-    return data;
+    try {
+        const { data, error } = await supabase.from('profiles').upsert(p).select().single();
+        if (error) console.error("Errore creazione profilo:", error.message);
+        return data;
+    } catch (e) {
+        return p;
+    }
 };
 
 export const getUserProfile = async (id: string) => {
@@ -200,7 +217,7 @@ export const deleteProject = async (id: string) => {
 export const getEntries = async (userId: string) => {
     if (!isSupabaseConfigured) return [];
     const { data } = await supabase.from('time_entries').select('*').eq('user_id', userId).order('start_time', { ascending: false });
-    return data?.map(e => ({ id: e.id, projectId: e.project_id, description: e.description, startTime: e.start_time, endTime: e.end_time, duration: e.duration, hourlyRate: e.hourly_rate, billingType: e.billing_type, expenses: e.expenses, isNightShift: e.is_night_shift, is_billed: e.is_billed })) || [];
+    return data?.map(e => ({ id: e.id, projectId: e.project_id, description: e.description, startTime: e.start_time, endTime: e.end_time, duration: e.duration, hourlyRate: e.hourly_rate, billing_type: e.billing_type, expenses: e.expenses, is_night_shift: e.is_night_shift, is_billed: e.is_billed })) || [];
 };
 
 export const saveEntry = async (e: TimeEntry, userId: string) => {
