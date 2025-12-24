@@ -98,13 +98,13 @@ const DatabaseSetup = () => {
                         <div className="animate-fade-in space-y-6">
                             <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3">
                                 <Info className="text-blue-600 shrink-0" />
-                                <p className="text-xs text-blue-800 leading-relaxed">
+                                <div className="text-xs text-blue-800 leading-relaxed">
                                     <strong>Istruzioni per l'upload:</strong><br/>
                                     1. Crea un Bucket chiamato <code className="font-bold">certifications</code> e rendilo <strong>PUBLIC</strong>.<br/>
-                                    2. Vai in <strong>Policies</strong> e clicca "New Policy" -> "Create from scratch".<br/>
+                                    2. Vai in <strong>Policies</strong>, clicca "New Policy" e scegli "Create from scratch".<br/>
                                     3. Seleziona l'operazione <strong>ALL</strong> e il ruolo <strong>authenticated</strong>.<br/>
                                     4. Scrivi <code className="font-bold">true</code> nei campi <strong>USING</strong> e <strong>WITH CHECK</strong>.
-                                </p>
+                                </div>
                             </div>
 
                             <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Alternativa: Usa l'SQL Editor</p>
