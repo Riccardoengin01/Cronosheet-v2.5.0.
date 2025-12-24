@@ -53,7 +53,6 @@ export const getProjects = async (userId?: string): Promise<Project[]> => {
       await new Promise(r => setTimeout(r, MOCK_DELAY));
       const all = getLocal(LOCAL_STORAGE_KEYS.PROJECTS);
       if (all.length === 0) {
-          // Explicitly type the defaults array as Project[] to ensure defaultBillingType is treated as a literal
           const defaults: Project[] = [
               { id: 'p1', user_id: userId, name: 'Demo Cliente A', color: COLORS[0], defaultHourlyRate: 20, defaultBillingType: 'hourly', shifts: [] },
               { id: 'p2', user_id: userId, name: 'Demo Cantiere B', color: COLORS[2], defaultHourlyRate: 15, defaultBillingType: 'daily', shifts: [] }
@@ -99,7 +98,7 @@ export const saveProject = async (project: Project, userId: string): Promise<Pro
     name: project.name,
     color: project.color,
     default_hourly_rate: project.defaultHourlyRate,
-    default__billing_type: project.defaultBillingType || 'hourly',
+    default_billing_type: project.defaultBillingType || 'hourly', // FIX: Corretto typo default__
     shifts: project.shifts
   };
 
@@ -158,7 +157,7 @@ export const getEntries = async (userId?: string): Promise<TimeEntry[]> => {
     duration: parseFloat(e.duration),
     hourlyRate: parseFloat(e.hourly_rate),
     billingType: e.billing_type || 'hourly',
-    expenses: e.expenses,
+    expenses: e.expenses || [],
     isNightShift: e.is_night_shift,
     user_id: e.user_id,
     is_billed: e.is_billed || false
@@ -187,7 +186,7 @@ export const saveEntry = async (entry: TimeEntry, userId: string): Promise<TimeE
     duration: entry.duration,
     hourly_rate: entry.hourlyRate,
     billing_type: entry.billingType || 'hourly',
-    expenses: entry.expenses,
+    expenses: entry.expenses || [],
     is_night_shift: entry.isNightShift,
     is_billed: entry.is_billed || false
   };
@@ -226,9 +225,7 @@ export const markEntriesAsBilled = async (entryIds: string[]) => {
         .update({ is_billed: true })
         .in('id', entryIds);
 
-    if (error) {
-        throw error;
-    }
+    if (error) throw error;
 };
 
 export const updateEntriesRate = async (entryIds: string[], newRate: number) => {

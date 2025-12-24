@@ -44,14 +44,16 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       return sorted;
   }, [entries]);
 
-  // Explicitly type the result as string[] and the Set as string to avoid 'unknown[]' inference during filter operations
+  // Fix: Explicitly type the result as string[] and ensure the mapping produces strings to avoid unknown[] inference.
   const availableMonthsInYear = useMemo<string[]>(() => {
-      const months = new Set<string>(
-          entries
-            .filter(e => new Date(e.startTime).getFullYear().toString() === selectedYear)
-            .map(e => new Date(e.startTime).toISOString().slice(0, 7))
-      );
-      return Array.from(months).sort().reverse() as string[];
+      const months = new Set<string>();
+      entries.forEach(e => {
+          const entryDate = new Date(e.startTime);
+          if (entryDate.getFullYear().toString() === selectedYear) {
+              months.add(entryDate.toISOString().slice(0, 7));
+          }
+      });
+      return Array.from(months).sort().reverse();
   }, [entries, selectedYear]);
 
   const filteredEntries = useMemo(() => {
@@ -113,14 +115,14 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       );
   };
 
-  // Fixed toggleAllMonthsInYear to use explicit types for the functional update and avoid unknown[] inference
+  // Fix: Corrected toggleAllMonthsInYear implementation to avoid type ambiguity with functional updates and unknown arrays.
   const toggleAllMonthsInYear = () => {
       const allSelected = availableMonthsInYear.every(m => selectedMonths.includes(m));
       if (allSelected) {
-          setSelectedMonths((prev: string[]) => prev.filter(m => !availableMonthsInYear.includes(m)));
+          setSelectedMonths(prev => prev.filter(m => !availableMonthsInYear.includes(m)));
       } else {
-          const toAdd: string[] = availableMonthsInYear.filter(m => !selectedMonths.includes(m));
-          setSelectedMonths((prev: string[]) => [...prev, ...toAdd]);
+          const toAdd = availableMonthsInYear.filter(m => !selectedMonths.includes(m));
+          setSelectedMonths(prev => [...prev, ...toAdd]);
       }
   };
 
