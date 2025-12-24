@@ -65,15 +65,14 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
       return (
           <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-slate-100">
               <Archive className="w-10 h-10 text-slate-200 mx-auto mb-4" />
-              <h3 className="text-xs font-black text-slate-300 uppercase tracking-widest">Nessun servizio in attesa di fatturazione.</h3>
+              <h3 className="text-xs font-black text-slate-300 uppercase tracking-widest">Nessun servizio in attesa.</h3>
           </div>
       )
   }
 
   return (
     <div className="space-y-6 animate-fade-in max-w-5xl mx-auto">
-      {/* Readable Filter Strip */}
-      <div className="flex flex-wrap items-center justify-between gap-4 px-2 no-print">
+      <div className="flex flex-wrap items-center justify-between gap-4 px-2 no-print relative z-30">
           <div className="flex items-center gap-3">
               <div className="flex items-center bg-white border border-slate-200 p-1 rounded-xl shadow-sm">
                   {availableYears.map(y => (
@@ -87,15 +86,19 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
                   <button onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase border border-slate-200 text-slate-600 bg-white hover:border-indigo-200 transition-all shadow-sm">
                       <MapPin size={14} className="text-indigo-400" /> 
                       <span>{selectedProjectIds.length === projects.length ? 'Tutti i Clienti' : `${selectedProjectIds.length} Clienti`}</span>
-                      <ChevronDown size={14} />
+                      <ChevronDown size={14} className={`transition-transform ${isClientDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
                   {isClientDropdownOpen && (
-                      <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 p-3 animate-slide-up">
-                          <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-1">
+                      <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 p-3 animate-slide-up max-h-80 overflow-y-auto">
+                          <div className="flex justify-between mb-2 pb-2 border-b border-slate-50">
+                             <button onClick={() => setSelectedProjectIds(projects.map(p => p.id))} className="text-[9px] font-black text-indigo-600 uppercase hover:underline">Tutti</button>
+                             <button onClick={() => setSelectedProjectIds([])} className="text-[9px] font-black text-slate-400 uppercase hover:underline">Nessuno</button>
+                          </div>
+                          <div className="space-y-1">
                               {projects.map(p => (
                                   <button key={p.id} onClick={() => toggleProject(p.id)} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${selectedProjectIds.includes(p.id) ? 'bg-indigo-50 text-indigo-800' : 'hover:bg-slate-50'}`}>
                                       {selectedProjectIds.includes(p.id) ? <CheckSquare size={16} className="text-indigo-600"/> : <Square size={16} className="text-slate-300"/>} 
-                                      <span className="truncate">{p.name}</span>
+                                      <span className="truncate text-left flex-grow">{p.name}</span>
                                   </button>
                               ))}
                           </div>
@@ -105,21 +108,20 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
           </div>
 
           <div className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-black uppercase shadow-lg shadow-indigo-100 flex items-center gap-3">
-              <span className="opacity-70 text-xs">Imponibile Lordo:</span> {formatCurrency(totalFilteredEarnings)}
+              <span className="opacity-70 text-xs">Imponibile:</span> {formatCurrency(totalFilteredEarnings)}
           </div>
       </div>
 
-      {/* Spaced Daily Groups */}
       <div className="space-y-4">
         {grouped.map(group => (
             <div key={group.date} className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
-                <div className="bg-slate-50/50 px-5 py-3 border-b border-slate-100 flex justify-between items-center">
-                    <h3 className="font-black text-slate-500 uppercase tracking-widest text-[10px]">
+                <div className="bg-slate-50/50 px-5 py-3 border-b border-slate-100 flex justify-between items-center text-slate-400">
+                    <h3 className="font-black uppercase tracking-widest text-[10px]">
                         {new Date(group.date).toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' })}
                     </h3>
                     <div className="flex items-center gap-2">
-                        <Clock size={12} className="text-slate-300" />
-                        <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{formatDurationHuman(group.totalDuration)}</span>
+                        <Clock size={12} />
+                        <span className="text-xs font-black uppercase tracking-widest">{formatDurationHuman(group.totalDuration)}</span>
                     </div>
                 </div>
                 
@@ -127,24 +129,22 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
                     {group.entries.map(entry => {
                         const project = projects.find(p => p.id === entry.projectId);
                         const earnings = calculateEarnings(entry);
-                        
-                        // Trova il nome della fase/ritmo
                         const activityType = project?.activityTypes?.find(a => a.id === entry.activityTypeId);
                         
                         return (
-                            <div key={entry.id} className="px-5 py-4 flex items-center gap-4 hover:bg-indigo-50/20 transition-colors group">
+                            <div key={entry.id} className="px-5 py-4 flex items-center gap-4 hover:bg-slate-50/50 transition-colors group">
                                 <div className="flex-grow min-w-0 flex items-center gap-4">
-                                    <div className="w-1.5 h-6 rounded-full shrink-0" style={{ backgroundColor: project?.color }}></div>
+                                    <div className="w-1 h-6 rounded-full shrink-0" style={{ backgroundColor: project?.color }}></div>
                                     <div className="truncate">
-                                        <p className="font-black text-slate-800 text-sm leading-tight truncate">{entry.description || 'Intervento Tecnico'}</p>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider truncate">{project?.name}</p>
+                                        <div className="flex items-center gap-3">
+                                            <p className="font-black text-slate-800 text-sm leading-tight truncate">{entry.description || 'Intervento Tecnico'}</p>
                                             {activityType && (
-                                                <span className="flex items-center gap-1 text-[10px] font-black text-indigo-500 uppercase bg-indigo-50 px-2 py-0.5 rounded-md">
+                                                <span className="flex items-center gap-1 text-[9px] font-black text-indigo-600 uppercase bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full shrink-0">
                                                     <Target size={10} /> {activityType.name}
                                                 </span>
                                             )}
                                         </div>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mt-1 truncate">{project?.name}</p>
                                     </div>
                                 </div>
 

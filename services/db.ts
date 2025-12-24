@@ -87,7 +87,6 @@ export const saveProject = async (p: Project, userId: string) => {
         user_id: userId,
         name: p.name,
         color: p.color,
-        // Fix: Mapping camelCase interface properties to snake_case database fields
         default_hourly_rate: p.defaultHourlyRate,
         default_billing_type: p.defaultBillingType,
         shifts: p.shifts,
@@ -123,7 +122,6 @@ export const saveEntry = async (e: TimeEntry, userId: string) => {
         id: (e.id && e.id.length > 20) ? e.id : undefined,
         user_id: userId,
         project_id: e.projectId,
-        // CRITICO: Trasforma stringa vuota in null per Postgres UUID column
         activity_type_id: e.activityTypeId && e.activityTypeId.trim() !== '' ? e.activityTypeId : null,
         description: e.description,
         start_time: e.startTime,
@@ -132,7 +130,6 @@ export const saveEntry = async (e: TimeEntry, userId: string) => {
         hourly_rate: e.hourlyRate,
         billing_type: e.billingType,
         expenses: e.expenses,
-        // Fix: Mapping camelCase interface property to snake_case database field
         is_night_shift: e.isNightShift,
         is_billed: e.is_billed,
         is_paid: e.is_paid,
@@ -141,13 +138,9 @@ export const saveEntry = async (e: TimeEntry, userId: string) => {
     
     try {
         const { error } = await supabase.from('time_entries').upsert(dbE);
-        if (error) {
-            console.error("Errore salvataggio Supabase:", error);
-            return false;
-        }
+        if (error) return false;
         return true;
     } catch (err) {
-        console.error("Eccezione salvataggio:", err);
         return false;
     }
 };

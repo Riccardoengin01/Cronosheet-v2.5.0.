@@ -28,7 +28,6 @@ import {
   ChevronDown as ChevronDownIcon,
   FileText,
   AlertCircle,
-  // Added missing Target icon import
   Target
 } from 'lucide-react';
 import * as DB from '../services/db';
@@ -60,6 +59,28 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
   const clientDropdownRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(event.target as Node)) {
+        setIsClientDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const toggleProject = (id: string) => {
+    setSelectedProjectIds(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
+  };
+
+  const selectAllProjects = () => {
+    setSelectedProjectIds(projects.map(p => p.id));
+  };
+
+  const deselectAllProjects = () => {
+    setSelectedProjectIds([]);
+  };
+
   // --- FILTRI & DATI ---
   const filteredEntries = useMemo(() => {
     return (entries || []).filter(e => {
@@ -75,7 +96,6 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
     }).sort((a, b) => b.startTime - a.startTime);
   }, [entries, selectedProjectIds, isArchiveView, selectedYear]);
 
-  // Raggruppamento per Numero Fattura (Solo per Archivio)
   const groupedInvoices = useMemo(() => {
       if (!isArchiveView) return {};
       const groups: Record<string, TimeEntry[]> = {};
@@ -103,8 +123,6 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   const bolloAmount = applyBollo ? 2.00 : 0;
   const cassaAmount = applyInarcassa ? (baseImponibile + bolloAmount) * 0.04 : 0;
   const grandTotalAmount = baseImponibile + bolloAmount + cassaAmount;
-
-  // --- AZIONI ---
 
   const handleExportCSV = () => {
     const headers = ["Data", "Cliente", "Descrizione", "Durata", "Importo", "Stato", "Fattura"];
@@ -155,7 +173,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
           setInvoiceNumber('');
           if (onEntriesChange) await onEntriesChange();
       } catch (e) { 
-          alert("Errore durante l'archiviazione. Verifica la connessione."); 
+          alert("Errore durante l'archiviazione."); 
       } finally { 
           setIsProcessing(false); 
       }
@@ -209,7 +227,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       {/* 1. Header & Quick Actions */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print px-2">
            <div>
-               <h1 className="text-4xl font-black text-slate-900 tracking-tight uppercase flex items-center gap-4">
+               <h1 className="text-4xl font-black text-slate-900 tracking-tight uppercase flex items-center gap-4 italic">
                    {isArchiveView ? <ArchiveIcon size={32} className="text-indigo-600" /> : <Receipt size={32} className="text-indigo-600" />}
                    {isArchiveView ? "Registro Fatture" : "Emissione Documento"}
                </h1>
@@ -247,7 +265,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       </div>
 
       {/* 2. Filtri Avanzati */}
-      <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 no-print flex flex-col lg:flex-row gap-8 items-center">
+      <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 no-print flex flex-col lg:flex-row gap-8 items-center relative z-20">
             <div className="flex items-center bg-slate-50 p-1.5 rounded-2xl shrink-0">
                 {['2023', '2024', '2025'].map(year => (
                     <button key={year} onClick={() => setSelectedYear(year)} className={`px-6 py-2.5 text-xs font-black uppercase rounded-xl transition-all ${selectedYear === year ? 'bg-white text-indigo-600 shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
@@ -258,11 +276,31 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
 
             <div className="flex-grow flex gap-4 w-full">
                 <div className="relative flex-grow" ref={clientDropdownRef}>
-                    <button onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)} className="flex items-center justify-between gap-4 px-6 py-3.5 rounded-2xl text-xs font-black border border-slate-100 text-slate-700 w-full hover:bg-slate-50 bg-white uppercase tracking-widest shadow-sm">
+                    <button 
+                      onClick={() => setIsClientDropdownOpen(!isClientDropdownOpen)} 
+                      className="flex items-center justify-between gap-4 px-6 py-3.5 rounded-2xl text-xs font-black border border-slate-100 text-slate-700 w-full hover:bg-slate-50 bg-white uppercase tracking-widest shadow-sm"
+                    >
                         <MapPin size={18} className="text-indigo-500" /> 
                         <span>{selectedProjectIds.length === projects.length ? 'Tutti i Clienti' : `${selectedProjectIds.length} Clienti`}</span>
-                        <ChevronDown size={18} />
+                        <ChevronDown size={18} className={`transition-transform ${isClientDropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
+
+                    {isClientDropdownOpen && (
+                      <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-2xl shadow-2xl border border-slate-100 z-[100] p-4 animate-slide-up max-h-80 overflow-y-auto custom-scrollbar">
+                         <div className="flex justify-between mb-4 pb-2 border-b border-slate-50">
+                            <button onClick={selectAllProjects} className="text-[9px] font-black text-indigo-600 uppercase hover:underline">Seleziona Tutti</button>
+                            <button onClick={deselectAllProjects} className="text-[9px] font-black text-slate-400 uppercase hover:underline">Deseleziona</button>
+                         </div>
+                         <div className="space-y-1">
+                            {projects.map(p => (
+                                <button key={p.id} onClick={() => toggleProject(p.id)} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-xs font-bold transition-colors ${selectedProjectIds.includes(p.id) ? 'bg-indigo-50 text-indigo-800' : 'hover:bg-slate-50'}`}>
+                                    {selectedProjectIds.includes(p.id) ? <CheckSquare size={18} className="text-indigo-600"/> : <Square size={18} className="text-slate-300"/>} 
+                                    <span className="truncate">{p.name}</span>
+                                </button>
+                            ))}
+                         </div>
+                      </div>
+                    )}
                 </div>
                 
                 <div className="bg-slate-900 text-white px-8 py-3.5 rounded-2xl flex items-center gap-4 shadow-xl">
@@ -280,13 +318,14 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       {/* 3. CONTENUTO PRINCIPALE */}
       <div className="space-y-8">
           {isArchiveView ? (
-              /* --- VISTA REGISTRO FATTURE --- */
               <div className="space-y-6">
                   {(Object.entries(groupedInvoices) as [string, TimeEntry[]][]).sort((a,b) => b[0].localeCompare(a[0])).map(([invNum, items]) => {
                       const invTotal = items.reduce((acc, i) => acc + calculateEarnings(i), 0);
                       const isExpanded = expandedInvoices.has(invNum);
                       const isFullyPaid = items.every(i => i.is_paid);
-                      const dateRange = `${new Date(items[items.length-1].startTime).toLocaleDateString()} - ${new Date(items[0].startTime).toLocaleDateString()}`;
+                      const dateRange = items.length > 1 
+                        ? `${new Date(items[items.length-1].startTime).toLocaleDateString()} - ${new Date(items[0].startTime).toLocaleDateString()}`
+                        : new Date(items[0].startTime).toLocaleDateString();
 
                       return (
                           <div key={invNum} className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden transition-all">
@@ -302,7 +341,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                                   {isFullyPaid ? 'Incassata' : 'In attesa'}
                                               </span>
                                           </div>
-                                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{dateRange} • {items.length} prestazioni professionali</p>
+                                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{dateRange} • {items.length} prestazioni</p>
                                       </div>
                                   </div>
 
@@ -378,7 +417,6 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                   )}
               </div>
           ) : (
-              /* --- VISTA EMISSIONE (DA FATTURARE) --- */
               <div className="bg-white p-10 md:p-20 rounded-[3rem] shadow-2xl print:shadow-none border border-slate-50 relative">
                   <div className="border-b-8 border-slate-900 pb-12 mb-12 flex flex-col md:flex-row justify-between items-start gap-8">
                       <div>
@@ -407,7 +445,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                   </th>
                                   <th className="px-6 py-6">DATA</th>
                                   <th className="px-6 py-6">CLIENTE</th>
-                                  <th className="px-6 py-6">DESCRIZIONE PRESTAZIONE</th>
+                                  <th className="px-6 py-6">DESCRIZIONE</th>
                                   <th className="px-6 py-6 text-center">QUANTITÀ</th>
                                   <th className="px-6 py-6 text-right">IMPONIBILE (€)</th>
                               </tr>
@@ -427,7 +465,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                           </td>
                                           <td className="px-6 py-6 font-bold text-slate-500 whitespace-nowrap">{new Date(entry.startTime).toLocaleDateString()}</td>
                                           <td className="px-6 py-6 font-black text-slate-800 uppercase text-xs tracking-tight">{project?.name}</td>
-                                          <td className="px-6 py-6 text-slate-500 italic max-w-[300px] leading-relaxed">{entry.description || 'Intervento Tecnico Specialistico'}</td>
+                                          <td className="px-6 py-6 text-slate-500 italic max-w-[300px] leading-relaxed">{entry.description || 'Intervento Tecnico'}</td>
                                           <td className="px-6 py-6 text-center font-black text-slate-900 font-mono">
                                               {isDaily ? `1 GG` : `${((entry.duration || 0)/3600).toFixed(1)}H`}
                                           </td>
@@ -448,17 +486,14 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                 <span>TOTALE PRESTAZIONI:</span>
                                 <span className="font-mono text-slate-900 text-lg">{formatCurrency(baseImponibile)}</span>
                             </div>
-                            
                             <div className="flex justify-between text-slate-400 text-xs font-black tracking-widest uppercase">
                                 <span className="italic font-bold">Imposta di Bollo (D.P.R. 642/72):</span>
                                 <span className="font-mono text-slate-900">{formatCurrency(bolloAmount)}</span>
                             </div>
-
                             <div className="flex justify-between text-slate-400 text-xs font-black tracking-widest uppercase">
                                 <span className="italic font-bold">Contributo Integrativo Inarcassa (4%):</span>
                                 <span className="font-mono text-slate-900">{formatCurrency(cassaAmount)}</span>
                             </div>
-
                             <div className="flex justify-between items-center text-4xl font-black text-slate-900 pt-10 border-t-8 border-slate-900 mt-8">
                                 <span className="tracking-tighter uppercase italic">Totale Lordo:</span>
                                 <span className="text-indigo-600 font-mono">{formatCurrency(grandTotalAmount)}</span>

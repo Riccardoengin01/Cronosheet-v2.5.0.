@@ -88,15 +88,6 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
       }
   };
 
-  const applyPreset = (start: string, end: string) => {
-      setNoSpecificTime(false);
-      setStartTimeStr(start);
-      setEndTimeStr(end);
-      const s = parseInt(start.split(':')[0]);
-      const e = parseInt(end.split(':')[0]);
-      setIsNightShift(s >= 20 || s <= 4 || e <= 7);
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!dateStr) return;
@@ -115,10 +106,16 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
 
     onSave({
         id: initialEntry ? initialEntry.id : generateId(),
-        description, projectId, activityTypeId,
-        startTime: start, endTime: end, duration,
+        description, 
+        projectId, 
+        activityTypeId, // Salvataggio esplicito
+        startTime: start, 
+        endTime: end, 
+        duration,
         hourlyRate: parseFloat(hourlyRate),
-        billingType, expenses, isNightShift: noSpecificTime ? false : isNightShift
+        billingType, 
+        expenses, 
+        isNightShift: noSpecificTime ? false : isNightShift
     });
     onClose();
   };
@@ -126,11 +123,11 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
       <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto custom-scrollbar border border-slate-100">
         <div className="p-8 border-b border-slate-50 flex justify-between items-center sticky top-0 bg-white z-10">
           <h2 className="text-xl font-black text-slate-900 uppercase tracking-tighter">
-            {initialEntry ? "Update Entry" : "New Record"}
+            {initialEntry ? "Aggiorna Servizio" : "Nuova Prestazione"}
           </h2>
           <button onClick={onClose} className="p-2 hover:bg-slate-50 rounded-full transition-colors">
             <X size={20} className="text-slate-300" />
@@ -141,11 +138,11 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
           <div className="bg-slate-50 p-4 rounded-2xl flex items-center justify-between border border-slate-100">
               <div className="flex items-center gap-2">
                   <ListChecks className="text-indigo-600" size={20} />
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Billing Mode</span>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Metodo Billing</span>
               </div>
               <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-100">
-                  <button type="button" onClick={() => { setBillingType('hourly'); setNoSpecificTime(false); }} className={`px-4 py-1.5 text-[9px] font-black uppercase rounded-lg transition-all ${billingType === 'hourly' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>Hourly</button>
-                  <button type="button" onClick={() => setBillingType('daily')} className={`px-4 py-1.5 text-[9px] font-black uppercase rounded-lg transition-all ${billingType === 'daily' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>Daily</button>
+                  <button type="button" onClick={() => { setBillingType('hourly'); setNoSpecificTime(false); }} className={`px-4 py-1.5 text-[9px] font-black uppercase rounded-lg transition-all ${billingType === 'hourly' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>A Ore</button>
+                  <button type="button" onClick={() => setBillingType('daily')} className={`px-4 py-1.5 text-[9px] font-black uppercase rounded-lg transition-all ${billingType === 'daily' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>Giornata</button>
               </div>
           </div>
 
@@ -156,10 +153,9 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
               </select>
           </div>
 
-          {/* RITMO / FASE DI PROGETTO */}
           <div>
               <label className="block text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                  <Target size={14}/> Ritmo / Fase Corrente
+                  <Target size={14}/> Fase / Ritmo
               </label>
               <select className="w-full px-5 py-3.5 bg-indigo-50/50 border border-indigo-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 font-bold text-indigo-900" value={activityTypeId} onChange={e => setActivityTypeId(e.target.value)}>
                   <option value="">Generico / Altro</option>
@@ -167,6 +163,17 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
                       <option key={act.id} value={act.id}>{act.name}</option>
                   ))}
               </select>
+          </div>
+
+          <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Descrizione Prestazione</label>
+              <textarea 
+                className="w-full px-5 py-3.5 bg-slate-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 font-bold" 
+                value={description} 
+                onChange={e => setDescription(e.target.value)}
+                placeholder="es. Sopralluogo cantiere"
+                rows={2}
+              />
           </div>
 
           <div className="grid grid-cols-2 gap-6">
@@ -184,7 +191,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
               <div className="flex justify-between items-center">
                   <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><Clock size={14}/> Orario</span>
                   {billingType === 'daily' && (
-                      <button type="button" onClick={() => setNoSpecificTime(!noSpecificTime)} className={`text-[9px] font-black uppercase px-2 py-1 rounded-md transition-all ${noSpecificTime ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-400'}`}>Full Day</button>
+                      <button type="button" onClick={() => setNoSpecificTime(!noSpecificTime)} className={`text-[9px] font-black uppercase px-2 py-1 rounded-md transition-all ${noSpecificTime ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-400'}`}>Giorno Intero</button>
                   )}
               </div>
               {!noSpecificTime && (
@@ -196,7 +203,7 @@ const EntryModal: React.FC<EntryModalProps> = ({ isOpen, onClose, onSave, initia
           </div>
 
           <button type="submit" className="w-full py-4 bg-slate-900 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl hover:bg-indigo-900 transition-all">
-              Save to Ledger
+              Registra nel Ledger
           </button>
         </form>
       </div>

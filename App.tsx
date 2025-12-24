@@ -128,7 +128,7 @@ function App() {
             fetchData(profile.id);
             setIsModalOpen(false);
         } else {
-            alert("Errore nel salvataggio. Assicurati di aver eseguito lo script SQL Repair V7 per aggiornare le colonne del database.");
+            alert("Errore nel salvataggio. Riprova o controlla la connessione.");
         }
     }
   };
