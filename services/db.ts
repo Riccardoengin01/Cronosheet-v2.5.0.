@@ -4,34 +4,10 @@ import { Project, TimeEntry, UserProfile, AppTheme, Certification } from '../typ
 import { generateId, COLORS } from '../utils';
 
 export const DEFAULT_THEME: AppTheme = {
-    trial: {
-        sidebarBg: '#1e1b4b',
-        itemColor: '#94a3b8',
-        activeBg: '#4338ca',
-        activeText: '#ffffff',
-        accentColor: '#818cf8',
-    },
-    pro: {
-        sidebarBg: '#2e1065',
-        itemColor: '#a78bfa',
-        activeBg: '#6d28d9',
-        activeText: '#ffffff',
-        accentColor: '#c084fc',
-    },
-    elite: {
-        sidebarBg: '#0f172a',
-        itemColor: '#94a3b8',
-        activeBg: '#d97706',
-        activeText: '#ffffff',
-        accentColor: '#fbbf24',
-    },
-    admin: {
-        sidebarBg: '#020617',
-        itemColor: '#64748b',
-        activeBg: '#312e81',
-        activeText: '#ffffff',
-        accentColor: '#4f46e5',
-    }
+    trial: { sidebarBg: '#1e1b4b', itemColor: '#94a3b8', activeBg: '#4338ca', activeText: '#ffffff', accentColor: '#818cf8' },
+    pro: { sidebarBg: '#2e1065', itemColor: '#a78bfa', activeBg: '#6d28d9', activeText: '#ffffff', accentColor: '#c084fc' },
+    elite: { sidebarBg: '#0f172a', itemColor: '#94a3b8', activeBg: '#d97706', activeText: '#ffffff', accentColor: '#fbbf24' },
+    admin: { sidebarBg: '#020617', itemColor: '#64748b', activeBg: '#312e81', activeText: '#ffffff', accentColor: '#4f46e5' }
 };
 
 // --- STORAGE ---
@@ -44,9 +20,12 @@ export const uploadCertificate = async (file: File, userId: string): Promise<str
         
         const { error: uploadError } = await supabase.storage
             .from('certifications')
-            .upload(fileName, file);
+            .upload(fileName, file, { cacheControl: '3600', upsert: true });
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+            console.error('ERRORE STORAGE SUPABASE:', uploadError.message, uploadError);
+            return null;
+        }
 
         const { data } = supabase.storage
             .from('certifications')
@@ -54,7 +33,7 @@ export const uploadCertificate = async (file: File, userId: string): Promise<str
 
         return data.publicUrl;
     } catch (error) {
-        console.error('Upload Error:', error);
+        console.error('ECCEZIONE UPLOAD:', error);
         return null;
     }
 };
@@ -62,16 +41,24 @@ export const uploadCertificate = async (file: File, userId: string): Promise<str
 // --- CERTIFICATIONS ---
 export const getCertifications = async (userId: string): Promise<Certification[]> => {
     if (!isSupabaseConfigured) return [];
-    const { data, error } = await supabase.from('certifications').select('*').eq('user_id', userId);
-    return error ? [] : data.map(c => ({
-        id: c.id, user_id: c.user_id, name: c.name, course_type: c.course_type,
-        organization: c.organization, issueDate: c.issue_date, expiryDate: c.expiry_date,
-        document_url: c.document_url, details: c.details
-    }));
+    try {
+        const { data, error } = await supabase.from('certifications').select('*').eq('user_id', userId);
+        if (error) throw error;
+        return data.map(c => ({
+            id: c.id, user_id: c.user_id, name: c.name, course_type: c.course_type,
+            organization: c.organization, issueDate: c.issue_date, expiryDate: c.expiry_date,
+            document_url: c.document_url, details: c.details
+        }));
+    } catch (e) {
+        console.error("Errore Fetch Certificati:", e);
+        return [];
+    }
 };
 
 export const saveCertification = async (cert: Certification, userId: string) => {
     if (!isSupabaseConfigured) return cert;
+    
+    // Pulizia ID per assicurare UUID validi in Supabase
     const dbCert = {
         id: cert.id.length > 30 ? cert.id : undefined,
         user_id: userId,
@@ -83,9 +70,18 @@ export const saveCertification = async (cert: Certification, userId: string) => 
         document_url: cert.document_url,
         details: cert.details
     };
-    const { data, error } = await supabase.from('certifications').upsert(dbCert).select().single();
-    if (error) console.error("Save Cert Error:", error.message);
-    return data;
+
+    try {
+        const { data, error } = await supabase.from('certifications').upsert(dbCert).select().single();
+        if (error) {
+            console.error("ERRORE DATABASE CERTIFICATO:", error.message, error.details);
+            return null;
+        }
+        return data;
+    } catch (e) {
+        console.error("Eccezione Save Cert:", e);
+        return null;
+    }
 };
 
 export const deleteCertification = async (id: string) => {
@@ -96,13 +92,18 @@ export const deleteCertification = async (id: string) => {
 // --- PROJECTS ---
 export const getProjects = async (userId: string) => {
     if (!isSupabaseConfigured) return [];
-    const { data, error } = await supabase.from('projects').select('*').eq('user_id', userId);
-    if (error) return [];
-    return data.map(p => ({
-        id: p.id, user_id: p.user_id, name: p.name, color: p.color,
-        defaultHourlyRate: p.default_hourly_rate, defaultBillingType: p.default_billing_type,
-        shifts: p.shifts
-    }));
+    try {
+        const { data, error } = await supabase.from('projects').select('*').eq('user_id', userId);
+        if (error) throw error;
+        return data.map(p => ({
+            id: p.id, user_id: p.user_id, name: p.name, color: p.color,
+            defaultHourlyRate: p.default_hourly_rate, defaultBillingType: p.default_billing_type,
+            shifts: p.shifts
+        }));
+    } catch (e) {
+        console.error("Errore Fetch Progetti:", e);
+        return [];
+    }
 };
 
 export const saveProject = async (p: Project, userId: string) => {
@@ -116,7 +117,8 @@ export const saveProject = async (p: Project, userId: string) => {
         default_billing_type: p.defaultBillingType,
         shifts: p.shifts
     };
-    await supabase.from('projects').upsert(dbP);
+    const { error } = await supabase.from('projects').upsert(dbP);
+    if (error) console.error("Errore Save Project:", error.message);
 };
 
 export const deleteProject = async (id: string) => {
@@ -127,14 +129,18 @@ export const deleteProject = async (id: string) => {
 // --- TIME ENTRIES ---
 export const getEntries = async (userId: string) => {
     if (!isSupabaseConfigured) return [];
-    const { data, error } = await supabase.from('time_entries').select('*').eq('user_id', userId).order('start_time', { ascending: false });
-    if (error) return [];
-    return data.map(e => ({
-        id: e.id, projectId: e.project_id, description: e.description,
-        startTime: e.start_time, endTime: e.end_time, duration: e.duration,
-        hourlyRate: e.hourly_rate, billingType: e.billing_type, expenses: e.expenses,
-        isNightShift: e.is_night_shift, is_billed: e.is_billed
-    }));
+    try {
+        const { data, error } = await supabase.from('time_entries').select('*').eq('user_id', userId).order('start_time', { ascending: false });
+        if (error) throw error;
+        return data.map(e => ({
+            id: e.id, projectId: e.project_id, description: e.description,
+            startTime: e.start_time, endTime: e.end_time, duration: e.duration,
+            hourlyRate: e.hourly_rate, billingType: e.billing_type, expenses: e.expenses,
+            isNightShift: e.is_night_shift, is_billed: e.is_billed
+        }));
+    } catch (e) {
+        return [];
+    }
 };
 
 export const saveEntry = async (e: TimeEntry, userId: string) => {
@@ -155,7 +161,7 @@ export const saveEntry = async (e: TimeEntry, userId: string) => {
     };
     const { error } = await supabase.from('time_entries').upsert(dbE);
     if (error) {
-        console.error("Save Entry Error:", error.message, error.details);
+        console.error("ERRORE SALVATAGGIO ORA:", error.message, error.details);
         return null;
     }
     return true;
@@ -179,15 +185,28 @@ export const updateEntriesRate = async (ids: string[], rate: number) => {
 // --- PROFILES ---
 export const getUserProfile = async (id: string) => {
     if (!isSupabaseConfigured) return null;
-    const { data } = await supabase.from('profiles').select('*').eq('id', id).single();
-    return data;
+    try {
+        const { data, error } = await supabase.from('profiles').select('*').eq('id', id).single();
+        if (error) return null;
+        return data;
+    } catch (e) {
+        return null;
+    }
 };
 
 export const createUserProfile = async (id: string, email: string) => {
     const p = { id, email, role: 'user', subscription_status: 'trial', trial_ends_at: new Date(Date.now() + 60*24*3600*1000).toISOString(), is_approved: true };
     if (!isSupabaseConfigured) return p;
-    const { data } = await supabase.from('profiles').upsert(p).select().single();
-    return data || p;
+    try {
+        const { data, error } = await supabase.from('profiles').upsert(p).select().single();
+        if (error) {
+            console.error("ERRORE CREAZIONE PROFILO:", error.message);
+            return p;
+        }
+        return data;
+    } catch (e) {
+        return p;
+    }
 };
 
 export const getAllProfiles = async () => {
@@ -208,8 +227,12 @@ export const deleteUserAdmin = async (id: string) => {
 
 export const getAppTheme = async (): Promise<AppTheme> => {
     if (!isSupabaseConfigured) return DEFAULT_THEME;
-    const { data } = await supabase.from('app_config').select('value').eq('key', 'theme').single();
-    return (data?.value as AppTheme) || DEFAULT_THEME;
+    try {
+        const { data } = await supabase.from('app_config').select('value').eq('key', 'theme').single();
+        return (data?.value as AppTheme) || DEFAULT_THEME;
+    } catch (e) {
+        return DEFAULT_THEME;
+    }
 };
 
 export const saveAppTheme = async (theme: AppTheme) => {
