@@ -29,7 +29,7 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
     const [certs, setCerts] = useState<Certification[]>([]);
     const [busExpenses, setBusExpenses] = useState<BusinessExpense[]>([]);
     
-    // DATA CARDINE: Apertura Partita IVA
+    // DATA CARDINE: Apertura Partita IVA - Tutto il sistema ruota attorno a questa data
     const VAT_OPENING_DATE = new Date('2025-10-14').getTime();
 
     useEffect(() => {
@@ -39,49 +39,43 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
         }
     }, [userProfile?.id]);
 
-    // COSTANTI FISCALI ANALITICHE (Regime Forfettario 78%)
+    // COSTANTI FISCALI RIGOROSE (Regime Forfettario Ingegneri)
     const COEF_REDDITIVITA = 0.78; 
     const INARCASSA_RATE = 0.145; 
     const IMPOSTA_SOSTITUTIVA_RATE = 0.05;
 
+    // Funzione di calcolo Netto Fiscale Puro (senza sottrazione spese reali, come da normativa forfettaria)
     const calculateNet = (gross: number) => {
         if (gross <= 0) return 0;
         const redditoFiscale = gross * COEF_REDDITIVITA;
         const inarcassa = redditoFiscale * INARCASSA_RATE;
-        const imposta = Math.max(0, redditoFiscale - inarcassa) * IMPOSTA_SOSTITUTIVA_RATE;
+        const baseImponibileFiscale = Math.max(0, redditoFiscale - inarcassa);
+        const imposta = baseImponibileFiscale * IMPOSTA_SOSTITUTIVA_RATE;
+        // Il netto è ciò che resta del lordo tolti i contributi e l'imposta
         return gross - (inarcassa + imposta);
     };
 
     const stats = useMemo(() => {
-        const now = new Date();
-        const nowMs = now.getTime();
+        const nowMs = new Date().getTime();
         
-        // FILTRO GLOBALE: Solo dati dalla data di apertura P.IVA
+        // FILTRO ASSOLUTO: Ignoriamo qualsiasi dato precedente al 14/10/2025
         const pivaEntries = (entries || []).filter(e => e.startTime >= VAT_OPENING_DATE);
-        const pivaExpenses = (busExpenses || []).filter(exp => new Date(exp.date).getTime() >= VAT_OPENING_DATE);
-
-        // 1. Lordo Incassato e Lordo Totale (dal 14/10)
+        
+        // 1. Lordo Incassato (Base per il calcolo del Netto in Cassa)
         const compensiIncassatiLordi = pivaEntries.filter(e => e.is_paid).reduce((acc, e) => acc + calculateEarnings(e), 0);
+        
+        // 2. Lordo Totale (Inclusi crediti non ancora incassati)
         const compensiTotaliProdottiLordi = pivaEntries.reduce((acc, e) => acc + calculateEarnings(e), 0);
         const daIncassareLordi = compensiTotaliProdottiLordi - compensiIncassatiLordi;
 
-        // 2. Calcolo Tasse su quanto INCASSATO (Criterio di Cassa)
-        const redditoFiscaleLordo = compensiIncassatiLordi * COEF_REDDITIVITA;
-        const debitoInarcassa = redditoFiscaleLordo * INARCASSA_RATE;
-        const baseImponibileFiscale = Math.max(0, redditoFiscaleLordo - debitoInarcassa);
-        const impostaSostitutiva = baseImponibileFiscale * IMPOSTA_SOSTITUTIVA_RATE;
-        const totaleAccantonamentoFiscale = debitoInarcassa + impostaSostitutiva;
+        // 3. CALCOLO DISPONIBILITA' NETTA (FISCALMENTE CORRETTA)
+        // Non sottraiamo le spese busExpenses perché sono già coperte dal 22% (1 - 0.78)
+        const utileNettoReale = calculateNet(compensiIncassatiLordi);
 
-        // 3. Spese Studio (dal 14/10)
-        const totalPivaExpenses = pivaExpenses.reduce((acc, e) => acc + e.amount, 0);
-        
-        // 4. Liquidità Netta Reale (Soldi in tasca oggi, al netto di tasse future e spese)
-        const utileNettoReale = compensiIncassatiLordi - totaleAccantonamentoFiscale - totalPivaExpenses;
-
-        // 5. Performance Netta (Valore netto di tutto il lavoro fatto dal 14/10)
+        // 4. PERFORMANCE NETTA TOTALE (Valore di tutto il lavoro prodotto dal 14/10)
         const performanceNettaTotale = calculateNet(compensiTotaliProdottiLordi);
 
-        // 6. Media Daily (su Performance Netta)
+        // 5. MEDIA DAILY
         const daysSinceOpening = Math.max(1, Math.ceil((nowMs - VAT_OPENING_DATE) / (1000 * 3600 * 24)));
         const dailyNetAvg = performanceNettaTotale / daysSinceOpening;
 
@@ -91,11 +85,6 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
             compensiIncassatiLordi,
             compensiTotaliProdottiLordi,
             daIncassareLordi,
-            redditoFiscaleLordo,
-            debitoInarcassa,
-            impostaSostitutiva,
-            totaleAccantonamentoFiscale,
-            totalPivaExpenses,
             utileNettoReale,
             performanceNettaTotale,
             dailyNetAvg,
@@ -132,14 +121,14 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Card 1: NETTO REALE (CASSA) */}
-                <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden group">
+                {/* Card 1: NETTO REALE (CASSA FISCALE) */}
+                <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden group border-b-8 border-emerald-500">
                     <div className="relative z-10">
-                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em] mb-4 text-emerald-400">Liquidità Netta Reale (In Tasca)</p>
+                        <p className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] mb-4">Disponibilità Netta in Tasca</p>
                         <p className="text-5xl font-black font-mono tracking-tighter">{formatCurrency(stats.utileNettoReale)}</p>
                         <div className="mt-8 flex items-center gap-3">
                             <div className="bg-emerald-500/20 p-2 rounded-lg text-emerald-400"><ArrowUpRight size={18}/></div>
-                            <span className="text-[11px] font-bold text-slate-400 italic">Netto disponibile post-tasse</span>
+                            <span className="text-[11px] font-bold text-slate-400 italic">Netto reale post-tasse su incassato</span>
                         </div>
                     </div>
                     <Activity className="absolute -right-10 -bottom-10 opacity-5 text-white transition-transform group-hover:scale-110 duration-700" size={240} />
@@ -147,10 +136,10 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
 
                 {/* Card 2: LORDO INCASSATO */}
                 <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl relative overflow-hidden">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Compensi Incassati (Lordi)</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Lordo Incassato (Invoices Paid)</p>
                     <p className="text-4xl font-black text-slate-900 font-mono">{formatCurrency(stats.compensiIncassatiLordi)}</p>
                     <div className="mt-8 pt-6 border-t border-slate-50 flex justify-between items-center">
-                        <span className="text-[10px] font-black text-slate-400 uppercase">Crediti Pendenti:</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase">Crediti da Incassare:</span>
                         <span className="text-base font-black text-amber-500 font-mono">+{formatCurrency(stats.daIncassareLordi)}</span>
                     </div>
                 </div>
@@ -159,9 +148,9 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
                 <div className="bg-indigo-600 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden flex flex-col justify-between">
                     <div className="absolute right-0 top-0 p-4 opacity-10"><Zap size={100} /></div>
                     <div>
-                        <p className="text-[10px] font-black text-indigo-200 uppercase tracking-[0.2em] mb-4 italic">Valore Netto Business</p>
+                        <p className="text-[10px] font-black text-indigo-200 uppercase tracking-[0.2em] mb-4 italic">Progresso Netto Business</p>
                         <p className="text-2xl font-black font-mono leading-none mb-2">{formatCurrency(stats.performanceNettaTotale)}</p>
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-indigo-200">Totale Netto Generato dal 14/10</p>
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-indigo-200">Valore Netto del Lavoro Prodotto</p>
                     </div>
                     <div className="mt-6 p-4 bg-white/10 rounded-2xl border border-white/10">
                         <div className="flex justify-between items-center">
@@ -180,72 +169,59 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
                 
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-16 border-b-8 border-slate-900 pb-10 gap-8">
                     <div>
-                        <h2 className="text-4xl font-black text-slate-900 uppercase italic tracking-tighter leading-none">Dettaglio Fiscale Professionale</h2>
-                        <p className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.4em] mt-3 italic">Calcolo basato su criteri di cassa dal 14 Ottobre 2025</p>
+                        <h2 className="text-4xl font-black text-slate-900 uppercase italic tracking-tighter leading-none">Dettaglio Calcolo Fiscale</h2>
+                        <p className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.4em] mt-3 italic">Basato su Coefficiente di Redditività Forfettario ({stats.coef}%)</p>
                     </div>
-                    <div className="flex gap-4">
-                        <div className="bg-slate-900 text-white px-10 py-5 rounded-[2rem] flex flex-col items-center">
-                            <span className="text-[9px] font-black uppercase text-indigo-400 tracking-widest mb-1">Redditività</span>
-                            <span className="text-2xl font-black font-mono">{stats.coef}%</span>
-                        </div>
+                    <div className="bg-slate-900 text-white px-10 py-5 rounded-[2rem] flex flex-col items-center">
+                        <span className="text-[9px] font-black uppercase text-indigo-400 tracking-widest mb-1">Giorni P.IVA</span>
+                        <span className="text-2xl font-black font-mono">{stats.daysSinceOpening}</span>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-20">
                     <div className="space-y-12">
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-end">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Imponibile Lordo (Incassato)</p>
-                                <p className="text-3xl font-black text-slate-900 font-mono">{formatCurrency(stats.redditoFiscaleLordo)}</p>
-                            </div>
-                            <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex shadow-inner">
-                                <div className="h-full bg-indigo-600" style={{ width: `${Math.min(100, (stats.utileNettoReale / Math.max(1, stats.compensiIncassatiLordi)) * 100)}%` }}></div>
-                                <div className="h-full bg-amber-400" style={{ width: `${(stats.totaleAccantonamentoFiscale / Math.max(1, stats.compensiIncassatiLordi)) * 100}%` }}></div>
-                                <div className="h-full bg-slate-300" style={{ width: `${(stats.totalPivaExpenses / Math.max(1, stats.compensiIncassatiLordi)) * 100}%` }}></div>
-                            </div>
-                            <div className="grid grid-cols-3 gap-6 pt-2 text-center md:text-left">
-                                <div className="flex items-center gap-2 text-[9px] font-black uppercase text-slate-500">
-                                    <div className="w-3 h-3 rounded bg-indigo-600"></div> Netto Disponibile
+                        <div className="p-8 bg-indigo-50/50 rounded-[2.5rem] border border-indigo-100">
+                            <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-6">Trasparenza Ingegneristica</h4>
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm font-bold text-slate-600">Lordo Incassato:</span>
+                                    <span className="text-xl font-black text-slate-900 font-mono">{formatCurrency(stats.compensiIncassatiLordi)}</span>
                                 </div>
-                                <div className="flex items-center gap-2 text-[9px] font-black uppercase text-slate-500">
-                                    <div className="w-3 h-3 rounded bg-amber-400"></div> Tasse Stimante
-                                </div>
-                                <div className="flex items-center gap-2 text-[9px] font-black uppercase text-slate-500">
-                                    <div className="w-3 h-3 rounded bg-slate-300"></div> Spese Studio
+                                <div className="flex justify-between items-center border-t border-indigo-100 pt-4">
+                                    <span className="text-sm font-bold text-slate-600">Netto (Post-Tasse):</span>
+                                    <span className="text-3xl font-black text-indigo-600 font-mono">{formatCurrency(stats.utileNettoReale)}</span>
                                 </div>
                             </div>
                         </div>
-
-                        <div className="bg-indigo-50/50 p-8 rounded-[2.5rem] border border-indigo-100">
-                            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-4">Efficienza Cash-Flow</p>
-                            <div className="flex justify-between items-center">
-                                <span className="text-sm font-bold text-slate-600 italic">Liquidità reale in tasca oggi:</span>
-                                <span className="text-2xl font-black text-indigo-600 font-mono">{formatCurrency(stats.utileNettoReale)}</span>
-                            </div>
-                        </div>
+                        
+                        <p className="text-[11px] text-slate-400 font-bold uppercase italic leading-relaxed">
+                            * Nota: In regime forfettario le spese studio non sono detraibili analiticamente. <br/>
+                            Il Netto mostrato è calcolato sottraendo Inarcassa (14.5%) e Imposta (5%) dal 78% del lordo.
+                        </p>
                     </div>
 
                     <div className="bg-slate-50 rounded-[2.5rem] p-10 space-y-8 border border-slate-100 shadow-inner">
+                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Accantonamenti Obbligatori</h4>
                         <div className="flex justify-between items-center">
-                            <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Inarcassa (14.5%):</span>
-                            <span className="font-mono text-red-500 font-black text-lg">-{formatCurrency(stats.debitoInarcassa)}</span>
+                            <span className="text-xs font-black text-slate-500 uppercase">Inarcassa (Su {stats.coef}% Lordo):</span>
+                            <span className="font-mono text-slate-900 font-black">-{formatCurrency(stats.compensiIncassatiLordi * 0.78 * 0.145)}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Imposta Sostitutiva (5%):</span>
-                            <span className="font-mono text-red-500 font-black text-lg">-{formatCurrency(stats.impostaSostitutiva)}</span>
+                            <span className="text-xs font-black text-slate-500 uppercase">Imposta (Su Imponibile Netto):</span>
+                            <span className="font-mono text-slate-900 font-black">-{formatCurrency((stats.compensiIncassatiLordi * 0.78 * (1 - 0.145)) * 0.05)}</span>
                         </div>
                         <div className="pt-8 border-t-2 border-slate-200 flex justify-between items-center">
-                            <span className="text-sm font-black text-slate-900 uppercase tracking-[0.2em]">Accantonamento Tasse:</span>
-                            <span className="text-3xl font-black text-slate-900 font-mono">{formatCurrency(stats.totaleAccantonamentoFiscale)}</span>
+                            <span className="text-sm font-black text-slate-900 uppercase">Totale Tasse su Incassato:</span>
+                            <span className="text-2xl font-black text-slate-900 font-mono">{formatCurrency(stats.compensiIncassatiLordi - stats.utileNettoReale)}</span>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div className="pt-16 border-t border-slate-100 text-center">
-                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.6em] mb-4">FluxLedger ERP Professional • v1.8.0 • Studio Engineering Systems</p>
+                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.6em] mb-4">FluxLedger ERP Professional • v1.9.0 • Studio Engineering Systems</p>
                 <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.3em] leading-relaxed">
-                    Software Architecture & Logic by <br/>
+                    Software Architecture & Logical Integrity by <br/>
                     <span className="text-slate-900 text-[11px]">Engineer Riccardo Righini</span><br/>
                     © {new Date().getFullYear()} • All Rights Reserved
                 </p>
