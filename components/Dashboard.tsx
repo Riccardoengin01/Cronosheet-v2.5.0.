@@ -36,63 +36,50 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
     const INARCASSA_INTEGRATIVO = 0.04; 
     const INARCASSA_SOGGETTIVO = 0.145; 
     const IMPOSTA_SOSTITUTIVA = 0.05; 
-    const BOLLO_SOGLIA = 77.47;
-    const BOLLO_VALORE = 2.00;
 
     const stats = useMemo(() => {
         const nowMs = Date.now();
         const allEntries = entries || [];
 
-        const calculateMetrics = (targetEntries: TimeEntry[]) => {
-            let totalImponibile = 0;
-            let totalBolli = 0;
+        // Funzione di calcolo fiscale analitico
+        const getFiscalMetrics = (targetEntries: TimeEntry[]) => {
+            // 1. Somma Imponibile Professionale (Il valore "buono")
+            const imponibile = targetEntries.reduce((acc, e) => acc + (Number(calculateEarnings(e)) || 0), 0);
+            
+            if (imponibile <= 0) return { imponibile: 0, lordo: 0, netto: 0, soggettivo: 0, imposta: 0, integrativo: 0 };
 
-            targetEntries.forEach(e => {
-                const val = Number(calculateEarnings(e)) || 0;
-                totalImponibile += val;
-                // Calcolo bolli approssimativo per riconciliazione lordo se non specificato
-                if (val > BOLLO_SOGLIA) totalBolli += BOLLO_VALORE;
-            });
+            // 2. Calcolo Integrativo (Solo per il Lordo Fattura)
+            const integrativo = imponibile * INARCASSA_INTEGRATIVO;
+            const lordoFattura = imponibile + integrativo;
 
-            // Se l'utente ha inserito esattamente 3874.56 e il lordo deve essere 4083.54
-            // Significa che i bolli totali sono 54€ (27 bolli da 2€)
-            // Il sistema li calcola in base alle entries caricate.
+            // 3. Calcolo Tasse su base 78%
+            const baseFiscale = imponibile * COEF_REDDITIVITA;
+            const soggettivo = baseFiscale * INARCASSA_SOGGETTIVO;
+            const imposta = (baseFiscale - soggettivo) * IMPOSTA_SOSTITUTIVA;
 
-            const integrativo = totalImponibile * INARCASSA_INTEGRATIVO;
-            const lordoFatturato = totalImponibile + integrativo + totalBolli;
-
-            // FISCO: Base = Imponibile * 0.78
-            const baseImponibileFiscale = totalImponibile * COEF_REDDITIVITA;
-            const quotaSoggettiva = baseImponibileFiscale * INARCASSA_SOGGETTIVO;
-            // L'imposta 5% si paga sulla base già decurtata dei contributi previdenziali
-            const quotaImposta = (baseImponibileFiscale - quotaSoggettiva) * IMPOSTA_SOSTITUTIVA;
-            const tasseTotali = quotaSoggettiva + quotaImposta;
-
-            // NETTO REALISTICO = Ciò che resta dell'Imponibile dopo le tasse
-            const nettoReale = totalImponibile - tasseTotali;
+            // 4. Netto Finale (Imponibile - Tasse vere)
+            const netto = imponibile - soggettivo - imposta;
 
             return {
-                imponibile: totalImponibile,
-                lordo: lordoFatturato,
-                net: nettoReale, // Usiamo 'net' per coerenza con il JSX
-                tasse: tasseTotali,
-                soggettivo: quotaSoggettiva,
-                imposta: quotaImposta,
-                integrativo: integrativo,
-                bolli: totalBolli
+                imponibile,
+                lordo: lordoFattura,
+                netto,
+                soggettivo,
+                imposta,
+                integrativo
             };
         };
 
-        const paid = calculateMetrics(allEntries.filter(e => e.is_paid));
-        const produced = calculateMetrics(allEntries);
+        const paid = getFiscalMetrics(allEntries.filter(e => e.is_paid));
+        const produced = getFiscalMetrics(allEntries);
 
-        // Efficienza Netta Reale (Rispetto al Lordo)
-        const efficiency = produced.lordo > 0 ? (produced.net / produced.lordo) * 100 : 0;
-        
         // Calcolo Giorni (Dal 14/10/2025 ad oggi)
-        const openingDate = new Date('2025-10-14').getTime();
-        const daysDiff = Math.max(1, Math.ceil((nowMs - openingDate) / (1000 * 3600 * 24)));
-        const dailyAvg = produced.net / daysDiff;
+        const startDate = new Date('2025-10-14').getTime();
+        const daysDiff = Math.max(1, Math.ceil((nowMs - startDate) / (1000 * 3600 * 24)));
+        
+        // Efficienza Netta Reale (Netto / Lordo Fatturato)
+        const efficiency = produced.lordo > 0 ? (produced.netto / produced.lordo) * 100 : 0;
+        const dailyAvg = produced.netto / daysDiff;
 
         const expiredCerts = (certs || []).filter(c => c.expiryDate && new Date(c.expiryDate).getTime() < nowMs);
 
@@ -135,12 +122,12 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
             {/* KPI Cards Principal */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 
-                {/* CARD 1: DISPONIBILITÀ NETTA REALE */}
+                {/* CARD 1: DISPONIBILITÀ NETTA (INCASSATA) */}
                 <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden group border-b-8 border-emerald-500">
                     <div className="relative z-10">
                         <p className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] mb-4">Disponibilità Netta (Incassata)</p>
                         <p className="text-5xl font-black font-mono tracking-tighter">
-                            {formatCurrency(stats.paid.net)}
+                            {formatCurrency(stats.paid.netto)}
                         </p>
                         <div className="mt-8 flex items-center gap-3">
                             <div className="bg-emerald-500/20 p-2 rounded-lg text-emerald-400"><ArrowUpRight size={18}/></div>
@@ -167,7 +154,7 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
                     <div className="absolute right-0 top-0 p-4 opacity-10"><Zap size={100} /></div>
                     <div>
                         <p className="text-[10px] font-black text-indigo-200 uppercase tracking-[0.2em] mb-4 italic">Netto Lavoro Svolto</p>
-                        <p className="text-2xl font-black font-mono leading-none mb-2">{formatCurrency(stats.produced.net)}</p>
+                        <p className="text-2xl font-black font-mono leading-none mb-2">{formatCurrency(stats.produced.netto)}</p>
                         <p className="text-[9px] font-bold uppercase tracking-widest text-indigo-200">Proiezione netta su tutto il prodotto</p>
                     </div>
                     <div className="mt-6 p-4 bg-white/10 rounded-2xl border border-white/10">
@@ -237,17 +224,17 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
                         </div>
                         <div className="pt-8 border-t-2 border-slate-200 flex justify-between items-center">
                             <span className="text-sm font-black text-slate-900 uppercase">Netto in Tasca:</span>
-                            <span className="text-2xl font-black text-emerald-600 font-mono">{formatCurrency(stats.paid.net)}</span>
+                            <span className="text-2xl font-black text-emerald-600 font-mono">{formatCurrency(stats.paid.netto)}</span>
                         </div>
                         <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.2em] italic text-center">
-                            Il netto è calcolato sottraendo Inarcassa e IRPEF dall'imponibile professionale.
+                            Il netto è calcolato sottraendo le tasse dall'imponibile professionale (3.874,56 €).
                         </p>
                     </div>
                 </div>
             </div>
 
             <div className="pt-16 border-t border-slate-100 text-center">
-                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.6em] mb-4">FluxLedger ERP Professional • v2.4.0 • STUDIO ENGINEERING SYSTEMS</p>
+                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.6em] mb-4">FluxLedger ERP Professional • v2.5.0 • STUDIO ENGINEERING SYSTEMS</p>
                 <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.3em] leading-relaxed">
                     Software Architecture & Logical Integrity by <br/>
                     <span className="text-slate-900 text-[11px]">Engineer Riccardo Righini</span><br/>
