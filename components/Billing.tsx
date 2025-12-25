@@ -135,11 +135,11 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
 
   const handleMarkAsBilled = async () => {
       if (selectedEntryIds.size === 0) {
-          alert("Seleziona manualmente i singoli servizi tramite la spunta a sinistra prima di archiviare.");
+          alert("Seleziona manualmente i singoli servizi desiderati prima di procedere.");
           return;
       }
       if (!invoiceNumber.trim()) {
-          alert("Inserisci un numero di riferimento (Fattura/Nota).");
+          alert("Inserisci un riferimento per l'archiviazione.");
           return;
       }
       setIsProcessing(true);
@@ -148,7 +148,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
           setSelectedEntryIds(new Set());
           setInvoiceNumber('');
           if (onEntriesChange) await onEntriesChange();
-      } catch (e) { alert("Errore archiviazione."); } finally { setIsProcessing(false); }
+      } catch (e) { alert("Errore operazione."); } finally { setIsProcessing(false); }
   };
 
   const handleUnbillEntries = async () => {
@@ -159,6 +159,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       if (!confirm(`Riportare i ${selectedEntryIds.size} servizi selezionati allo stato 'Da Fatturare'?`)) return;
       setIsProcessing(true);
       try {
+          // Rimuoviamo il flag billed solo per gli ID selezionati
           await DB.markEntriesAsBilled([...selectedEntryIds], undefined);
           setSelectedEntryIds(new Set());
           if (onEntriesChange) await onEntriesChange();
@@ -172,7 +173,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
           await DB.markEntriesAsPaid([...selectedEntryIds], status);
           setSelectedEntryIds(new Set());
           if (onEntriesChange) await onEntriesChange();
-      } catch (e) { alert("Errore incasso."); } finally { setIsProcessing(false); }
+      } catch (e) { alert("Errore aggiornamento incasso."); } finally { setIsProcessing(false); }
   };
 
   return (
@@ -182,9 +183,11 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
            <div>
                <h1 className="text-4xl font-black text-slate-900 tracking-tight uppercase flex items-center gap-4 italic">
                    {isArchiveView ? <ArchiveIcon size={32} className="text-indigo-600" /> : <Receipt size={32} className="text-indigo-600" />}
-                   {isArchiveView ? "Registro Archiviato" : "Emissione Documento"}
+                   {isArchiveView ? "Registro Fatture" : "Emissione Pro-Forma"}
                </h1>
-               <p className="text-indigo-600 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Professional Engineering Accounting System</p>
+               <p className="text-indigo-600 text-[10px] font-black uppercase tracking-[0.3em] mt-2 flex items-center gap-2">
+                   <Target size={14} /> FluxLedger Digital Compliance • Developed by Ing. Righini
+               </p>
            </div>
            
            {selectedEntryIds.size > 0 && (
@@ -193,8 +196,8 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                    
                    {isArchiveView ? (
                        <div className="flex gap-2">
-                           <button onClick={() => handleMarkPaid(true)} className="text-[10px] font-black bg-emerald-600 px-5 py-2 rounded-xl hover:bg-emerald-500 uppercase tracking-widest cursor-pointer">Segna Pagati</button>
-                           <button onClick={handleUnbillEntries} className="text-[10px] font-black bg-red-600/20 text-red-400 px-5 py-2 rounded-xl hover:bg-red-600 hover:text-white uppercase tracking-widest flex items-center gap-2 cursor-pointer"><Trash2 size={16}/> Rimuovi Selezionati</button>
+                           <button onClick={() => handleMarkPaid(true)} className="text-[10px] font-black bg-emerald-600 px-5 py-2 rounded-xl hover:bg-emerald-500 uppercase tracking-widest cursor-pointer">Incassati</button>
+                           <button onClick={handleUnbillEntries} className="text-[10px] font-black bg-red-600/20 text-red-400 px-5 py-2 rounded-xl hover:bg-red-600 hover:text-white uppercase tracking-widest flex items-center gap-2 cursor-pointer"><Trash2 size={16}/> Rimuovi Selezione</button>
                        </div>
                    ) : (
                        <div className="flex items-center gap-3">
@@ -202,7 +205,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400" size={16} />
                                <input 
                                   type="text" 
-                                  placeholder="N. Fattura" 
+                                  placeholder="Rif. Fattura" 
                                   className="pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500 w-40 placeholder:text-slate-500" 
                                   value={invoiceNumber}
                                   onChange={e => setInvoiceNumber(e.target.value)}
@@ -256,7 +259,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                 </div>
                 
                 <div className="bg-slate-900 text-white px-8 py-3.5 rounded-2xl flex items-center gap-4 shadow-xl">
-                    <p className="text-[11px] font-black uppercase tracking-widest text-indigo-400">{selectedEntryIds.size > 0 ? 'Tot. Selezionato' : 'Tot. Potenziale'}</p>
+                    <p className="text-[11px] font-black uppercase tracking-widest text-indigo-400">{selectedEntryIds.size > 0 ? 'Tot. Selezione' : 'Tot. Potenziale'}</p>
                     <p className="text-xl font-black font-mono">{formatCurrency(baseImponibile)}</p>
                 </div>
             </div>
@@ -288,12 +291,12 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                       </div>
                                       <div>
                                           <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Documento n. {invNum}</h3>
-                                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{items.length} prestazioni correlate</p>
+                                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{items.length} prestazioni collegate</p>
                                       </div>
                                   </div>
                                   <div className="flex items-center gap-10">
                                       <div className="text-right">
-                                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Valore Totale</p>
+                                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Valore Fatturato</p>
                                           <p className="text-2xl font-black text-indigo-600 font-mono">{formatCurrency(invTotal)}</p>
                                       </div>
                                       {isExpanded ? <ChevronDownIcon size={24} className="text-slate-300" /> : <ChevronRight size={24} className="text-slate-300" />}
@@ -341,14 +344,14 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
               <div className="bg-white p-10 md:p-20 rounded-[3rem] shadow-2xl print:shadow-none border border-slate-50 relative">
                   <div className="border-b-8 border-slate-900 pb-12 mb-12 flex flex-col md:flex-row justify-between items-start gap-8">
                       <div>
-                          <h1 className="text-5xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-4 italic">Riepilogo Analitico</h1>
+                          <h1 className="text-5xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-4 italic">Riepilogo Pro-Forma</h1>
                           <p className="text-indigo-600 font-black text-sm uppercase tracking-[0.3em] flex items-center gap-2">
                              <Target size={18} /> Revisione Ledger Commesse • Developed by Ing. Righini
                           </p>
                       </div>
                       <div className="text-left md:text-right">
                           <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">
-                            {selectedProjectIds.length === 1 ? projects.find(p => p.id === selectedProjectIds[0])?.name : 'Portfolio Engineering Systems'}
+                            {selectedProjectIds.length === 1 ? projects.find(p => p.id === selectedProjectIds[0])?.name : 'Portfolio Professionale Combinato'}
                           </h3>
                           <p className="text-slate-400 font-bold mt-2 text-base uppercase tracking-widest">Esercizio Fiscale {selectedYear}</p>
                       </div>
@@ -375,8 +378,8 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                               {filteredEntries.map(entry => (
                                   <tr key={entry.id} className={`hover:bg-slate-50/50 transition-colors print:break-inside-avoid cursor-pointer ${selectedEntryIds.has(entry.id) ? 'bg-indigo-50/50' : ''}`} onClick={() => {
                                       const n = new Set(selectedEntryIds);
-                                      if (n.has(entry.id)) n.delete(entry.id); else n.add(n.has(entry.id) ? '' : entry.id); // Toggle fix
-                                      setSelectedEntryIds(new Set(n).has(entry.id) ? (prev) => { const x = new Set(prev); x.delete(entry.id); return x; } : (prev) => new Set(prev).add(entry.id));
+                                      if (n.has(entry.id)) n.delete(entry.id); else n.add(entry.id);
+                                      setSelectedEntryIds(new Set(n));
                                   }}>
                                       <td className="px-6 py-6 print:hidden text-center">
                                           {selectedEntryIds.has(entry.id) ? <CheckSquare size={24} className="text-indigo-600 mx-auto"/> : <Square size={24} className="text-slate-200 mx-auto"/>}
@@ -412,7 +415,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                 <span className="font-mono text-slate-900">{formatCurrency(cassaAmount)}</span>
                             </div>
                             <div className="flex justify-between items-center text-4xl font-black text-slate-900 pt-10 border-t-8 border-slate-900 mt-8">
-                                <span className="tracking-tighter uppercase italic">Lordo Pro-Forma:</span>
+                                <span className="tracking-tighter uppercase italic">Lordo Documento:</span>
                                 <span className="text-indigo-600 font-mono">{formatCurrency(grandTotalAmount)}</span>
                             </div>
                         </div>
@@ -427,7 +430,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
           <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.3em] leading-relaxed">
               Software Architecture & Legal Rights Protected by <br/>
               <span className="text-slate-900 text-[11px]">Engineer Riccardo Righini</span><br/>
-              © {new Date().getFullYear()} • All Rights Reserved
+              © {new Date().getFullYear()} • STUDIO ENGINEERING SYSTEMS • All Rights Reserved
           </p>
       </div>
     </div>
