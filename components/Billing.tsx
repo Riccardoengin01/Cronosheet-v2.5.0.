@@ -1,14 +1,12 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Project, TimeEntry, UserProfile, AppView } from '../types';
-import { formatCurrency, formatDuration, calculateEarnings, formatTime } from '../utils';
+import { formatCurrency, calculateEarnings } from '../utils';
 import { 
   Printer, 
   MapPin, 
   ChevronDown, 
   Archive as ArchiveIcon, 
-  Pencil, 
-  X, 
   Download, 
   Loader2, 
   Receipt, 
@@ -17,13 +15,11 @@ import {
   ChevronRight,
   ChevronDown as ChevronDownIcon,
   FileText,
-  AlertCircle,
   Target,
   CheckSquare,
   Square
 } from 'lucide-react';
 import * as DB from '../services/db';
-import { useLanguage } from '../lib/i18n';
 
 interface BillingProps {
   entries: TimeEntry[];
@@ -35,11 +31,9 @@ interface BillingProps {
 
 const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEntriesChange, view }) => {
   const isArchiveView = view === AppView.ARCHIVE;
-  const { t } = useLanguage();
   
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
-  
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [applyBollo, setApplyBollo] = useState(false);
   const [applyInarcassa, setApplyInarcassa] = useState(true);
@@ -117,12 +111,11 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   const grandTotalAmount = baseImponibile + bolloAmount + cassaAmount;
 
   const handleExportCSV = () => {
-    const headers = ["Data", "Cliente", "Descrizione", "Durata", "Importo", "Stato", "Fattura"];
+    const headers = ["Data", "Cliente", "Descrizione", "Importo", "Stato", "Fattura"];
     const rows = filteredEntries.map(e => [
       new Date(e.startTime).toLocaleDateString(),
       projects.find(p => p.id === e.projectId)?.name || '',
       e.description || '',
-      e.billingType === 'daily' ? '1 GG' : `${((e.duration || 0) / 3600).toFixed(1)}H`,
       calculateEarnings(e).toFixed(2),
       e.is_paid ? 'Pagato' : 'Pendente',
       e.invoice_number || '-'
@@ -142,16 +135,15 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
 
   const handleMarkAsBilled = async () => {
       if (selectedEntryIds.size === 0) {
-          alert("Seleziona manualmente i servizi desiderati cliccando sulle caselle a sinistra.");
+          alert("Seleziona manualmente i singoli servizi tramite la spunta a sinistra prima di archiviare.");
           return;
       }
       if (!invoiceNumber.trim()) {
-          alert("Inserisci un riferimento n. Fattura prima di archiviare.");
+          alert("Inserisci un numero di riferimento (Fattura/Nota).");
           return;
       }
       setIsProcessing(true);
       try {
-          // Archiviamo SOLO gli ID selezionati
           await DB.markEntriesAsBilled([...selectedEntryIds], invoiceNumber.trim());
           setSelectedEntryIds(new Set());
           setInvoiceNumber('');
@@ -164,10 +156,9 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
           alert("Seleziona i servizi specifici da rimuovere dall'archivio.");
           return;
       }
-      if (!confirm(`Riportare i ${selectedEntryIds.size} servizi selezionati nello stato 'Da Fatturare'?`)) return;
+      if (!confirm(`Riportare i ${selectedEntryIds.size} servizi selezionati allo stato 'Da Fatturare'?`)) return;
       setIsProcessing(true);
       try {
-          // Ripristiniamo SOLO gli ID selezionati, scorporandoli dall'eventuale fattura
           await DB.markEntriesAsBilled([...selectedEntryIds], undefined);
           setSelectedEntryIds(new Set());
           if (onEntriesChange) await onEntriesChange();
@@ -191,8 +182,9 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
            <div>
                <h1 className="text-4xl font-black text-slate-900 tracking-tight uppercase flex items-center gap-4 italic">
                    {isArchiveView ? <ArchiveIcon size={32} className="text-indigo-600" /> : <Receipt size={32} className="text-indigo-600" />}
-                   {isArchiveView ? "Registro Fatture" : "Emissione Documento"}
+                   {isArchiveView ? "Registro Archiviato" : "Emissione Documento"}
                </h1>
+               <p className="text-indigo-600 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Professional Engineering Accounting System</p>
            </div>
            
            {selectedEntryIds.size > 0 && (
@@ -201,8 +193,8 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                    
                    {isArchiveView ? (
                        <div className="flex gap-2">
-                           <button onClick={() => handleMarkPaid(true)} className="text-[10px] font-black bg-emerald-600 px-5 py-2 rounded-xl hover:bg-emerald-500 uppercase tracking-widest">Incassati</button>
-                           <button onClick={handleUnbillEntries} className="text-[10px] font-black bg-red-600/20 text-red-400 px-5 py-2 rounded-xl hover:bg-red-600 hover:text-white uppercase tracking-widest flex items-center gap-2"><Trash2 size={16}/> Rimuovi Selezionati</button>
+                           <button onClick={() => handleMarkPaid(true)} className="text-[10px] font-black bg-emerald-600 px-5 py-2 rounded-xl hover:bg-emerald-500 uppercase tracking-widest cursor-pointer">Segna Pagati</button>
+                           <button onClick={handleUnbillEntries} className="text-[10px] font-black bg-red-600/20 text-red-400 px-5 py-2 rounded-xl hover:bg-red-600 hover:text-white uppercase tracking-widest flex items-center gap-2 cursor-pointer"><Trash2 size={16}/> Rimuovi Selezionati</button>
                        </div>
                    ) : (
                        <div className="flex items-center gap-3">
@@ -216,8 +208,8 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                   onChange={e => setInvoiceNumber(e.target.value)}
                                />
                            </div>
-                           <button onClick={handleMarkAsBilled} disabled={isProcessing} className="text-[10px] font-black bg-white text-slate-900 px-5 py-2 rounded-xl hover:bg-indigo-50 uppercase tracking-widest">
-                                {isProcessing ? <Loader2 size={16} className="animate-spin" /> : "Archivia Selezionati"}
+                           <button onClick={handleMarkAsBilled} disabled={isProcessing} className="text-[10px] font-black bg-white text-slate-900 px-5 py-2 rounded-xl hover:bg-indigo-50 uppercase tracking-widest cursor-pointer">
+                                {isProcessing ? <Loader2 size={16} className="animate-spin" /> : "Archivia Selezione"}
                            </button>
                        </div>
                    )}
@@ -228,7 +220,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 no-print flex flex-col lg:flex-row gap-8 items-center relative z-50">
             <div className="flex items-center bg-slate-50 p-1.5 rounded-2xl shrink-0">
                 {['2023', '2024', '2025'].map(year => (
-                    <button key={year} onClick={() => setSelectedYear(year)} className={`px-6 py-2.5 text-xs font-black uppercase rounded-xl transition-all ${selectedYear === year ? 'bg-white text-indigo-600 shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
+                    <button key={year} onClick={() => setSelectedYear(year)} className={`px-6 py-2.5 text-xs font-black uppercase rounded-xl transition-all ${selectedYear === year ? 'bg-white text-indigo-600 shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600 cursor-pointer'}`}>
                         {year}
                     </button>
                 ))}
@@ -248,12 +240,12 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                     {isClientDropdownOpen && (
                       <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-2xl shadow-2xl border border-slate-100 z-[100] p-4 animate-slide-up max-h-80 overflow-y-auto custom-scrollbar">
                          <div className="flex justify-between mb-4 pb-2 border-b border-slate-50">
-                            <button onClick={() => setSelectedProjectIds(projects.map(p => p.id))} className="text-[9px] font-black text-indigo-600 uppercase hover:underline">Seleziona Tutti</button>
-                            <button onClick={() => setSelectedProjectIds([])} className="text-[9px] font-black text-slate-400 uppercase hover:underline">Deseleziona</button>
+                            <button onClick={() => setSelectedProjectIds(projects.map(p => p.id))} className="text-[9px] font-black text-indigo-600 uppercase hover:underline cursor-pointer">Seleziona Tutti</button>
+                            <button onClick={() => setSelectedProjectIds([])} className="text-[9px] font-black text-slate-400 uppercase hover:underline cursor-pointer">Deseleziona</button>
                          </div>
                          <div className="space-y-1">
                             {projects.map(p => (
-                                <button key={p.id} onClick={(e) => { e.stopPropagation(); toggleProject(p.id); }} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-xs font-bold transition-colors ${selectedProjectIds.includes(p.id) ? 'bg-indigo-50 text-indigo-800' : 'hover:bg-slate-50'}`}>
+                                <button key={p.id} onClick={(e) => { e.stopPropagation(); toggleProject(p.id); }} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-xs font-bold transition-colors cursor-pointer ${selectedProjectIds.includes(p.id) ? 'bg-indigo-50 text-indigo-800' : 'hover:bg-slate-50'}`}>
                                     {selectedProjectIds.includes(p.id) ? <CheckSquare size={18} className="text-indigo-600"/> : <Square size={18} className="text-slate-300"/>} 
                                     <span className="truncate">{p.name}</span>
                                 </button>
@@ -264,14 +256,14 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                 </div>
                 
                 <div className="bg-slate-900 text-white px-8 py-3.5 rounded-2xl flex items-center gap-4 shadow-xl">
-                    <p className="text-[11px] font-black uppercase tracking-widest text-indigo-400">{selectedEntryIds.size > 0 ? 'Tot. Selezione' : 'Tot. Potenziale'}</p>
+                    <p className="text-[11px] font-black uppercase tracking-widest text-indigo-400">{selectedEntryIds.size > 0 ? 'Tot. Selezionato' : 'Tot. Potenziale'}</p>
                     <p className="text-xl font-black font-mono">{formatCurrency(baseImponibile)}</p>
                 </div>
             </div>
 
             <div className="flex gap-3 w-full lg:w-auto">
-                <button onClick={() => window.print()} className="flex-1 lg:flex-none flex items-center justify-center gap-3 bg-indigo-600 text-white px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-100"><Printer size={18}/> Stampa</button>
-                <button onClick={handleExportCSV} className="flex-1 lg:flex-none flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-600 px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50"><Download size={18}/> Excel</button>
+                <button onClick={() => window.print()} className="flex-1 lg:flex-none flex items-center justify-center gap-3 bg-indigo-600 text-white px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-100 cursor-pointer"><Printer size={18}/> Stampa</button>
+                <button onClick={handleExportCSV} className="flex-1 lg:flex-none flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-600 px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 cursor-pointer"><Download size={18}/> Excel</button>
             </div>
       </div>
 
@@ -295,13 +287,13 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                           <FileText size={28} />
                                       </div>
                                       <div>
-                                          <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Fattura n. {invNum}</h3>
-                                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{items.length} prestazioni</p>
+                                          <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Documento n. {invNum}</h3>
+                                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{items.length} prestazioni correlate</p>
                                       </div>
                                   </div>
                                   <div className="flex items-center gap-10">
                                       <div className="text-right">
-                                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Totale Documento</p>
+                                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Valore Totale</p>
                                           <p className="text-2xl font-black text-indigo-600 font-mono">{formatCurrency(invTotal)}</p>
                                       </div>
                                       {isExpanded ? <ChevronDownIcon size={24} className="text-slate-300" /> : <ChevronRight size={24} className="text-slate-300" />}
@@ -313,11 +305,11 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                           <table className="w-full text-sm text-left">
                                               <thead className="text-[11px] font-black text-slate-400 uppercase tracking-[0.1em] border-b border-slate-100 bg-slate-50/50">
                                                   <tr>
-                                                      <th className="px-6 py-4 w-12"></th>
+                                                      <th className="px-6 py-4 w-12 text-center">SEL.</th>
                                                       <th className="px-6 py-4">DATA</th>
                                                       <th className="px-6 py-4">CLIENTE</th>
                                                       <th className="px-6 py-4">DESCRIZIONE</th>
-                                                      <th className="px-6 py-4 text-right">IMPORTO</th>
+                                                      <th className="px-6 py-4 text-right">IMPONIBILE</th>
                                                   </tr>
                                               </thead>
                                               <tbody className="divide-y divide-slate-100">
@@ -327,8 +319,8 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                                           if (n.has(item.id)) n.delete(item.id); else n.add(item.id);
                                                           setSelectedEntryIds(n);
                                                       }}>
-                                                          <td className="px-6 py-4">
-                                                              {selectedEntryIds.has(item.id) ? <CheckSquare size={20} className="text-indigo-600"/> : <Square size={20} className="text-slate-200"/>}
+                                                          <td className="px-6 py-4 text-center">
+                                                              {selectedEntryIds.has(item.id) ? <CheckSquare size={20} className="text-indigo-600 mx-auto"/> : <Square size={20} className="text-slate-200 mx-auto"/>}
                                                           </td>
                                                           <td className="px-6 py-4 font-bold text-slate-600">{new Date(item.startTime).toLocaleDateString()}</td>
                                                           <td className="px-6 py-4 font-black text-slate-800 uppercase text-xs truncate max-w-[120px]">{projects.find(p => p.id === item.projectId)?.name}</td>
@@ -349,16 +341,16 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
               <div className="bg-white p-10 md:p-20 rounded-[3rem] shadow-2xl print:shadow-none border border-slate-50 relative">
                   <div className="border-b-8 border-slate-900 pb-12 mb-12 flex flex-col md:flex-row justify-between items-start gap-8">
                       <div>
-                          <h1 className="text-5xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-4 italic">Riepilogo Pro-Forma</h1>
+                          <h1 className="text-5xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-4 italic">Riepilogo Analitico</h1>
                           <p className="text-indigo-600 font-black text-sm uppercase tracking-[0.3em] flex items-center gap-2">
-                             <Target size={18} /> Revisione Analitica Ledger • Engineer Riccardo Righini
+                             <Target size={18} /> Revisione Ledger Commesse • Developed by Ing. Righini
                           </p>
                       </div>
                       <div className="text-left md:text-right">
                           <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">
-                            {selectedProjectIds.length === 1 ? projects.find(p => p.id === selectedProjectIds[0])?.name : 'Portfolio Professionale Combinato'}
+                            {selectedProjectIds.length === 1 ? projects.find(p => p.id === selectedProjectIds[0])?.name : 'Portfolio Engineering Systems'}
                           </h3>
-                          <p className="text-slate-400 font-bold mt-2 text-base uppercase tracking-widest">Anno Fiscale {selectedYear}</p>
+                          <p className="text-slate-400 font-bold mt-2 text-base uppercase tracking-widest">Esercizio Fiscale {selectedYear}</p>
                       </div>
                   </div>
 
@@ -366,7 +358,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                       <table className="w-full text-sm text-left border-collapse">
                           <thead className="text-slate-400 uppercase text-[11px] font-black tracking-[0.2em] border-b-2 border-slate-100">
                               <tr>
-                                  <th className="px-6 py-6 w-14 print:hidden">
+                                  <th className="px-6 py-6 w-14 print:hidden text-center">
                                       <button onClick={() => {
                                           if (selectedEntryIds.size === filteredEntries.length) setSelectedEntryIds(new Set());
                                           else setSelectedEntryIds(new Set(filteredEntries.map(e => e.id)));
@@ -374,8 +366,8 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                   </th>
                                   <th className="px-6 py-6">DATA</th>
                                   <th className="px-6 py-6">CLIENTE</th>
-                                  <th className="px-6 py-6">DESCRIZIONE</th>
-                                  <th className="px-6 py-6 text-center">QUANTITÀ</th>
+                                  <th className="px-6 py-6">DESCRIZIONE ANALITICA</th>
+                                  <th className="px-6 py-6 text-center">UNITÀ</th>
                                   <th className="px-6 py-6 text-right">IMPONIBILE (€)</th>
                               </tr>
                           </thead>
@@ -383,15 +375,15 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                               {filteredEntries.map(entry => (
                                   <tr key={entry.id} className={`hover:bg-slate-50/50 transition-colors print:break-inside-avoid cursor-pointer ${selectedEntryIds.has(entry.id) ? 'bg-indigo-50/50' : ''}`} onClick={() => {
                                       const n = new Set(selectedEntryIds);
-                                      if (n.has(entry.id)) n.delete(entry.id); else n.add(entry.id);
-                                      setSelectedEntryIds(n);
+                                      if (n.has(entry.id)) n.delete(entry.id); else n.add(n.has(entry.id) ? '' : entry.id); // Toggle fix
+                                      setSelectedEntryIds(new Set(n).has(entry.id) ? (prev) => { const x = new Set(prev); x.delete(entry.id); return x; } : (prev) => new Set(prev).add(entry.id));
                                   }}>
-                                      <td className="px-6 py-6 print:hidden">
-                                          {selectedEntryIds.has(entry.id) ? <CheckSquare size={24} className="text-indigo-600"/> : <Square size={24} className="text-slate-200"/>}
+                                      <td className="px-6 py-6 print:hidden text-center">
+                                          {selectedEntryIds.has(entry.id) ? <CheckSquare size={24} className="text-indigo-600 mx-auto"/> : <Square size={24} className="text-slate-200 mx-auto"/>}
                                       </td>
                                       <td className="px-6 py-6 font-bold text-slate-500 whitespace-nowrap">{new Date(entry.startTime).toLocaleDateString()}</td>
                                       <td className="px-6 py-6 font-black text-slate-800 uppercase text-xs tracking-tight">{projects.find(p => p.id === entry.projectId)?.name}</td>
-                                      <td className="px-6 py-6 text-slate-500 italic max-w-[300px] leading-relaxed">{entry.description || 'Intervento Tecnico'}</td>
+                                      <td className="px-6 py-6 text-slate-500 italic max-w-[300px] leading-relaxed">{entry.description || 'Prestazione Ingegneristica'}</td>
                                       <td className="px-6 py-6 text-center font-black text-slate-900 font-mono">
                                           {entry.billingType === 'daily' ? `1 GG` : `${((entry.duration || 0)/3600).toFixed(1)}H`}
                                       </td>
@@ -420,7 +412,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                                 <span className="font-mono text-slate-900">{formatCurrency(cassaAmount)}</span>
                             </div>
                             <div className="flex justify-between items-center text-4xl font-black text-slate-900 pt-10 border-t-8 border-slate-900 mt-8">
-                                <span className="tracking-tighter uppercase italic">Lordo Documento:</span>
+                                <span className="tracking-tighter uppercase italic">Lordo Pro-Forma:</span>
                                 <span className="text-indigo-600 font-mono">{formatCurrency(grandTotalAmount)}</span>
                             </div>
                         </div>
@@ -430,10 +422,12 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
           )}
       </div>
 
-      <div className="pt-12 border-t border-slate-100 text-center no-print">
-          <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.2em] leading-relaxed">
-              FluxLedger ERP • Protected Rights System • Developed by Engineer Riccardo Righini<br/>
-              © {new Date().getFullYear()} STUDIO ENGINEERING SYSTEMS • All Rights Reserved
+      <div className="pt-16 border-t border-slate-100 text-center no-print">
+          <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.6em] mb-4">FluxLedger ERP Professional • Studio Engineering Systems</p>
+          <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.3em] leading-relaxed">
+              Software Architecture & Legal Rights Protected by <br/>
+              <span className="text-slate-900 text-[11px]">Engineer Riccardo Righini</span><br/>
+              © {new Date().getFullYear()} • All Rights Reserved
           </p>
       </div>
     </div>

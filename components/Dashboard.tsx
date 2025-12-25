@@ -8,13 +8,15 @@ import {
   ChevronRight, 
   PieChart, 
   Landmark, 
-  Info, 
   Calculator, 
   Banknote, 
-  Percent, 
-  ArrowRightCircle, 
   Target,
-  CreditCard 
+  CreditCard,
+  Percent,
+  Activity,
+  ArrowUpRight,
+  ShieldAlert,
+  Wallet
 } from 'lucide-react';
 import * as DB from '../services/db';
 
@@ -42,131 +44,179 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
         const startOfYear = new Date(currentYear, 0, 1).getTime();
         const yearEntries = (entries || []).filter(e => e.startTime >= startOfYear);
         
-        const compensiProfessionaliIncassati = yearEntries
-            .filter(e => e.is_paid)
-            .reduce((acc, e) => acc + calculateEarnings(e), 0);
-            
-        const compensiProfessionaliEmessi = yearEntries
-            .reduce((acc, e) => acc + calculateEarnings(e), 0);
-        
-        const COEF_REDDITIVITA = 0.78; 
-        const redditoFiscaleLordo = compensiProfessionaliIncassati * COEF_REDDITIVITA;
-        const inarcassaSoggettivo = redditoFiscaleLordo * 0.145; 
-        const baseImpostaSostitutiva = Math.max(0, redditoFiscaleLordo - inarcassaSoggettivo);
-        const impostaSostitutiva = baseImpostaSostitutiva * 0.05; 
-        const debitoFiscaleTotale = inarcassaSoggettivo + impostaSostitutiva;
+        // COMPENSI
+        const compensiIncassati = yearEntries.filter(e => e.is_paid).reduce((acc, e) => acc + calculateEarnings(e), 0);
+        const compensiEmessi = yearEntries.reduce((acc, e) => acc + calculateEarnings(e), 0);
+        const daIncassare = compensiEmessi - compensiIncassati;
 
+        // ANALISI FISCALE ANALITICA (Proprietà Intellettuale Ing. Righini)
+        const COEF_REDDITIVITA = 0.78; 
+        const INARCASSA_RATE = 0.145; 
+        const IMPOSTA_SOSTITUTIVA_RATE = 0.05; 
+
+        const redditoFiscaleLordo = compensiIncassati * COEF_REDDITIVITA;
+        const debitoInarcassa = redditoFiscaleLordo * INARCASSA_RATE;
+        const baseImponibileFiscale = Math.max(0, redditoFiscaleLordo - debitoInarcassa);
+        const impostaSostitutiva = baseImponibileFiscale * IMPOSTA_SOSTITUTIVA_RATE;
+        const totaleAccantonamentoFiscale = debitoInarcassa + impostaSostitutiva;
+
+        // SPESE STUDIO E NETTO DISPONIBILE
         const yearExpenses = busExpenses.filter(exp => new Date(exp.date).getFullYear() === currentYear);
         const totalYearExpenses = yearExpenses.reduce((acc, e) => acc + e.amount, 0);
-        const utileNettoReale = compensiProfessionaliIncassati - debitoFiscaleTotale - totalYearExpenses;
-
-        const expenseBreakdown = [
-            { label: 'Software/BIM', val: yearExpenses.filter(e => e.category === 'Software').reduce((acc, e) => acc + e.amount, 0), color: 'bg-indigo-500' },
-            { label: 'Assicurazione/Ordine', val: yearExpenses.filter(e => e.category === 'Ordine/Assicurazione').reduce((acc, e) => acc + e.amount, 0), color: 'bg-blue-400' },
-            { label: 'Auto/Trasporti', val: yearExpenses.filter(e => e.category === 'Auto/Trasporti').reduce((acc, e) => acc + e.amount, 0), color: 'bg-emerald-400' },
-            { label: 'Utenze Studio', val: yearExpenses.filter(e => e.category === 'Studio/Utenze').reduce((acc, e) => acc + e.amount, 0), color: 'bg-amber-400' },
-            { label: 'Altro', val: yearExpenses.filter(e => e.category === 'Altro').reduce((acc, e) => acc + e.amount, 0), color: 'bg-slate-300' }
-        ];
+        const utileNettoReale = compensiIncassati - totaleAccantonamentoFiscale - totalYearExpenses;
 
         return {
-            compensiProfessionaliIncassati,
-            compensiProfessionaliEmessi,
+            compensiIncassati,
+            compensiEmessi,
+            daIncassare,
             redditoFiscaleLordo,
-            debitoFiscaleTotale,
+            debitoInarcassa,
+            impostaSostitutiva,
+            totaleAccantonamentoFiscale,
             totalYearExpenses,
-            expenseBreakdown,
             utileNettoReale,
-            isSafe: certs.filter(c => c.expiryDate && new Date(c.expiryDate).getTime() < now.getTime()).length === 0,
-            pendingInvoicesCount: yearEntries.filter(e => e.is_billed && !e.is_paid).length
+            coef: COEF_REDDITIVITA * 100,
+            pendingInvoicesCount: yearEntries.filter(e => e.is_billed && !e.is_paid).length,
+            isSafe: certs.filter(c => c.expiryDate && new Date(c.expiryDate).getTime() < now.getTime()).length === 0
         };
     }, [entries, certs, busExpenses]);
 
     return (
-        <div className="flex flex-col min-h-[calc(100vh-140px)] animate-fade-in max-w-6xl mx-auto space-y-6">
+        <div className="flex flex-col min-h-screen animate-fade-in max-w-6xl mx-auto space-y-8 pb-24">
             
+            {/* Header Professionale con Copyright */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center px-2 gap-4">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-900 tracking-tighter flex items-center gap-3 uppercase italic">
-                        FluxLedger Professional <Banknote className="text-emerald-500" size={24} />
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic leading-none">
+                        FluxLedger ERP Professional
                     </h1>
-                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                        <Calculator size={12}/> Auditing Analitico • Engineer Riccardo Righini
+                    <p className="text-indigo-600 text-[11px] font-black uppercase tracking-[0.4em] mt-2 flex items-center gap-2">
+                        <Calculator size={14}/> Accounting Analitico Commesse • Developed by Ing. Riccardo Righini
                     </p>
                 </div>
+                {!stats.isSafe && (
+                    <div className="bg-red-50 text-red-600 px-6 py-3 rounded-2xl border border-red-100 flex items-center gap-3 animate-pulse">
+                        <ShieldAlert size={20} />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-center">Titoli Abilitativi Scaduti</span>
+                    </div>
+                )}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Analisi Fiscale */}
-                <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-xl flex flex-col relative overflow-hidden">
-                    <div className="absolute -right-4 -top-4 opacity-5 text-indigo-900"><Landmark size={140} /></div>
-                    <div className="flex justify-between items-center mb-6 relative z-10">
-                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em] flex items-center gap-2">
-                            <Landmark size={18} className="text-indigo-600" /> Fiscal Performance
-                        </h3>
+            {/* Top KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden group">
+                    <div className="relative z-10">
+                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em] mb-4">Liquidità Reale in Cassa</p>
+                        <p className="text-5xl font-black font-mono tracking-tighter">{formatCurrency(stats.utileNettoReale)}</p>
+                        <div className="mt-8 flex items-center gap-3">
+                            <div className="bg-emerald-500/20 p-2 rounded-lg text-emerald-400"><ArrowUpRight size={18}/></div>
+                            <span className="text-[11px] font-bold text-slate-400">Netto post-tasse e spese studio</span>
+                        </div>
                     </div>
-                    <div className="space-y-4 flex-grow relative z-10">
-                        <div className="bg-slate-900 p-5 rounded-3xl text-white shadow-lg">
-                             <p className="text-[9px] font-black text-indigo-300 uppercase mb-1">Base Imponibile Forfettaria</p>
-                             <p className="text-3xl font-black font-mono tracking-tighter">{formatCurrency(stats.redditoFiscaleLordo)}</p>
-                        </div>
-                        <div className="pt-6 border-t border-slate-100 flex justify-between items-end">
-                            <p className="text-[10px] font-black text-slate-400 uppercase">Debito Stimato (INAR + AdE)</p>
-                            <p className="text-2xl font-black text-red-500 tracking-tighter">-{formatCurrency(stats.debitoFiscaleTotale)}</p>
-                        </div>
+                    <Activity className="absolute -right-10 -bottom-10 opacity-5 text-white transition-transform group-hover:scale-110 duration-700" size={240} />
+                </div>
+
+                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl relative overflow-hidden">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Compensi Incassati (Cash Flow)</p>
+                    <p className="text-4xl font-black text-slate-900 font-mono">{formatCurrency(stats.compensiIncassati)}</p>
+                    <div className="mt-8 pt-6 border-t border-slate-50 flex justify-between items-center">
+                        <span className="text-[10px] font-black text-slate-400 uppercase">Crediti Pendenti:</span>
+                        <span className="text-base font-black text-amber-500 font-mono">+{formatCurrency(stats.daIncassare)}</span>
                     </div>
                 </div>
 
-                {/* Spese Studio */}
-                <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-xl relative overflow-hidden">
-                    <div className="absolute -right-4 -top-4 opacity-5"><PieChart size={120} /></div>
-                    <div className="flex justify-between items-center mb-8 relative z-10">
-                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em] flex items-center gap-2">
-                            <PieChart size={18} className="text-indigo-600" /> Costi Reali Studio
-                        </h3>
-                        <button onClick={() => onViewChange(AppView.EXPENSES)} className="text-indigo-600 hover:text-indigo-800 transition-colors"><ChevronRight size={20}/></button>
+                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl flex flex-col justify-between">
+                    <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Costi Gestione Studio</p>
+                        <p className="text-4xl font-black text-slate-900 font-mono">{formatCurrency(stats.totalYearExpenses)}</p>
                     </div>
-                    <div className="space-y-6 relative z-10">
-                        <p className="text-4xl font-black text-slate-900 tracking-tighter">{formatCurrency(stats.totalYearExpenses)}</p>
-                        <div className="space-y-4 pt-4 border-t border-slate-50">
-                            {stats.expenseBreakdown.map(item => (
-                                <div key={item.label} className="space-y-1">
-                                    <div className="flex justify-between text-[9px] font-black uppercase">
-                                        <span className="text-slate-500">{item.label}</span>
-                                        <span className="text-slate-900">{formatCurrency(item.val)}</span>
-                                    </div>
-                                    <div className="h-1 w-full bg-slate-50 rounded-full overflow-hidden">
-                                        <div className={`h-full ${item.color} rounded-full`} style={{ width: `${stats.totalYearExpenses > 0 ? (item.val / stats.totalYearExpenses * 100) : 0}%` }}></div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Performance Finale */}
-                <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden flex flex-col">
-                    <div className="absolute top-0 right-0 p-8 opacity-10"><TrendingUp size={160} /></div>
-                    <div className="relative z-10 flex-grow">
-                        <h3 className="text-xs font-black text-indigo-300 uppercase tracking-[0.2em] mb-12">Net Efficiency</h3>
-                        <div className="space-y-2">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Netto Disponibile Reale</p>
-                            <p className="text-5xl font-black text-white tracking-tighter">{formatCurrency(stats.utileNettoReale)}</p>
-                        </div>
-                    </div>
-                    <button 
-                        onClick={() => onViewChange(AppView.ARCHIVE)}
-                        className="relative z-10 mt-10 w-full bg-white text-slate-900 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-indigo-50 transition-all flex items-center justify-center gap-3 active:scale-95 shadow-lg"
-                    >
-                        <CreditCard size={18} /> {stats.pendingInvoicesCount} Crediti verso Clienti
+                    <button onClick={() => onViewChange(AppView.EXPENSES)} className="mt-8 w-full py-4 border-2 border-slate-100 rounded-2xl flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all">
+                        <Wallet size={16}/> Analisi Spese Studio
                     </button>
                 </div>
             </div>
 
-            <div className="pt-12 border-t border-slate-100 text-center">
-                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.6em] mb-2">FluxLedger ERP Professional • v1.6</p>
-                <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.2em]">
-                    Developed and Protected by <span className="text-slate-900">Engineer Riccardo Righini</span><br/>
-                    © {new Date().getFullYear()} STUDIO ENGINEERING SYSTEMS • All Rights Reserved
+            {/* Analisi Fiscale Analitica - IL CUORE DEL SISTEMA */}
+            <div className="bg-white rounded-[3rem] p-10 md:p-16 border border-slate-50 shadow-2xl relative overflow-hidden">
+                <div className="absolute right-0 top-0 p-12 opacity-5 pointer-events-none">
+                    <Landmark size={240} />
+                </div>
+                
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-16 border-b-8 border-slate-900 pb-10 gap-8">
+                    <div>
+                        <h2 className="text-4xl font-black text-slate-900 uppercase italic tracking-tighter leading-none">Proiezione Fiscale Analitica</h2>
+                        <p className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.4em] mt-3">Metodo di calcolo Regime Forfettario Ingegneri</p>
+                    </div>
+                    <div className="flex gap-4">
+                        <div className="bg-slate-900 text-white px-10 py-5 rounded-[2rem] flex flex-col items-center">
+                            <span className="text-[9px] font-black uppercase text-indigo-400 tracking-widest mb-1">Coefficiente</span>
+                            <span className="text-2xl font-black font-mono">{stats.coef}%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-20">
+                    <div className="space-y-12">
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-end">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Imponibile Lordo Fiscale</p>
+                                <p className="text-3xl font-black text-slate-900 font-mono">{formatCurrency(stats.redditoFiscaleLordo)}</p>
+                            </div>
+                            <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden flex shadow-inner">
+                                <div className="h-full bg-indigo-600" style={{ width: `${Math.min(100, (stats.utileNettoReale / stats.compensiIncassati) * 100)}%` }}></div>
+                                <div className="h-full bg-amber-400" style={{ width: `${(stats.totaleAccantonamentoFiscale / stats.compensiIncassati) * 100}%` }}></div>
+                                <div className="h-full bg-slate-300" style={{ width: `${(stats.totalYearExpenses / stats.compensiIncassati) * 100}%` }}></div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-6 pt-2">
+                                <div className="flex items-center gap-2 text-[9px] font-black uppercase text-slate-500">
+                                    <div className="w-3 h-3 rounded bg-indigo-600"></div> Netto Reale
+                                </div>
+                                <div className="flex items-center gap-2 text-[9px] font-black uppercase text-slate-500">
+                                    <div className="w-3 h-3 rounded bg-amber-400"></div> Tasse Stimante
+                                </div>
+                                <div className="flex items-center gap-2 text-[9px] font-black uppercase text-slate-500">
+                                    <div className="w-3 h-3 rounded bg-slate-300"></div> Spese Studio
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-indigo-50/50 p-8 rounded-[2.5rem] border border-indigo-100">
+                            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-4">Cash Efficiency Report</p>
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm font-bold text-slate-600 italic">Liquidità disponibile dopo accantonamento:</span>
+                                <span className="text-2xl font-black text-indigo-600 font-mono">{formatCurrency(stats.utileNettoReale)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-50 rounded-[2.5rem] p-10 space-y-8 border border-slate-100 shadow-inner">
+                        <div className="flex justify-between items-center">
+                            <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Inarcassa Soggettivo (14.5%):</span>
+                            <span className="font-mono text-red-500 font-black text-lg">-{formatCurrency(stats.debitoInarcassa)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Imposta Sostitutiva Start-up (5%):</span>
+                            <span className="font-mono text-red-500 font-black text-lg">-{formatCurrency(stats.impostaSostitutiva)}</span>
+                        </div>
+                        <div className="pt-8 border-t-2 border-slate-200 flex justify-between items-center">
+                            <span className="text-sm font-black text-slate-900 uppercase tracking-[0.2em]">Totale Accantonamento Fiscale:</span>
+                            <span className="text-3xl font-black text-slate-900 font-mono">{formatCurrency(stats.totaleAccantonamentoFiscale)}</span>
+                        </div>
+                        <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 flex gap-3 items-center">
+                            <Percent size={18} className="text-amber-600" />
+                            <p className="text-[10px] font-bold text-amber-800 leading-tight">Accantonamento calcolato sul lordo incassato detratto del coefficiente professionale del {stats.coef}%.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Footer con Copyright e Diritti Protetti */}
+            <div className="pt-16 border-t border-slate-100 text-center">
+                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.6em] mb-4">FluxLedger ERP Professional • v1.6.8 • Studio Engineering Systems</p>
+                <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.3em] leading-relaxed">
+                    Software Architecture & Legal Rights Protected by <br/>
+                    <span className="text-slate-900 text-[11px]">Engineer Riccardo Righini</span><br/>
+                    © {new Date().getFullYear()} • All Rights Reserved
                 </p>
             </div>
         </div>
