@@ -24,7 +24,9 @@ import {
   CalendarDays,
   Upload,
   FileCheck,
-  FileText
+  Download,
+  FileText,
+  ExternalLink
 } from 'lucide-react';
 import { useLanguage } from '../lib/i18n';
 
@@ -72,6 +74,7 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
         const reader = new FileReader();
         reader.onloadend = () => {
             setDocUrl(reader.result as string);
+            e.target.value = '';
         };
         reader.readAsDataURL(file);
     };
@@ -85,13 +88,12 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             const response = await ai.models.generateContent({
                 model: 'gemini-3-flash-preview',
-                contents: `Analizza questa certificazione per ingegneri/professionisti sicurezza: "${certName}". 
-                In base alla normativa italiana (D.Lgs 81/08, Accordi Stato-Regioni, ecc.), qual è il periodo di validità standard prima dell'aggiornamento? 
-                Rispondi in modo brevissimo (max 15 parole) indicando gli anni di validità.`,
+                contents: `Analizza questa certificazione per ingegneri: "${certName}". 
+                In base al D.Lgs 81/08, qual è il periodo di validità standard? Rispondi in max 8 parole.`,
             });
             setAiTip(response.text);
         } catch (e) {
-            setAiTip("Impossibile contattare l'assistente normativo.");
+            setAiTip("Nessun suggerimento disponibile.");
         } finally {
             setAiSuggesting(false);
         }
@@ -147,42 +149,43 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
         const end = new Date(expiry).getTime();
         const diffDays = Math.ceil((end - now) / (1000 * 3600 * 24));
         if (diffDays <= 0) return { label: 'SCADUTO', color: 'text-red-500 bg-red-50', icon: <AlertTriangle size={10}/> };
-        if (diffDays <= 90) return { label: `SCADE TRA ${diffDays} GG`, color: 'text-amber-500 bg-amber-50', icon: <Clock size={10}/> };
+        if (diffDays <= 90) return { label: `${diffDays} GG`, color: 'text-amber-500 bg-amber-50', icon: <Clock size={10}/> };
         return { label: 'VALIDO', color: 'text-emerald-500 bg-emerald-50', icon: <ShieldCheck size={10}/> };
     };
 
     const filteredCerts = useMemo(() => {
         return certs.filter(c => 
             c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-            c.organization.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (c.details && c.details.toLowerCase().includes(searchTerm.toLowerCase()))
+            c.organization.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [certs, searchTerm]);
 
+    const isPdf = (url: string) => url.includes('application/pdf') || url.toLowerCase().includes('.pdf');
+
     return (
-        <div className="space-y-6 animate-fade-in max-w-5xl mx-auto">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-2">
+        <div className="space-y-4 animate-fade-in max-w-4xl mx-auto px-2">
+            <div className="flex justify-between items-center gap-2 pt-2">
                 <div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter flex items-center gap-4 uppercase italic">
-                        Portfolio Competenze <Award className="text-indigo-600" size={32} />
+                    <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight uppercase italic flex items-center gap-2">
+                        Archivio Abilitazioni <Award className="text-indigo-600" size={24} />
                     </h1>
-                    <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.4em] mt-2 italic">Registro Tecnico Professionale Digitale</p>
+                    <p className="text-gray-400 text-[9px] font-black uppercase tracking-widest italic">Digital Compliance Portfolio</p>
                 </div>
                 <button 
                     onClick={() => openModal()}
-                    className="flex items-center gap-3 text-xs font-black text-white bg-slate-900 hover:bg-indigo-600 px-8 py-4 rounded-2xl transition-all shadow-xl active:scale-95 uppercase tracking-widest"
+                    className="flex items-center gap-2 text-[10px] font-black text-white bg-slate-900 hover:bg-indigo-600 px-4 py-3 rounded-xl transition-all shadow-md uppercase tracking-widest active:scale-95"
                 >
-                    <Plus size={20} strokeWidth={3} /> Aggiungi Abilitazione
+                    <Plus size={16} strokeWidth={3} /> Aggiungi
                 </button>
             </div>
 
-            <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm">
+            <div className="bg-white p-2.5 rounded-2xl border border-slate-100 shadow-sm">
                 <div className="relative">
-                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                     <input 
                         type="text" 
-                        placeholder="Cerca per titolo, ente (INAIL, Ordine...) o modulo specifico..." 
-                        className="w-full pl-14 pr-4 py-4 bg-slate-50 border-0 rounded-2xl focus:ring-2 focus:ring-indigo-500 text-sm font-bold placeholder:text-slate-300 outline-none"
+                        placeholder="Cerca per titolo o ente..." 
+                        className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border-0 rounded-xl focus:ring-1 focus:ring-indigo-500 text-sm font-bold placeholder:text-slate-300 outline-none"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                     />
@@ -190,82 +193,94 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
             </div>
 
             {loading ? (
-                <div className="flex justify-center py-32"><Loader2 className="animate-spin text-indigo-500" size={48} /></div>
+                <div className="flex justify-center py-20"><Loader2 className="animate-spin text-indigo-500" size={32} /></div>
             ) : (
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 gap-3">
                     {filteredCerts.map(cert => {
                         const status = getStatus(cert.expiryDate);
                         return (
-                            <div key={cert.id} className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm hover:shadow-xl transition-all group flex flex-col md:flex-row md:items-center gap-8 relative overflow-hidden">
+                            <div key={cert.id} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center gap-4 relative overflow-hidden group">
                                 <div className="absolute top-0 left-0 w-1.5 h-full bg-slate-900"></div>
                                 
                                 <div className="flex-grow min-w-0">
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <span className={`px-4 py-1 rounded-full text-[9px] font-black border uppercase tracking-widest ${status.color}`}>
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-black border uppercase tracking-wider ${status.color}`}>
                                             {status.label}
                                         </span>
-                                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Doc. Rif: {cert.organization}</span>
+                                        <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest truncate">{cert.organization}</span>
                                     </div>
-                                    <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-2">{cert.name}</h3>
+                                    <h3 className="text-[15px] font-black text-slate-900 uppercase tracking-tight leading-tight mb-1">{cert.name}</h3>
                                     {cert.details && (
-                                        <div className="flex items-center gap-2 text-indigo-600">
-                                            <Tag size={12} />
-                                            <p className="text-[10px] font-black uppercase tracking-widest truncate">{cert.details}</p>
+                                        <div className="flex items-center gap-1.5 text-indigo-500">
+                                            <Tag size={10} />
+                                            <p className="text-[9px] font-bold uppercase truncate">{cert.details}</p>
                                         </div>
                                     )}
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-8 shrink-0 md:text-center">
-                                    <div>
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Conseguito</p>
-                                        <p className="font-mono font-black text-slate-900 text-sm italic">{new Date(cert.issueDate).toLocaleDateString('it-IT')}</p>
+                                <div className="flex items-center justify-between md:justify-end gap-6 border-t md:border-t-0 border-slate-50 pt-4 md:pt-0">
+                                    <div className="flex gap-6">
+                                        <div>
+                                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Scadenza</p>
+                                            <p className={`font-mono font-black text-[11px] ${cert.expiryDate ? 'text-slate-900' : 'text-indigo-500'}`}>
+                                                {cert.expiryDate ? new Date(cert.expiryDate).toLocaleDateString('it-IT') : 'PERMANENTE'}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Scadenza</p>
-                                        <p className={`font-mono font-black text-sm italic ${cert.expiryDate ? 'text-slate-900' : 'text-indigo-500'}`}>
-                                            {cert.expiryDate ? new Date(cert.expiryDate).toLocaleDateString('it-IT') : 'PERMANENTE'}
-                                        </p>
-                                    </div>
-                                </div>
 
-                                <div className="flex md:flex-col justify-end gap-2 border-t md:border-t-0 md:border-l border-slate-50 pt-4 md:pt-0 md:pl-8">
-                                    {cert.document_url && (
-                                        <button onClick={() => setViewerUrl(cert.document_url!)} className="p-3 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-                                            <Eye size={16}/> Visualizza
+                                    <div className="flex items-center gap-1.5">
+                                        {cert.document_url && (
+                                            <button onClick={() => setViewerUrl(cert.document_url!)} className="p-3 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="Visualizza">
+                                                <Eye size={18}/>
+                                            </button>
+                                        )}
+                                        <button onClick={() => openModal(cert)} className="p-3 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="Modifica">
+                                            <Pencil size={18}/>
                                         </button>
-                                    )}
-                                    <button onClick={() => openModal(cert)} className="p-3 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-                                        <Pencil size={16}/> Modifica
-                                    </button>
-                                    <button onClick={() => { if(confirm("Eliminare definitivamente questo record?")) DB.deleteCertification(cert.id).then(fetchCerts); }} className="p-3 bg-slate-50 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-                                        <Trash2 size={16}/> Elimina
-                                    </button>
+                                        <button onClick={() => { if(confirm("Eliminare record?")) DB.deleteCertification(cert.id).then(fetchCerts); }} className="p-3 bg-slate-50 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all" title="Elimina">
+                                            <Trash2 size={18}/>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         );
                     })}
-                    {filteredCerts.length === 0 && (
-                        <div className="py-40 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
-                            <Award size={64} className="mx-auto text-slate-100 mb-6" />
-                            <p className="text-slate-300 font-black uppercase tracking-[0.4em] text-xs italic">Nessuna abilitazione registrata</p>
-                        </div>
-                    )}
                 </div>
             )}
 
-            {/* VIEWER MODAL */}
+            {/* VIEWER DOCUMENTO CON FALLBACK MOBILE */}
             {viewerUrl && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-xl animate-fade-in">
-                    <div className="bg-white rounded-[3rem] w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden shadow-2xl">
-                        <div className="px-10 py-6 border-b flex justify-between items-center bg-gray-50/50">
-                            <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest">Documentazione Allegata</h3>
-                            <button onClick={() => setViewerUrl(null)} className="p-3 hover:bg-red-50 text-red-500 rounded-2xl transition-all"><X size={24}/></button>
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 bg-slate-900/90 backdrop-blur-md animate-fade-in">
+                    <div className="bg-white rounded-[2rem] w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden shadow-2xl border border-white/20">
+                        <div className="px-6 py-4 border-b flex justify-between items-center bg-slate-50">
+                            <div>
+                                <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Documentazione</h3>
+                                <p className="text-[8px] font-bold text-slate-400 uppercase">Verifica integrità file</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <a href={viewerUrl} download="certificato-originale" className="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all flex items-center gap-2 text-[9px] font-black uppercase shadow-lg">
+                                    <Download size={16} /> <span className="hidden sm:inline">Download</span>
+                                </a>
+                                <button onClick={() => setViewerUrl(null)} className="p-2.5 bg-white border border-slate-200 text-red-500 rounded-xl hover:bg-red-50 transition-all shadow-sm"><X size={20}/></button>
+                            </div>
                         </div>
-                        <div className="flex-grow overflow-auto p-4 bg-slate-200 flex justify-center items-start">
-                            {viewerUrl.startsWith('data:application/pdf') ? (
-                                <iframe src={viewerUrl} className="w-full h-full rounded-2xl border-0 shadow-lg bg-white" />
+                        <div className="flex-grow overflow-auto p-3 bg-slate-100 flex justify-center items-start">
+                            {isPdf(viewerUrl) ? (
+                                <div className="w-full h-full flex flex-col">
+                                    <iframe 
+                                        src={viewerUrl} 
+                                        className="w-full h-full rounded-xl border-0 bg-white shadow-xl" 
+                                        title="PDF Viewer"
+                                    />
+                                    <div className="mt-4 p-4 bg-white/50 rounded-xl border border-white/20 text-center sm:hidden">
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase mb-3">Se l'anteprima non carica, usa il tasto download</p>
+                                        <button onClick={() => window.open(viewerUrl, '_blank')} className="px-4 py-2 bg-slate-900 text-white rounded-lg text-[9px] font-black uppercase flex items-center gap-2 mx-auto">
+                                            <ExternalLink size={14} /> Apri in nuova scheda
+                                        </button>
+                                    </div>
+                                </div>
                             ) : (
-                                <img src={viewerUrl} className="max-w-full rounded-2xl shadow-lg" alt="Documento" />
+                                <img src={viewerUrl} className="max-w-full rounded-xl shadow-2xl border border-white" alt="Certificato" />
                             )}
                         </div>
                     </div>
@@ -274,28 +289,28 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
 
             {/* FORM MODAL */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-xl animate-fade-in">
-                    <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl overflow-hidden animate-slide-up border border-white/10">
-                        <div className="p-10 border-b border-gray-50 flex justify-between items-center bg-slate-50/50">
+                <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 bg-slate-900/95 backdrop-blur-xl animate-fade-in">
+                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden animate-slide-up border border-white/10">
+                        <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-slate-50/50">
                             <div>
-                                <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter italic leading-none">{editCert ? 'Modifica Record' : 'Nuova Registrazione'}</h2>
-                                <p className="text-[10px] text-indigo-600 font-black uppercase tracking-widest mt-2">Database Sicurezza & Compliance Professionale</p>
+                                <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight italic">{editCert ? 'Modifica' : 'Inserimento'} Abilitazione</h2>
+                                <p className="text-[8px] text-indigo-600 font-black uppercase tracking-widest mt-0.5">Registro Tecnico Professionale</p>
                             </div>
-                            <button onClick={() => setIsModalOpen(false)} className="text-slate-300 hover:text-red-500 transition-all p-2 rounded-full hover:bg-red-50"><X size={32}/></button>
+                            <button onClick={() => setIsModalOpen(false)} className="text-slate-300 hover:text-red-500 transition-all p-2 bg-white rounded-xl shadow-sm"><X size={24}/></button>
                         </div>
                         
-                        <form onSubmit={handleSave} className="p-10 space-y-8 max-h-[75vh] overflow-y-auto custom-scrollbar">
-                            <div className="space-y-8">
+                        <form onSubmit={handleSave} className="p-6 space-y-5 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                            <div className="space-y-4">
                                 <div>
-                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2 italic">
-                                        <Award size={14} className="text-indigo-600" /> Titolo Certificato / Abilitazione / Ruolo
+                                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-2">
+                                        <Award size={12} className="text-indigo-600" /> Titolo Certificazione
                                     </label>
                                     <div className="flex gap-2">
                                         <input 
                                             type="text" 
                                             required 
-                                            className="flex-grow px-6 py-4 bg-slate-50 border-0 rounded-2xl font-black text-base text-slate-800 placeholder:text-slate-300 focus:ring-2 focus:ring-indigo-500" 
-                                            placeholder="es. CSP/CSE, RSPP Modulo B, BLSD..."
+                                            className="flex-grow px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-sm text-slate-800 placeholder:text-slate-200" 
+                                            placeholder="es. CSP/CSE, RSPP..."
                                             value={certName} 
                                             onChange={e => setCertName(e.target.value)} 
                                         />
@@ -303,74 +318,42 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
                                           type="button"
                                           onClick={handleSuggestExpiry}
                                           disabled={!certName || aiSuggesting}
-                                          className="bg-indigo-600 text-white px-5 rounded-2xl hover:bg-slate-900 transition-all flex items-center justify-center disabled:opacity-30 shadow-lg"
-                                          title="Chiedi scadenza a Gemini"
+                                          className="bg-indigo-600 text-white px-3.5 rounded-xl hover:bg-slate-900 transition-all disabled:opacity-30 flex items-center justify-center shadow-lg active:scale-95"
                                         >
-                                            {aiSuggesting ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
+                                            {aiSuggesting ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                                         </button>
                                     </div>
                                     {aiTip && (
-                                        <div className="mt-3 p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-start gap-3 animate-slide-up">
-                                            <Info size={16} className="text-indigo-600 mt-0.5 shrink-0" />
-                                            <p className="text-[10px] font-bold text-indigo-900 leading-tight uppercase tracking-tight">{aiTip}</p>
+                                        <div className="mt-2 p-3 bg-indigo-50 border border-indigo-100 rounded-xl flex items-start gap-2">
+                                            <Info size={14} className="text-indigo-600 shrink-0 mt-0.5" />
+                                            <p className="text-[9px] font-bold text-indigo-900 uppercase leading-tight italic">{aiTip}</p>
                                         </div>
                                     )}
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 italic">Data di Conseguimento</label>
-                                        <input 
-                                            type="date" 
-                                            required 
-                                            className="w-full px-6 py-4 bg-slate-50 border-0 rounded-2xl font-black text-sm text-slate-800" 
-                                            value={issueDate} 
-                                            onChange={e => setIssueDate(e.target.value)} 
-                                        />
+                                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-1.5 tracking-widest">Conseguito</label>
+                                        <input type="date" required className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-xs" value={issueDate} onChange={e => setIssueDate(e.target.value)} />
                                     </div>
                                     <div>
-                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 italic">Data di Scadenza / Aggiornamento</label>
-                                        <input 
-                                            type="date" 
-                                            className="w-full px-6 py-4 bg-slate-50 border-0 rounded-2xl font-black text-sm text-red-600" 
-                                            value={expiryDate} 
-                                            onChange={e => setExpiryDate(e.target.value)}
-                                            placeholder="Senza scadenza"
-                                        />
-                                        <p className="text-[9px] text-slate-400 mt-2 italic">* Lascia vuoto per abilitazioni permanenti</p>
+                                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-1.5 tracking-widest">Scadenza</label>
+                                        <input type="date" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-xs text-red-600" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} />
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2 italic">
-                                            <Building size={14} className="text-indigo-600" /> Ente Formativo / Ordine
-                                        </label>
-                                        <input 
-                                            type="text" 
-                                            required 
-                                            className="w-full px-6 py-4 bg-slate-50 border-0 rounded-2xl font-black text-sm" 
-                                            placeholder="es. Ordine Ingegneri, INAIL, ecc."
-                                            value={org} 
-                                            onChange={e => setOrg(e.target.value)} 
-                                        />
+                                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-1.5 tracking-widest">Ente Formatore</label>
+                                        <input type="text" required className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-xs" placeholder="es. Ordine Ingegneri" value={org} onChange={e => setOrg(e.target.value)} />
                                     </div>
                                     <div>
-                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2 italic">
-                                            <Tag size={14} className="text-indigo-600" /> Moduli Specifici / Fasi
-                                        </label>
-                                        <input 
-                                            type="text" 
-                                            className="w-full px-6 py-4 bg-slate-50 border-0 rounded-2xl font-black text-sm" 
-                                            placeholder="es. Modulo B (SP2), 40 ore CSP/CSE..."
-                                            value={details} 
-                                            onChange={e => setDetails(e.target.value)} 
-                                        />
+                                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-1.5 tracking-widest">Moduli / Rif.</label>
+                                        <input type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-xs" placeholder="es. 40 ore, Mod. B" value={details} onChange={e => setDetails(e.target.value)} />
                                     </div>
                                 </div>
 
-                                {/* FILE UPLOAD SECTION */}
-                                <div className="p-8 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 text-center relative hover:border-indigo-400 transition-colors group">
+                                <div className="p-8 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 text-center relative hover:border-indigo-400 hover:bg-indigo-50/20 transition-all group">
                                     <input 
                                         type="file" 
                                         accept="application/pdf,image/*" 
@@ -379,37 +362,22 @@ const SecureTrain: React.FC<SecureTrainProps> = ({ user }) => {
                                     />
                                     <div className="flex flex-col items-center">
                                         {docUrl ? (
-                                            <div className="text-emerald-600 animate-bounce-slow">
-                                                <FileCheck size={48} />
-                                                <p className="text-[10px] font-black uppercase tracking-widest mt-2">Documento Allegato</p>
+                                            <div className="text-emerald-600 flex flex-col items-center">
+                                                <FileCheck size={40} />
+                                                <p className="text-[9px] font-black uppercase mt-2 tracking-[0.2em]">Scansione Caricata</p>
                                             </div>
                                         ) : (
-                                            <div className="text-slate-400 group-hover:text-indigo-600 transition-colors">
-                                                <Upload size={48} />
-                                                <p className="text-[10px] font-black uppercase tracking-widest mt-2">Carica Scansione Certificato (PDF/IMG)</p>
+                                            <div className="text-slate-400 flex flex-col items-center group-hover:text-indigo-600 transition-colors">
+                                                <Upload size={40} />
+                                                <p className="text-[9px] font-black uppercase mt-2 tracking-[0.1em]">Allega Documento (PDF/IMG)</p>
                                             </div>
                                         )}
                                     </div>
                                 </div>
-
-                                <div>
-                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2 italic">
-                                        <CalendarDays size={14} className="text-indigo-600" /> Note Libere
-                                    </label>
-                                    <textarea 
-                                        className="w-full px-6 py-4 bg-slate-50 border-0 rounded-2xl font-bold text-sm min-h-[100px] resize-none" 
-                                        placeholder="Inserisci qui i riferimenti normativi aggiuntivi..."
-                                        value={details} 
-                                        onChange={e => setDetails(e.target.value)} 
-                                    />
-                                </div>
                             </div>
 
-                            <button 
-                                type="submit" 
-                                className="w-full py-6 bg-slate-900 text-white font-black text-xs uppercase tracking-[0.4em] rounded-2xl shadow-2xl hover:bg-indigo-600 transition-all active:scale-95 mt-4 italic"
-                            >
-                                <Save size={20} className="inline mr-3 mb-1" /> Salva nel Registro Professionale
+                            <button type="submit" className="w-full py-4 bg-slate-900 text-white font-black text-[10px] uppercase tracking-[0.3em] rounded-xl shadow-xl hover:bg-indigo-600 transition-all active:scale-95 italic mt-2">
+                                <Save size={16} className="inline mr-2" /> Salva nel Registro
                             </button>
                         </form>
                     </div>
