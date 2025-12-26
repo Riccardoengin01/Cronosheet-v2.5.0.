@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Project, TimeEntry } from '../types';
 import { groupEntriesByDay, formatDurationHuman, formatCurrency, calculateEarnings } from '../utils';
-import { Trash2, MapPin, Pencil, CheckSquare, Square, ChevronDown, Archive, Clock, Target } from 'lucide-react';
+import { Trash2, MapPin, Pencil, CheckSquare, Square, ChevronDown, Archive, Clock, Target, Wallet } from 'lucide-react';
 import { useLanguage } from '../lib/i18n';
 
 interface TimeLogTableProps {
@@ -107,8 +107,12 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
               </div>
           </div>
 
-          <div className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-black uppercase shadow-lg shadow-indigo-100 flex items-center gap-3">
-              <span className="opacity-70 text-xs">Imponibile:</span> {formatCurrency(totalFilteredEarnings)}
+          <div className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-black uppercase shadow-lg shadow-indigo-100 flex flex-col items-end">
+              <div className="flex items-center gap-3">
+                <span className="opacity-70 text-xs uppercase tracking-widest">Imponibile Totale:</span> 
+                {formatCurrency(totalFilteredEarnings)}
+              </div>
+              <span className="text-[8px] opacity-60 mt-0.5 tracking-[0.1em] font-bold uppercase">Prestazioni + Rimborsi Spese</span>
           </div>
       </div>
 
@@ -128,13 +132,16 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
                 <div className="divide-y divide-slate-50">
                     {group.entries.map(entry => {
                         const project = projects.find(p => p.id === entry.projectId);
-                        const earnings = calculateEarnings(entry);
+                        const totalEarnings = calculateEarnings(entry);
                         const activityType = project?.activityTypes?.find(a => a.id === entry.activityTypeId);
+                        
+                        const totalExpenses = (entry.expenses || []).reduce((sum, exp) => sum + exp.amount, 0);
+                        const professionalFee = totalEarnings - totalExpenses;
                         
                         return (
                             <div key={entry.id} className="px-5 py-4 flex items-center gap-4 hover:bg-slate-50/50 transition-colors group">
                                 <div className="flex-grow min-w-0 flex items-center gap-4">
-                                    <div className="w-1 h-6 rounded-full shrink-0" style={{ backgroundColor: project?.color }}></div>
+                                    <div className="w-1 h-12 rounded-full shrink-0" style={{ backgroundColor: project?.color }}></div>
                                     <div className="truncate">
                                         <div className="flex items-center gap-3">
                                             <p className="font-black text-slate-800 text-sm leading-tight truncate">{entry.description || 'Intervento Tecnico'}</p>
@@ -144,13 +151,26 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
                                                 </span>
                                             )}
                                         </div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mt-1 truncate">{project?.name}</p>
+                                        <div className="flex items-center gap-3 mt-1">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider truncate">{project?.name}</p>
+                                            {totalExpenses > 0 && (
+                                                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-50 border border-amber-100 rounded-md">
+                                                    <Wallet size={10} className="text-amber-600" />
+                                                    <span className="text-[8px] font-black text-amber-600 uppercase">Rimborsi: {formatCurrency(totalExpenses)}</span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div className="flex items-center gap-6 shrink-0">
-                                    <div className="text-right min-w-[80px]">
-                                        <div className="text-sm font-black text-slate-900 font-mono leading-none">{formatCurrency(earnings)}</div>
+                                    <div className="text-right min-w-[100px]">
+                                        <div className="text-sm font-black text-slate-900 font-mono leading-none">{formatCurrency(totalEarnings)}</div>
+                                        {totalExpenses > 0 && (
+                                            <div className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mt-1">
+                                                {formatCurrency(professionalFee)} + Spese
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button onClick={() => onEdit(entry)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-lg transition-all cursor-pointer"><Pencil size={16} /></button>
