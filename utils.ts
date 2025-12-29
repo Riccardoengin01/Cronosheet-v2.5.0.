@@ -79,12 +79,22 @@ export const calculateEarnings = (entry: TimeEntry): number => {
     return total;
 };
 
+// Helper per ottenere YYYY-MM-DD locale
+export const toLocalISOString = (timestamp: number): string => {
+  const d = new Date(timestamp);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const groupEntriesByDay = (entries: TimeEntry[]): DayGroup[] => {
   const groups: Record<string, DayGroup> = {};
   const sorted = [...entries].sort((a, b) => b.startTime - a.startTime);
 
   sorted.forEach(entry => {
-    const dateKey = new Date(entry.startTime).toISOString().split('T')[0];
+    // FIX: Usiamo toLocalISOString invece di toISOString() per evitare il salto al giorno prima causa UTC
+    const dateKey = toLocalISOString(entry.startTime);
     if (!groups[dateKey]) {
       groups[dateKey] = {
         date: dateKey,

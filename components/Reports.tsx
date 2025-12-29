@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo } from 'react';
 import { Project, TimeEntry } from '../types';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
-import { formatDurationHuman, formatCurrency } from '../utils';
+import { formatDurationHuman, formatCurrency, toLocalISOString } from '../utils';
 import { Calendar, Filter, TrendingUp, PieChart } from 'lucide-react';
 import { useLanguage } from '../lib/i18n';
 
@@ -16,20 +17,20 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
   const { t, language } = useLanguage();
   const [range, setRange] = useState<TimeRange>('7d');
 
-  // 1. Calcola intervallo date in base alla selezione
+  // 1. Calcola intervallo date in base alla selezione (Locale)
   const { startDate, daysArray, rangeLabel } = useMemo(() => {
       const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Midnight today
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Midnight today local
       let start = new Date(today);
       let daysCount = 7;
       let label = t('reports.7d');
 
       if (range === '14d') {
-          start.setDate(today.getDate() - 13); // 14 days inclusive
+          start.setDate(today.getDate() - 13);
           daysCount = 14;
           label = t('reports.14d');
       } else if (range === 'month') {
-          start = new Date(today.getFullYear(), today.getMonth(), 1); // 1st of current month
+          start = new Date(today.getFullYear(), today.getMonth(), 1);
           const diffTime = Math.abs(today.getTime() - start.getTime());
           daysCount = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
           label = t('reports.month');
@@ -41,7 +42,8 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
       for (let i = 0; i < daysCount; i++) {
           const d = new Date(start);
           d.setDate(start.getDate() + i);
-          arr.push(d.toISOString().split('T')[0]);
+          // FIX: Usiamo toLocalISOString invece di toISOString()
+          arr.push(toLocalISOString(d.getTime()));
       }
 
       return { startDate: start, daysArray: arr, rangeLabel: label };
@@ -72,7 +74,8 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
   const dailyData = useMemo(() => {
       return daysArray.map(dateStr => {
         const dayEntries = filteredEntries.filter(e => {
-            const eDate = new Date(e.startTime).toISOString().split('T')[0];
+            // FIX: Usiamo toLocalISOString invece di toISOString()
+            const eDate = toLocalISOString(e.startTime);
             return eDate === dateStr;
         });
         
@@ -81,7 +84,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
              return acc + duration;
         }, 0) / 3600;
 
-        const dateObj = new Date(dateStr);
+        const dateObj = new Date(dateStr + 'T12:00:00'); // T12:00:00 for safe parsing in local
         const label = dateObj.toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US', { weekday: 'short', day: 'numeric' });
 
         return {
@@ -98,8 +101,6 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
 
   return (
     <div className="space-y-6 animate-fade-in pb-10">
-      
-      {/* Header Controls */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
           <div className="flex items-center gap-2 text-gray-700 font-medium">
               <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
@@ -109,89 +110,46 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
           </div>
           
           <div className="flex bg-gray-100 p-1 rounded-lg">
-              <button 
-                  onClick={() => setRange('7d')}
-                  className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${range === '7d' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                  {t('reports.7d')}
-              </button>
-              <button 
-                  onClick={() => setRange('14d')}
-                  className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${range === '14d' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                  {t('reports.14d')}
-              </button>
-              <button 
-                  onClick={() => setRange('month')}
-                  className={`px-4 py-2 rounded-md text-sm font-bold transition-all flex items-center gap-2 ${range === 'month' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                  <Calendar size={14} /> {t('reports.month')}
-              </button>
+              <button onClick={() => setRange('7d')} className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${range === '7d' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{t('reports.7d')}</button>
+              <button onClick={() => setRange('14d')} className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${range === '14d' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{t('reports.14d')}</button>
+              <button onClick={() => setRange('month')} className={`px-4 py-2 rounded-md text-sm font-bold transition-all flex items-center gap-2 ${range === 'month' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}><Calendar size={14} /> {t('reports.month')}</button>
           </div>
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">{t('reports.total_hours_range')} ({rangeLabel})</p>
-              <p className="text-3xl font-bold text-indigo-600">
-                  {formatDurationHuman(totalSeconds)}
-              </p>
+              <p className="text-3xl font-bold text-indigo-600">{formatDurationHuman(totalSeconds)}</p>
           </div>
           <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">{t('reports.daily_avg')}</p>
               <div className="flex items-baseline gap-2">
-                  <p className="text-3xl font-bold text-emerald-600">
-                      {avgDailyHours.toFixed(1)}h
-                  </p>
+                  <p className="text-3xl font-bold text-emerald-600">{avgDailyHours.toFixed(1)}h</p>
                   <span className="text-xs text-gray-400">/ day</span>
               </div>
           </div>
           <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">{t('reports.top_project')}</p>
-              <p className="text-xl font-bold text-slate-800 truncate" title={projectData[0]?.name}>
-                  {projectData[0]?.name || '-'}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">
-                 {projectData[0] ? `${((projectData[0].value / totalHours) * 100).toFixed(0)}% ${t('reports.of_time')}` : ''}
-              </p>
+              <p className="text-xl font-bold text-slate-800 truncate" title={projectData[0]?.name}>{projectData[0]?.name || '-'}</p>
+              <p className="text-xs text-slate-500 mt-1">{projectData[0] ? `${((projectData[0].value / totalHours) * 100).toFixed(0)}% ${t('reports.of_time')}` : ''}</p>
           </div>
           <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">{t('log.entries')}</p>
-              <p className="text-3xl font-bold text-slate-800">
-                  {filteredEntries.length}
-              </p>
+              <p className="text-3xl font-bold text-slate-800">{filteredEntries.length}</p>
           </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Pie Chart */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col">
-          <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
-             <PieChart className="w-5 h-5 text-indigo-500"/> {t('reports.project_dist')}
-          </h3>
+          <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><PieChart className="w-5 h-5 text-indigo-500"/> {t('reports.project_dist')}</h3>
           <div className="h-72 flex-grow">
             {projectData.length > 0 ? (
                <ResponsiveContainer width="100%" height="100%">
                <RePieChart>
-                 <Pie
-                   data={projectData}
-                   cx="50%"
-                   cy="50%"
-                   innerRadius={60}
-                   outerRadius={80}
-                   paddingAngle={5}
-                   dataKey="value"
-                 >
-                   {projectData.map((entry, index) => (
-                     <Cell key={`cell-${index}`} fill={entry.color} />
-                   ))}
+                 <Pie data={projectData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                   {projectData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                  </Pie>
-                 <Tooltip 
-                   formatter={(value: number) => [`${value.toFixed(1)} hours`, 'Duration']}
-                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                 />
+                 <Tooltip formatter={(value: number) => [`${value.toFixed(1)} hours`, 'Duration']} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                  <Legend verticalAlign="bottom" height={36} iconType="circle" />
                </RePieChart>
              </ResponsiveContainer>
@@ -204,43 +162,17 @@ const Reports: React.FC<ReportsProps> = ({ entries, projects }) => {
           </div>
         </div>
 
-        {/* Bar Chart */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col">
-          <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
-             <TrendingUp className="w-5 h-5 text-indigo-500"/> {t('reports.daily_trend')}
-          </h3>
+          <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><TrendingUp className="w-5 h-5 text-indigo-500"/> {t('reports.daily_trend')}</h3>
           <div className="h-72 flex-grow">
           {filteredEntries.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                <XAxis 
-                    dataKey="date" 
-                    fontSize={11} 
-                    tickLine={false} 
-                    axisLine={false} 
-                    tick={{ fill: '#6b7280' }}
-                    interval={range === 'month' ? 2 : 0}
-                />
-                <YAxis 
-                    fontSize={11} 
-                    tickLine={false} 
-                    axisLine={false} 
-                    tickFormatter={(val) => `${val}h`} 
-                    tick={{ fill: '#6b7280' }}
-                />
-                <Tooltip 
-                    cursor={{fill: '#f9fafb'}}
-                    formatter={(value: number) => [`${value.toFixed(1)} hours`, 'Worked']}
-                    labelStyle={{ color: '#374151', fontWeight: 'bold' }}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                />
-                <Bar 
-                    dataKey="hours" 
-                    fill="#6366f1" 
-                    radius={[6, 6, 0, 0]} 
-                    barSize={range === 'month' ? 12 : 32}
-                />
+                <XAxis dataKey="date" fontSize={11} tickLine={false} axisLine={false} tick={{ fill: '#6b7280' }} interval={range === 'month' ? 2 : 0} />
+                <YAxis fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}h`} tick={{ fill: '#6b7280' }} />
+                <Tooltip cursor={{fill: '#f9fafb'}} formatter={(value: number) => [`${value.toFixed(1)} hours`, 'Worked']} labelStyle={{ color: '#374151', fontWeight: 'bold' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
+                <Bar dataKey="hours" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={range === 'month' ? 12 : 32} />
               </BarChart>
             </ResponsiveContainer>
              ) : (
