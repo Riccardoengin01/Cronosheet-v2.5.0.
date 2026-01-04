@@ -289,7 +289,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       </div>
 
       {/* Nuova Barra Filtri Pill-Style coordinata con screenshot */}
-      <div className="bg-white p-3 rounded-[3rem] shadow-sm border border-slate-100 no-print flex flex-wrap lg:flex-nowrap gap-3 items-center relative z-60 w-full lg:w-fit mx-auto" ref={dropdownRef}>
+      <div className="bg-white p-3 rounded-[3rem] shadow-sm border border-slate-100 no-print flex flex-wrap lg:flex-nowrap gap-4 items-center relative z-60 w-full lg:w-fit mx-auto" ref={dropdownRef}>
             
             {/* Anno Pill */}
             <div className="relative">

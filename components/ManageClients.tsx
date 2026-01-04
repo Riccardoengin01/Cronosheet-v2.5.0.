@@ -147,13 +147,13 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
                         {newActivityTypes.map(act => (
                             <div key={act.id} className="flex items-center justify-between bg-slate-50 px-4 py-2 rounded-xl group">
                                 <span className="text-xs font-bold text-slate-700">{act.name}</span>
-                                <button type="button" onClick={() => handleRemoveActivity(act.id)} className="text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={14}/></button>
+                                <button type="button" onClick={() => handleRemoveActivity(act.id)} className="text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"><Trash2 size={14}/></button>
                             </div>
                         ))}
                     </div>
                     <div className="flex gap-2">
                         <input type="text" placeholder="Aggiungi fase (es. Varianti)" className="flex-grow px-4 py-2 bg-slate-50 border-0 rounded-xl text-xs font-bold" value={activityName} onChange={e => setActivityName(e.target.value)} />
-                        <button type="button" onClick={handleAddActivity} className="bg-slate-900 text-white p-2 rounded-xl"><Plus size={18}/></button>
+                        <button type="button" onClick={handleAddActivity} className="bg-slate-900 text-white p-2 rounded-xl cursor-pointer"><Plus size={18}/></button>
                     </div>
                 </div>
 
@@ -166,7 +166,7 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
                         {newShifts.map(s => (
                             <div key={s.id} className="flex items-center justify-between bg-indigo-50/50 px-4 py-2 rounded-xl border border-indigo-100 group">
                                 <span className="text-xs font-black text-indigo-800 uppercase tracking-tighter">{s.name} ({s.startTime}-{s.endTime})</span>
-                                <button type="button" onClick={() => setNewShifts(newShifts.filter(x => x.id !== s.id))} className="text-indigo-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 size={14}/></button>
+                                <button type="button" onClick={() => setNewShifts(newShifts.filter(x => x.id !== s.id))} className="text-indigo-300 hover:text-red-500 opacity-0 group-hover:opacity-100 cursor-pointer"><Trash2 size={14}/></button>
                             </div>
                         ))}
                     </div>
@@ -174,56 +174,55 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
                         <input type="text" placeholder="Nome Turno" className="col-span-2 px-4 py-2 bg-slate-50 border-0 rounded-xl text-xs font-bold" value={shiftName} onChange={e => setShiftName(e.target.value)} />
                         <input type="time" className="px-4 py-2 bg-slate-50 border-0 rounded-xl text-xs font-bold" value={shiftStart} onChange={e => setShiftStart(e.target.value)} />
                         <input type="time" className="px-4 py-2 bg-slate-50 border-0 rounded-xl text-xs font-bold" value={shiftEnd} onChange={e => setShiftEnd(e.target.value)} />
-                        <button type="button" onClick={handleAddShift} className="col-span-2 bg-indigo-600 text-white py-2 rounded-xl font-black text-[10px] uppercase tracking-widest">Aggiungi Orario</button>
+                        <button type="button" onClick={handleAddShift} className="col-span-2 bg-indigo-600 text-white py-2 rounded-xl font-black text-[10px] uppercase tracking-widest cursor-pointer">Aggiungi Orario</button>
                     </div>
                 </div>
             </div>
 
             <div className="flex justify-end gap-4 pt-8 border-t border-slate-50">
-                <button type="button" onClick={() => setIsEditing(false)} className="px-8 py-3 text-slate-400 font-black uppercase text-[10px] tracking-widest hover:bg-slate-50 rounded-2xl transition-all">Annulla</button>
-                <button type="submit" className="px-10 py-4 bg-slate-900 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl shadow-xl hover:bg-indigo-900 transition-all">Salva Cliente nel Ledger</button>
+                <button type="button" onClick={() => setIsEditing(false)} className="px-8 py-3 text-slate-400 font-black uppercase text-[10px] tracking-widest hover:bg-slate-50 rounded-2xl transition-all cursor-pointer">Annulla</button>
+                <button type="submit" className="px-10 py-4 bg-slate-900 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl shadow-xl hover:bg-indigo-900 transition-all cursor-pointer">Salva Cliente nel Ledger</button>
             </div>
         </form>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-1">
           {projects.map(project => (
-              <div key={project.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-50 shadow-sm hover:shadow-xl transition-all group flex flex-col justify-between">
-                  <div>
-                      <div className="flex justify-between items-start mb-6">
-                          <div className="flex items-center gap-4">
-                              <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-inner" style={{ backgroundColor: project.color }}>
-                                  {project.name.charAt(0).toUpperCase()}
-                              </div>
-                              <div className="overflow-hidden">
-                                  <h3 className="font-black text-slate-800 text-lg leading-tight truncate w-32 uppercase tracking-tighter">{project.name}</h3>
-                                  <p className="text-[10px] text-slate-400 font-black mt-1 uppercase tracking-widest">
-                                      {formatCurrency(project.defaultHourlyRate)} / {project.defaultBillingType === 'daily' ? 'GG' : 'H'}
-                                  </p>
-                              </div>
+              <div key={project.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-50 shadow-sm hover:shadow-xl transition-all group flex flex-col min-h-[320px]">
+                  <div className="flex-grow">
+                      <div className="flex items-start gap-4 mb-6">
+                          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-inner shrink-0" style={{ backgroundColor: project.color }}>
+                              {project.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                              <h3 className="font-black text-slate-800 text-lg leading-tight uppercase tracking-tighter whitespace-normal break-words">
+                                {project.name}
+                              </h3>
+                              <p className="text-[10px] text-slate-400 font-black mt-1 uppercase tracking-widest">
+                                  {formatCurrency(project.defaultHourlyRate)} / {project.defaultBillingType === 'daily' ? 'GG' : 'H'}
+                              </p>
                           </div>
                       </div>
                       
-                      <div className="space-y-1.5 mb-6">
-                          <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">Fasi Attive</p>
+                      <div className="space-y-2 mb-6">
+                          <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Fasi Attive</p>
                           <div className="flex flex-wrap gap-1.5">
                               {project.activityTypes && project.activityTypes.length > 0 ? (
-                                  project.activityTypes.slice(0, 4).map(a => (
-                                      <span key={a.id} className="px-2 py-0.5 bg-slate-50 text-[8px] font-black text-slate-500 uppercase rounded-md border border-slate-100">
+                                  project.activityTypes.map(a => (
+                                      <span key={a.id} className="px-2 py-0.5 bg-slate-50 text-[9px] font-bold text-slate-600 uppercase rounded-md border border-slate-100 whitespace-normal break-words leading-tight">
                                           {a.name}
                                       </span>
                                   ))
                               ) : <span className="text-[8px] text-slate-300 italic uppercase">Nessun ritmo definito</span>}
-                              {project.activityTypes && project.activityTypes.length > 4 && <span className="text-[8px] text-indigo-400 font-black">+{project.activityTypes.length - 4}</span>}
                           </div>
                       </div>
                   </div>
 
-                  <div className="flex justify-between items-center pt-6 border-t border-slate-50">
-                      <button onClick={() => startEdit(project)} className="text-[9px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1.5">
+                  <div className="flex justify-between items-center pt-6 border-t border-slate-50 mt-auto">
+                      <button onClick={() => startEdit(project)} className="text-[9px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1.5 cursor-pointer">
                           <Pencil size={12} /> Modifica
                       </button>
-                      <button onClick={() => onDelete(project.id)} className="text-[9px] font-black uppercase tracking-widest text-slate-300 hover:text-red-500 transition-colors">
+                      <button onClick={() => onDelete(project.id)} className="text-[9px] font-black uppercase tracking-widest text-slate-300 hover:text-red-500 transition-colors cursor-pointer">
                           Elimina
                       </button>
                   </div>
