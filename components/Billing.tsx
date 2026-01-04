@@ -17,7 +17,9 @@ import {
   FileText,
   Target,
   CheckSquare,
-  Square
+  Square,
+  Calendar,
+  Clock
 } from 'lucide-react';
 import * as DB from '../services/db';
 
@@ -34,6 +36,8 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [applyBollo, setApplyBollo] = useState(false);
   const [applyInarcassa, setApplyInarcassa] = useState(true);
@@ -42,17 +46,33 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   const [expandedInvoices, setExpandedInvoices] = useState<Set<string>>(new Set<string>());
 
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
-  const clientDropdownRef = useRef<HTMLDivElement>(null);
+  const [activeDropdown, setActiveDropdown] = useState<'year' | 'month' | 'client' | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const months = [
+    { value: 'all', label: 'Tutti i mesi' },
+    { value: '0', label: 'Gennaio' }, { value: '1', label: 'Febbraio' }, { value: '2', label: 'Marzo' },
+    { value: '3', label: 'Aprile' }, { value: '4', label: 'Maggio' }, { value: '5', label: 'Giugno' },
+    { value: '6', label: 'Luglio' }, { value: '7', label: 'Agosto' }, { value: '8', label: 'Settembre' },
+    { value: '9', label: 'Ottobre' }, { value: '10', label: 'Novembre' }, { value: '11', label: 'Dicembre' }
+  ];
+
+  const availableYears = useMemo(() => {
+    const years = new Set((entries || []).map(e => new Date(e.startTime).getFullYear().toString()));
+    const sorted = Array.from(years).sort().reverse();
+    const current = new Date().getFullYear().toString();
+    if (!sorted.includes(current)) sorted.unshift(current);
+    return sorted;
+  }, [entries]);
 
   useEffect(() => {
     setSelectedEntryIds(new Set());
-  }, [isArchiveView, selectedProjectIds, selectedYear]);
+  }, [isArchiveView, selectedProjectIds, selectedYear, selectedMonth]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (clientDropdownRef.current && !clientDropdownRef.current.contains(event.target as Node)) {
-        setIsClientDropdownOpen(false);
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setActiveDropdown(null);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -69,13 +89,17 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
         if (!isArchiveView && entryIsBilled) return false;
         if (isArchiveView && !entryIsBilled) return false;
         
-        const entryYear = new Date(e.startTime).getFullYear().toString();
-        const matchesProject = selectedProjectIds.length === 0 || selectedProjectIds.includes(e.projectId);
-        const matchesYear = entryYear === selectedYear;
+        const d = new Date(e.startTime);
+        const entryYear = d.getFullYear().toString();
+        const entryMonth = d.getMonth().toString();
 
-        return matchesProject && matchesYear;
+        const matchesProject = selectedProjectIds.length === 0 || selectedProjectIds.includes(e.projectId);
+        const matchesYear = selectedYear === 'all' || entryYear === selectedYear;
+        const matchesMonth = selectedMonth === 'all' || entryMonth === selectedMonth;
+
+        return matchesProject && matchesYear && matchesMonth;
     }).sort((a, b) => b.startTime - a.startTime);
-  }, [entries, selectedProjectIds, isArchiveView, selectedYear]);
+  }, [entries, selectedProjectIds, isArchiveView, selectedYear, selectedMonth]);
 
   const groupedInvoices = useMemo(() => {
       if (!isArchiveView) return {};
@@ -159,7 +183,6 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       if (!confirm(`Riportare i ${selectedEntryIds.size} servizi selezionati allo stato 'Da Fatturare'?`)) return;
       setIsProcessing(true);
       try {
-          // Rimuoviamo il flag billed solo per gli ID selezionati
           await DB.markEntriesAsBilled([...selectedEntryIds], undefined);
           setSelectedEntryIds(new Set());
           if (onEntriesChange) await onEntriesChange();
@@ -179,14 +202,14 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
   return (
     <div className="space-y-8 animate-fade-in max-w-6xl mx-auto pb-10 print:pb-0">
       
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print px-2 relative z-[60]">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print px-2 relative z-[70]">
            <div>
                <h1 className="text-4xl font-black text-slate-900 tracking-tight uppercase flex items-center gap-4 italic">
                    {isArchiveView ? <ArchiveIcon size={32} className="text-indigo-600" /> : <Receipt size={32} className="text-indigo-600" />}
                    {isArchiveView ? "Registro Fatture" : "Emissione Pro-Forma"}
                </h1>
                <p className="text-indigo-600 text-[10px] font-black uppercase tracking-[0.3em] mt-2 flex items-center gap-2">
-                   <Target size={14} /> FluxLedger Digital Compliance • Developed by Ing. Righini
+                   <Target size={14} /> FluxLedger Digital Compliance • Studio Engineering Systems
                </p>
            </div>
            
@@ -220,27 +243,60 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
            )}
       </div>
 
-      <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 no-print flex flex-col lg:flex-row gap-8 items-center relative z-50">
-            <div className="flex items-center bg-slate-50 p-1.5 rounded-2xl shrink-0">
-                {['2023', '2024', '2025'].map(year => (
-                    <button key={year} onClick={() => setSelectedYear(year)} className={`px-6 py-2.5 text-xs font-black uppercase rounded-xl transition-all ${selectedYear === year ? 'bg-white text-indigo-600 shadow-md border border-slate-100' : 'text-slate-400 hover:text-slate-600 cursor-pointer'}`}>
-                        {year}
+      <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 no-print flex flex-col lg:flex-row gap-6 items-center relative z-60" ref={dropdownRef}>
+            <div className="flex items-center gap-3 shrink-0">
+                {/* Dropdown Anno Billing */}
+                <div className="relative">
+                    <button 
+                      onClick={() => setActiveDropdown(activeDropdown === 'year' ? null : 'year')}
+                      className="flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black uppercase border border-slate-100 text-slate-700 bg-slate-50 hover:bg-white transition-all cursor-pointer min-w-[120px]"
+                    >
+                        <Calendar size={16} className="text-indigo-500" />
+                        <span>{selectedYear === 'all' ? 'Tutti gli Anni' : selectedYear}</span>
+                        <ChevronDown size={14} className={`ml-auto transition-transform ${activeDropdown === 'year' ? 'rotate-180' : ''}`} />
                     </button>
-                ))}
+                    {activeDropdown === 'year' && (
+                        <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[100] p-2 animate-slide-up">
+                            <button onClick={() => { setSelectedYear('all'); setActiveDropdown(null); }} className={`w-full text-left px-4 py-2 rounded-lg text-xs font-bold ${selectedYear === 'all' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-50'}`}>Tutti gli Anni</button>
+                            {availableYears.map(y => (
+                                <button key={y} onClick={() => { setSelectedYear(y); setActiveDropdown(null); }} className={`w-full text-left px-4 py-2 rounded-lg text-xs font-bold ${selectedYear === y ? 'bg-indigo-600 text-white' : 'hover:bg-slate-50'}`}>{y}</button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Dropdown Mese Billing */}
+                <div className="relative">
+                    <button 
+                      onClick={() => setActiveDropdown(activeDropdown === 'month' ? null : 'month')}
+                      className="flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black uppercase border border-slate-100 text-slate-700 bg-slate-50 hover:bg-white transition-all cursor-pointer min-w-[140px]"
+                    >
+                        <Clock size={16} className="text-indigo-500" />
+                        <span>{months.find(m => m.value === selectedMonth)?.label}</span>
+                        <ChevronDown size={14} className={`ml-auto transition-transform ${activeDropdown === 'month' ? 'rotate-180' : ''}`} />
+                    </button>
+                    {activeDropdown === 'month' && (
+                        <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[100] p-2 animate-slide-up max-h-64 overflow-y-auto custom-scrollbar">
+                            {months.map(m => (
+                                <button key={m.value} onClick={() => { setSelectedMonth(m.value); setActiveDropdown(null); }} className={`w-full text-left px-4 py-2 rounded-lg text-xs font-bold ${selectedMonth === m.value ? 'bg-indigo-600 text-white' : 'hover:bg-slate-50'}`}>{m.label}</button>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div className="flex-grow flex gap-4 w-full">
-                <div className="relative flex-grow" ref={clientDropdownRef}>
+                <div className="relative flex-grow">
                     <button 
-                      onClick={(e) => { e.stopPropagation(); setIsClientDropdownOpen(!isClientDropdownOpen); }} 
-                      className="flex items-center justify-between gap-4 px-6 py-3.5 rounded-2xl text-xs font-black border border-slate-100 text-slate-700 w-full hover:bg-slate-50 bg-white uppercase tracking-widest shadow-sm cursor-pointer"
+                      onClick={() => setActiveDropdown(activeDropdown === 'client' ? null : 'client')}
+                      className="flex items-center justify-between gap-4 px-6 py-3 rounded-2xl text-xs font-black border border-slate-100 text-slate-700 w-full hover:bg-slate-50 bg-white uppercase tracking-widest shadow-sm cursor-pointer"
                     >
                         <MapPin size={18} className="text-indigo-500" /> 
                         <span>{selectedProjectIds.length === projects.length ? 'Tutti i Clienti' : `${selectedProjectIds.length} Clienti`}</span>
-                        <ChevronDown size={18} className={`transition-transform ${isClientDropdownOpen ? 'rotate-180' : ''}`} />
+                        <ChevronDown size={18} className={`transition-transform ${activeDropdown === 'client' ? 'rotate-180' : ''}`} />
                     </button>
 
-                    {isClientDropdownOpen && (
+                    {activeDropdown === 'client' && (
                       <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-2xl shadow-2xl border border-slate-100 z-[100] p-4 animate-slide-up max-h-80 overflow-y-auto custom-scrollbar">
                          <div className="flex justify-between mb-4 pb-2 border-b border-slate-50">
                             <button onClick={() => setSelectedProjectIds(projects.map(p => p.id))} className="text-[9px] font-black text-indigo-600 uppercase hover:underline cursor-pointer">Seleziona Tutti</button>
@@ -258,15 +314,15 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                     )}
                 </div>
                 
-                <div className="bg-slate-900 text-white px-8 py-3.5 rounded-2xl flex items-center gap-4 shadow-xl">
-                    <p className="text-[11px] font-black uppercase tracking-widest text-indigo-400">{selectedEntryIds.size > 0 ? 'Tot. Selezione' : 'Tot. Potenziale'}</p>
+                <div className="bg-slate-900 text-white px-8 py-3 rounded-2xl flex items-center gap-4 shadow-xl shrink-0">
+                    <p className="text-[11px] font-black uppercase tracking-widest text-indigo-400">Tot. Selezione</p>
                     <p className="text-xl font-black font-mono">{formatCurrency(baseImponibile)}</p>
                 </div>
             </div>
 
-            <div className="flex gap-3 w-full lg:w-auto">
-                <button onClick={() => window.print()} className="flex-1 lg:flex-none flex items-center justify-center gap-3 bg-indigo-600 text-white px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-100 cursor-pointer"><Printer size={18}/> Stampa</button>
-                <button onClick={handleExportCSV} className="flex-1 lg:flex-none flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-600 px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 cursor-pointer"><Download size={18}/> Excel</button>
+            <div className="flex gap-3 w-full lg:w-auto shrink-0">
+                <button onClick={() => window.print()} className="flex-1 lg:flex-none flex items-center justify-center gap-3 bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-100 cursor-pointer"><Printer size={18}/> Stampa</button>
+                <button onClick={handleExportCSV} className="flex-1 lg:flex-none flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-600 px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 cursor-pointer"><Download size={18}/> Excel</button>
             </div>
       </div>
 
@@ -346,14 +402,16 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                       <div>
                           <h1 className="text-5xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-4 italic">Riepilogo Pro-Forma</h1>
                           <p className="text-indigo-600 font-black text-sm uppercase tracking-[0.3em] flex items-center gap-2">
-                             <Target size={18} /> Revisione Ledger Commesse • Developed by Ing. Righini
+                             <Target size={18} /> Revisione Ledger Commesse • Studio Engineering Systems
                           </p>
                       </div>
                       <div className="text-left md:text-right">
                           <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">
                             {selectedProjectIds.length === 1 ? projects.find(p => p.id === selectedProjectIds[0])?.name : 'Portfolio Professionale Combinato'}
                           </h3>
-                          <p className="text-slate-400 font-bold mt-2 text-base uppercase tracking-widest">Esercizio Fiscale {selectedYear}</p>
+                          <p className="text-slate-400 font-bold mt-2 text-base uppercase tracking-widest">
+                            {selectedYear === 'all' ? 'Tutti gli Anni' : `Esercizio Fiscale ${selectedYear}`}
+                          </p>
                       </div>
                   </div>
 

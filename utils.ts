@@ -25,7 +25,7 @@ export const formatDuration = (seconds: number): string => {
 };
 
 export const formatDurationHuman = (seconds: number): string => {
-  if (seconds <= 0) return "";
+  if (seconds <= 0) return "0m";
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   
@@ -90,6 +90,7 @@ export const toLocalISOString = (timestamp: number): string => {
 
 export const groupEntriesByDay = (entries: TimeEntry[]): DayGroup[] => {
   const groups: Record<string, DayGroup> = {};
+  // Ordiniamo le entries decrescenti per timestamp per avere il log cronologico corretto
   const sorted = [...entries].sort((a, b) => b.startTime - a.startTime);
 
   sorted.forEach(entry => {
@@ -106,13 +107,14 @@ export const groupEntriesByDay = (entries: TimeEntry[]): DayGroup[] => {
     
     // Only add to total duration if not a daily entry (or daily entry with times)
     if (entry.billingType !== 'daily' || (entry.endTime && entry.startTime)) {
-        const duration = entry.endTime 
+        const duration = entry.duration || (entry.endTime 
           ? (entry.endTime - entry.startTime) / 1000 
-          : 0;
+          : 0);
         groups[dateKey].totalDuration += duration;
     }
   });
 
+  // Ordiniamo i gruppi per data decrescente
   return Object.values(groups).sort((a, b) => b.date.localeCompare(a.date));
 };
 
