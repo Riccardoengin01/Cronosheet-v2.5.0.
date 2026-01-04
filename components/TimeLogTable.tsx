@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Project, TimeEntry } from '../types';
 import { groupEntriesByDay, formatDurationHuman, formatCurrency, calculateEarnings, toLocalISOString } from '../utils';
-import { Trash2, MapPin, Pencil, CheckSquare, Square, ChevronDown, Archive, Clock, Target, Wallet, Calendar, Filter } from 'lucide-react';
+import { Trash2, MapPin, Pencil, CheckSquare, Square, ChevronDown, Archive, Clock, Target, Wallet, Calendar, Filter, RotateCcw, X } from 'lucide-react';
 import { useLanguage } from '../lib/i18n';
 
 interface TimeLogTableProps {
@@ -12,11 +12,26 @@ interface TimeLogTableProps {
   onEdit: (entry: TimeEntry) => void;
 }
 
+const STORAGE_KEYS = {
+  YEAR: 'flux_filter_year',
+  MONTH: 'flux_filter_month',
+  CLIENTS: 'flux_filter_clients'
+};
+
 const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete, onEdit }) => {
   const { language } = useLanguage();
-  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
-  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
-  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  
+  // Inizializzazione stato da localStorage o default
+  const [selectedYear, setSelectedYear] = useState<string>(() => {
+    return localStorage.getItem(STORAGE_KEYS.YEAR) || new Date().getFullYear().toString();
+  });
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    return localStorage.getItem(STORAGE_KEYS.MONTH) || 'all';
+  });
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.CLIENTS);
+    return saved ? JSON.parse(saved) : [];
+  });
   
   const [activeDropdown, setActiveDropdown] = useState<'year' | 'month' | 'client' | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -39,9 +54,26 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
     { value: '9', label: 'Ottobre' }, { value: '10', label: 'Novembre' }, { value: '11', label: 'Dicembre' }
   ];
 
+  // Effetto per sincronizzare localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.YEAR, selectedYear);
+  }, [selectedYear]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.MONTH, selectedMonth);
+  }, [selectedMonth]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(selectedProjectIds));
+  }, [selectedProjectIds]);
+
+  // Gestione inizializzazione progetti (solo se non ci sono filtri salvati o validi)
   useEffect(() => {
       if (projects.length > 0 && selectedProjectIds.length === 0) {
-          setSelectedProjectIds(projects.map(p => p.id));
+          const saved = localStorage.getItem(STORAGE_KEYS.CLIENTS);
+          if (!saved || JSON.parse(saved).length === 0) {
+              setSelectedProjectIds(projects.map(p => p.id));
+          }
       }
   }, [projects]);
 
@@ -54,6 +86,16 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
       document.addEventListener("mousedown", handleClickOutside);
       return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const handleResetFilters = () => {
+    const currentYear = new Date().getFullYear().toString();
+    setSelectedYear(currentYear);
+    setSelectedMonth('all');
+    setSelectedProjectIds(projects.map(p => p.id));
+    localStorage.removeItem(STORAGE_KEYS.YEAR);
+    localStorage.removeItem(STORAGE_KEYS.MONTH);
+    localStorage.removeItem(STORAGE_KEYS.CLIENTS);
+  };
 
   const toggleProject = (id: string) => {
       setSelectedProjectIds(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
@@ -73,6 +115,11 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
   const totalFilteredEarnings = filteredEntries.reduce((acc, e) => acc + calculateEarnings(e), 0);
   const totalFilteredSeconds = filteredEntries.reduce((acc, e) => acc + (e.duration || 0), 0);
 
+  // Verifica se i filtri sono diversi dai default per mostrare il reset
+  const isFilterActive = selectedYear !== new Date().getFullYear().toString() || 
+                         selectedMonth !== 'all' || 
+                         selectedProjectIds.length !== projects.length;
+
   if (pendingEntries.length === 0) {
       return (
           <div className="text-center py-20 bg-white rounded-[3rem] border-2 border-dashed border-slate-100 max-w-5xl mx-auto shadow-sm">
@@ -84,7 +131,7 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
 
   return (
     <div className="space-y-6 animate-fade-in max-w-5xl mx-auto relative">
-      {/* Nuova Barra Filtri Avanzata */}
+      {/* Nuova Barra Filtri Avanzata con Reset */}
       <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm no-print relative z-[60]" ref={dropdownRef}>
           <div className="flex flex-wrap items-center gap-3">
               
@@ -154,6 +201,18 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
                       </div>
                   )}
               </div>
+
+              {/* Pulsante Reset Filtri */}
+              {isFilterActive && (
+                <button 
+                  onClick={handleResetFilters}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-[9px] font-black uppercase text-red-500 bg-red-50 hover:bg-red-100 transition-all cursor-pointer"
+                  title="Reset Filtri"
+                >
+                  <RotateCcw size={14} />
+                  <span>Reset</span>
+                </button>
+              )}
           </div>
 
           <div className="flex items-center gap-6 pr-2">
