@@ -20,7 +20,9 @@ import {
   Square,
   Calendar,
   Clock,
-  RotateCcw
+  RotateCcw,
+  CheckCircle2,
+  Circle
 } from 'lucide-react';
 import * as DB from '../services/db';
 
@@ -150,6 +152,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       return targetEntries.reduce((acc, curr) => acc + calculateEarnings(curr), 0);
   }, [filteredEntries, selectedEntryIds]);
 
+  // Bollo logic: Auto-detection as a starting point, but user can toggle
   useEffect(() => {
       if (baseImponibile > 77.47) setApplyBollo(true);
       else setApplyBollo(false);
@@ -233,9 +236,14 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       } catch (e) { alert("Errore aggiornamento incasso."); } finally { setIsProcessing(false); }
   };
 
+  const isFilterActive = selectedYear !== new Date().getFullYear().toString() || 
+                         selectedMonth !== 'all' || 
+                         selectedProjectIds.length !== projects.length;
+
   return (
     <div className="space-y-8 animate-fade-in max-w-6xl mx-auto pb-10 print:pb-0">
       
+      {/* Header Professionale */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print px-2 relative z-[70]">
            <div className="flex flex-col gap-1">
                <div className="flex items-center gap-4">
@@ -288,7 +296,7 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
            )}
       </div>
 
-      {/* Nuova Barra Filtri Pill-Style coordinata con screenshot */}
+      {/* Barra Filtri Pill-Style coordinata con screenshot */}
       <div className="bg-white p-3 rounded-[3rem] shadow-sm border border-slate-100 no-print flex flex-wrap lg:flex-nowrap gap-4 items-center relative z-60 w-full lg:w-fit mx-auto" ref={dropdownRef}>
             
             {/* Anno Pill */}
@@ -371,6 +379,30 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
                 <button onClick={handleExportCSV} className="flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-600 px-8 py-3.5 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 cursor-pointer active:scale-95 transition-all"><Download size={20}/> Excel</button>
             </div>
       </div>
+
+      {/* Toggle Fiscali per Bollo e Inarcassa (Nuova Sezione Richiesta) */}
+      {!isArchiveView && (
+          <div className="no-print bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-wrap items-center gap-10">
+              <div className="flex items-center gap-4">
+                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Opzioni Fiscali Selezione:</span>
+                  <div className="h-8 w-[2px] bg-slate-100"></div>
+              </div>
+              <button 
+                  onClick={() => setApplyBollo(!applyBollo)}
+                  className={`flex items-center gap-3 px-5 py-2.5 rounded-xl border transition-all cursor-pointer ${applyBollo ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-50 border-slate-100 text-slate-400'}`}
+              >
+                  {applyBollo ? <CheckCircle2 size={18}/> : <Circle size={18}/>}
+                  <span className="text-[11px] font-black uppercase tracking-widest">Imposta di Bollo (2€)</span>
+              </button>
+              <button 
+                  onClick={() => setApplyInarcassa(!applyInarcassa)}
+                  className={`flex items-center gap-3 px-5 py-2.5 rounded-xl border transition-all cursor-pointer ${applyInarcassa ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-50 border-slate-100 text-slate-400'}`}
+              >
+                  {applyInarcassa ? <CheckCircle2 size={18}/> : <Circle size={18}/>}
+                  <span className="text-[11px] font-black uppercase tracking-widest">Contributo Inarcassa (4%)</span>
+              </button>
+          </div>
+      )}
 
       <div className="space-y-8 relative z-10">
           {isArchiveView ? (

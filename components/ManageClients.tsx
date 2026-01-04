@@ -94,7 +94,7 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
   };
 
   return (
-    <div className="animate-fade-in space-y-6 max-w-6xl mx-auto">
+    <div className="animate-fade-in space-y-6 max-w-6xl mx-auto px-2">
       <div className="flex justify-between items-center px-1">
         <div>
             <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Portfolio Clienti & Ritmi</h2>
@@ -103,7 +103,7 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
         {!isEditing && (
             <button 
                 onClick={() => startEdit()}
-                className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-2xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 font-black uppercase text-xs tracking-widest"
+                className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-2xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 font-black uppercase text-xs tracking-widest cursor-pointer"
             >
                 <Plus size={18} strokeWidth={3} /> Nuovo Cliente
             </button>
@@ -125,8 +125,8 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
                 <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Metodo Billing</label>
                     <div className="flex bg-slate-100 p-1 rounded-xl">
-                        <button type="button" onClick={() => setNewBillingType('hourly')} className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${newBillingType === 'hourly' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Hourly</button>
-                        <button type="button" onClick={() => setNewBillingType('daily')} className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all ${newBillingType === 'daily' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Daily</button>
+                        <button type="button" onClick={() => setNewBillingType('hourly')} className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all cursor-pointer ${newBillingType === 'hourly' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Hourly</button>
+                        <button type="button" onClick={() => setNewBillingType('daily')} className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all cursor-pointer ${newBillingType === 'daily' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Daily</button>
                     </div>
                 </div>
                 <div>
@@ -135,7 +135,6 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
                 </div>
             </div>
 
-            {/* SEZIONE RITMI / FASI */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 pt-4">
                 <div className="space-y-4">
                     <label className="block text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] flex items-center gap-2">
@@ -146,8 +145,8 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
                     <div className="space-y-2">
                         {newActivityTypes.map(act => (
                             <div key={act.id} className="flex items-center justify-between bg-slate-50 px-4 py-2 rounded-xl group">
-                                <span className="text-xs font-bold text-slate-700">{act.name}</span>
-                                <button type="button" onClick={() => handleRemoveActivity(act.id)} className="text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"><Trash2 size={14}/></button>
+                                <span className="text-xs font-bold text-slate-700 whitespace-normal break-words pr-4">{act.name}</span>
+                                <button type="button" onClick={() => handleRemoveActivity(act.id)} className="text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer shrink-0"><Trash2 size={14}/></button>
                             </div>
                         ))}
                     </div>
@@ -165,8 +164,8 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
                     <div className="space-y-2">
                         {newShifts.map(s => (
                             <div key={s.id} className="flex items-center justify-between bg-indigo-50/50 px-4 py-2 rounded-xl border border-indigo-100 group">
-                                <span className="text-xs font-black text-indigo-800 uppercase tracking-tighter">{s.name} ({s.startTime}-{s.endTime})</span>
-                                <button type="button" onClick={() => setNewShifts(newShifts.filter(x => x.id !== s.id))} className="text-indigo-300 hover:text-red-500 opacity-0 group-hover:opacity-100 cursor-pointer"><Trash2 size={14}/></button>
+                                <span className="text-xs font-black text-indigo-800 uppercase tracking-tighter truncate pr-4">{s.name} ({s.startTime}-{s.endTime})</span>
+                                <button type="button" onClick={() => setNewShifts(newShifts.filter(x => x.id !== s.id))} className="text-indigo-300 hover:text-red-500 opacity-0 group-hover:opacity-100 cursor-pointer shrink-0"><Trash2 size={14}/></button>
                             </div>
                         ))}
                     </div>
@@ -188,14 +187,14 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-1">
           {projects.map(project => (
-              <div key={project.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-50 shadow-sm hover:shadow-xl transition-all group flex flex-col min-h-[320px]">
+              <div key={project.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-50 shadow-sm hover:shadow-xl transition-all group flex flex-col min-h-[350px]">
                   <div className="flex-grow">
                       <div className="flex items-start gap-4 mb-6">
                           <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-inner shrink-0" style={{ backgroundColor: project.color }}>
                               {project.name.charAt(0).toUpperCase()}
                           </div>
-                          <div className="min-w-0">
-                              <h3 className="font-black text-slate-800 text-lg leading-tight uppercase tracking-tighter whitespace-normal break-words">
+                          <div className="min-w-0 flex-1">
+                              <h3 className="font-black text-slate-800 text-[16px] leading-tight uppercase tracking-tight whitespace-normal break-words">
                                 {project.name}
                               </h3>
                               <p className="text-[10px] text-slate-400 font-black mt-1 uppercase tracking-widest">
@@ -204,12 +203,12 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
                           </div>
                       </div>
                       
-                      <div className="space-y-2 mb-6">
+                      <div className="space-y-3 mb-6">
                           <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Fasi Attive</p>
                           <div className="flex flex-wrap gap-1.5">
                               {project.activityTypes && project.activityTypes.length > 0 ? (
                                   project.activityTypes.map(a => (
-                                      <span key={a.id} className="px-2 py-0.5 bg-slate-50 text-[9px] font-bold text-slate-600 uppercase rounded-md border border-slate-100 whitespace-normal break-words leading-tight">
+                                      <span key={a.id} className="px-2.5 py-1 bg-slate-50 text-[10px] font-bold text-slate-600 uppercase rounded-lg border border-slate-100 whitespace-normal break-words leading-tight max-w-full">
                                           {a.name}
                                       </span>
                                   ))
@@ -219,10 +218,10 @@ const ManageClients: React.FC<ManageClientsProps> = ({ projects, onSave, onDelet
                   </div>
 
                   <div className="flex justify-between items-center pt-6 border-t border-slate-50 mt-auto">
-                      <button onClick={() => startEdit(project)} className="text-[9px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1.5 cursor-pointer">
+                      <button onClick={() => startEdit(project)} className="text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1.5 cursor-pointer">
                           <Pencil size={12} /> Modifica
                       </button>
-                      <button onClick={() => onDelete(project.id)} className="text-[9px] font-black uppercase tracking-widest text-slate-300 hover:text-red-500 transition-colors cursor-pointer">
+                      <button onClick={() => onDelete(project.id)} className="text-[10px] font-black uppercase tracking-widest text-slate-300 hover:text-red-500 transition-colors cursor-pointer">
                           Elimina
                       </button>
                   </div>
