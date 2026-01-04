@@ -274,7 +274,7 @@ const TimeLogTable: React.FC<TimeLogTableProps> = ({ entries, projects, onDelete
                                             <div className="w-1.5 h-12 rounded-full shrink-0" style={{ backgroundColor: project?.color || '#cbd5e1' }}></div>
                                             <div className="truncate">
                                                 <div className="flex items-center gap-3">
-                                                    <p className="font-black text-slate-800 text-sm leading-tight truncate uppercase tracking-tight">{entry.description || 'Intervento Tecnico'}</p>
+                                                    <p className="font-black text-slate-800 text-sm leading-tight uppercase tracking-tight whitespace-normal break-words">{entry.description || 'Intervento Tecnico'}</p>
                                                     {activityType && (
                                                         <span className="flex items-center gap-1 text-[9px] font-black text-indigo-600 uppercase bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full shrink-0">
                                                             <Target size={10} /> {activityType.name}
