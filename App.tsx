@@ -193,9 +193,9 @@ function App() {
 
   if (loadingAuth) return <div className="h-screen w-screen flex flex-col items-center justify-center bg-gray-50"><div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div></div>;
 
-  if (dbError || (isSupabaseConfigured && !profile && !loadingAuth)) return <div className="h-screen w-screen flex flex-col"><DatabaseSetup /></div>;
+  if (dbError || (isSupabaseConfigured && !profile && !loadingAuth)) return <div className="h-screen w-screen flex flex-col"><DatabaseSetup onDemoStart={() => setDemoMode(true)} /></div>;
 
-  if (!isSupabaseConfigured && !demoMode) return <div className="h-screen w-screen flex flex-col"><DatabaseSetup /></div>;
+  if (!isSupabaseConfigured && !demoMode) return <div className="h-screen w-screen flex flex-col"><DatabaseSetup onDemoStart={() => setDemoMode(true)} /></div>;
 
   if (!profile) return <Auth onLoginSuccess={(p) => setProfile(p)} />;
 
