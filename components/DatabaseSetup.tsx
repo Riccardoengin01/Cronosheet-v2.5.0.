@@ -1,8 +1,12 @@
 
 import React, { useState } from 'react';
-import { Database, Copy, Check, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Database, Copy, Check, RefreshCw, AlertTriangle, PlayCircle, ShieldAlert } from 'lucide-react';
 
-const FULL_INIT_SCRIPT = `-- 🚀 FLUXLEDGER PROFESSIONAL - SQL V7
+interface DatabaseSetupProps {
+    onDemoStart?: () => void;
+}
+
+const FULL_INIT_SCRIPT = `-- 🚀 FLUXLEDGER PROFESSIONAL - SQL V7 (MIGRATION & SETUP)
 
 -- 1. PROFILI
 create table if not exists public.profiles (
@@ -30,7 +34,7 @@ create table if not exists public.projects (
   created_at timestamptz default now()
 );
 
--- 3. TIME ENTRIES (Aggiunto invoice_number)
+-- 3. TIME ENTRIES
 create table if not exists public.time_entries (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
@@ -50,60 +54,7 @@ create table if not exists public.time_entries (
   created_at timestamptz default now()
 );
 
--- 4. BUSINESS EXPENSES
-create table if not exists public.business_expenses (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references public.profiles(id) on delete cascade not null,
-  description text not null,
-  amount numeric(10,2) default 0,
-  category text,
-  date date default current_date,
-  is_recurring boolean default false,
-  created_at timestamptz default now()
-);
-
--- 5. CERTIFICAZIONI
-create table if not exists public.certifications (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references public.profiles(id) on delete cascade not null,
-  name text not null,
-  course_type text, 
-  organization text,
-  issue_date date,
-  expiry_date date,
-  document_url text, 
-  details text,     
-  created_at timestamptz default now()
-);
-
--- ABILITA RLS
-alter table public.profiles enable row level security;
-alter table public.projects enable row level security;
-alter table public.time_entries enable row level security;
-alter table public.business_expenses enable row level security;
-alter table public.certifications enable row level security;
-
--- POLICIES
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'manage_profiles') THEN
-        create policy "manage_profiles" on public.profiles for all using (auth.uid() = id);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'manage_projects') THEN
-        create policy "manage_projects" on public.projects for all using (auth.uid() = user_id);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'manage_entries') THEN
-        create policy "manage_entries" on public.time_entries for all using (auth.uid() = user_id);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'manage_bus_expenses') THEN
-        create policy "manage_bus_expenses" on public.business_expenses for all using (auth.uid() = user_id);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'manage_certs') THEN
-        create policy "manage_certs" on public.certifications for all using (auth.uid() = user_id);
-    END IF;
-END $$;
-
--- FIX COLONNE SE MANCANTI (MIGRATION)
+-- FIX COLONNE SE MANCANTI (MIGRATION CRITICA V7)
 DO $$ 
 BEGIN 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='time_entries' AND column_name='invoice_number') THEN
@@ -120,7 +71,7 @@ END $$;
 NOTIFY pgrst, 'reload schema';
 `;
 
-const DatabaseSetup = () => {
+const DatabaseSetup: React.FC<DatabaseSetupProps> = ({ onDemoStart }) => {
     const [copied, setCopied] = useState(false);
     const handleCopy = (text: string) => {
         navigator.clipboard.writeText(text);
@@ -129,34 +80,94 @@ const DatabaseSetup = () => {
     };
 
     return (
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans z-50 relative">
-            <div className="bg-white max-w-3xl w-full rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-                <div className="bg-emerald-600 p-6 text-white flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className="bg-white/20 p-3 rounded-lg"><Database size={32} /></div>
-                        <div>
-                            <h1 className="text-2xl font-bold uppercase tracking-tight">FluxLedger Repair V7</h1>
-                            <p className="opacity-90 text-xs">Aggiunta gestione Numerazione Fatture/Note.</p>
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 md:p-10 font-sans relative overflow-hidden">
+            {/* Background pattern */}
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
+                <div className="absolute top-0 left-0 w-full h-full" style={{ backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+            </div>
+
+            <div className="bg-white max-w-4xl w-full rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border border-slate-100 animate-slide-up relative z-10">
+                <div className="bg-indigo-600 p-8 md:p-12 text-white">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="flex items-center gap-6">
+                            <div className="bg-white/10 p-4 rounded-[1.5rem] backdrop-blur-md border border-white/20">
+                                <Database size={48} strokeWidth={1.5} />
+                            </div>
+                            <div>
+                                <h1 className="text-3xl font-black uppercase tracking-tighter leading-none italic">Sincronizzazione Database</h1>
+                                <p className="opacity-70 text-[10px] font-black uppercase tracking-[0.2em] mt-2">FluxLedger ERP Security Protocol • V7.0</p>
+                            </div>
+                        </div>
+                        <div className="bg-indigo-700/50 px-5 py-3 rounded-2xl border border-white/10 flex items-center gap-3">
+                            <ShieldAlert className="text-indigo-200" size={24} />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-100">Stato: Migrazione Richiesta</span>
                         </div>
                     </div>
                 </div>
-                <div className="p-8 space-y-6">
-                    <div className="bg-amber-50 border-l-4 border-amber-500 p-4 flex gap-3">
-                        <AlertTriangle className="text-amber-600 shrink-0" size={24}/>
-                        <div>
-                            <p className="text-sm font-bold text-amber-800 tracking-tight">Migrazione Necessaria</p>
-                            <p className="text-xs text-amber-700 leading-relaxed">Copia lo script e premi <strong>RUN</strong> nell'SQL Editor di Supabase. Questo risolverà il problema del salvataggio del numero di fattura/nota di credito.</p>
+
+                <div className="p-8 md:p-12 space-y-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                        <div className="space-y-6">
+                            <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+                                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-3 flex items-center gap-2">
+                                    <PlayCircle size={18} className="text-indigo-600" /> Avvio Rapido
+                                </h3>
+                                <p className="text-xs text-slate-500 leading-relaxed mb-6 font-medium">
+                                    Se vuoi semplicemente testare l'interfaccia e le nuove funzioni "Pro-Forma" senza configurare database esterni, entra in modalità dimostrativa.
+                                </p>
+                                <button 
+                                    onClick={onDemoStart}
+                                    className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-indigo-600 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-3"
+                                >
+                                    <PlayCircle size={18} /> Entra in Modalità Demo
+                                </button>
+                            </div>
+
+                            <div className="bg-amber-50 p-6 rounded-[2rem] border border-amber-100">
+                                <h3 className="text-sm font-black text-amber-800 uppercase tracking-tight mb-3 flex items-center gap-2">
+                                    <AlertTriangle size={18} className="text-amber-600" /> Configura Supabase
+                                </h3>
+                                <p className="text-[11px] text-amber-700 leading-relaxed font-bold italic">
+                                    "Ho già Supabase, perché vedo questo?"
+                                </p>
+                                <p className="text-[10px] text-amber-600/80 leading-relaxed mt-2">
+                                    Ogni nuovo aggiornamento richiede una piccola sincronizzazione SQL. Copia il codice qui a fianco e premere "Run" nel tuo SQL Editor di Supabase.
+                                </p>
+                                <button 
+                                    onClick={() => window.location.reload()}
+                                    className="w-full mt-6 bg-white border-2 border-amber-200 text-amber-600 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-amber-100 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                >
+                                    <RefreshCw size={16} /> Ricarica Applicazione
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between px-2">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Script SQL di Migrazione</span>
+                                <button 
+                                    onClick={() => handleCopy(FULL_INIT_SCRIPT)} 
+                                    className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer"
+                                >
+                                    {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                                    {copied ? 'Copiato!' : 'Copia SQL'}
+                                </button>
+                            </div>
+                            <div className="relative group">
+                                <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-[1.5rem] blur opacity-10 group-hover:opacity-20 transition duration-1000"></div>
+                                <pre className="relative bg-slate-900 text-indigo-300 p-6 rounded-[1.5rem] overflow-x-auto text-[10px] font-mono h-[300px] border border-slate-800 custom-scrollbar shadow-inner">
+                                    <code>{FULL_INIT_SCRIPT}</code>
+                                </pre>
+                            </div>
                         </div>
                     </div>
-                    <div className="relative">
-                        <button onClick={() => handleCopy(FULL_INIT_SCRIPT)} className="absolute top-3 right-3 bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-700 transition-colors">
-                            {copied ? <Check size={14}/> : <Copy size={14}/>} {copied ? 'Copiato!' : 'Copia SQL'}
-                        </button>
-                        <pre className="bg-slate-900 text-emerald-400 p-4 rounded-xl overflow-x-auto text-[10px] font-mono h-64 border-4 border-slate-100 shadow-inner"><code>{FULL_INIT_SCRIPT}</code></pre>
-                    </div>
-                    <button onClick={() => window.location.reload()} className="w-full bg-emerald-600 text-white py-4 rounded-xl font-black uppercase tracking-[0.2em] shadow-xl shadow-emerald-100 flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all active:scale-95">
-                        <RefreshCw size={20} /> Applica & Ricarica
-                    </button>
+                </div>
+
+                <div className="p-8 border-t border-slate-50 text-center bg-slate-50/30">
+                    <p className="text-[8px] font-black text-slate-300 uppercase tracking-[0.5em] mb-2">FluxLedger ERP Professional System</p>
+                    <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.2em]">
+                        Developed & Protected by <span className="text-slate-900">Engineer Riccardo Righini</span>
+                    </p>
                 </div>
             </div>
         </div>

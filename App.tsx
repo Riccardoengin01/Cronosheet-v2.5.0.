@@ -16,7 +16,7 @@ import SecureTrain from './components/SecureTrain';
 import BusinessExpenses from './components/BusinessExpenses';
 import * as DB from './services/db';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
-import { Plus, LogOut, Loader2 } from 'lucide-react';
+import { Plus, LogOut, Loader2, Database as DbIcon } from 'lucide-react';
 import { useLanguage } from './lib/i18n';
 
 function App() {
@@ -24,6 +24,7 @@ function App() {
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
+  const [showSetup, setShowSetup] = useState(false);
   const { t } = useLanguage();
 
   const [view, setView] = useState<AppView>(AppView.DASHBOARD);
@@ -55,10 +56,16 @@ function App() {
 
   useEffect(() => {
     if (!isSupabaseConfigured || demoMode) return;
+    
+    // Check current session
     supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) fetchUserProfile(session.user);
         else setLoadingAuth(false);
+    }).catch(err => {
+        console.error("Session error:", err);
+        setLoadingAuth(false);
     });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
         if (session) fetchUserProfile(session.user);
         else { setProfile(null); setLoadingAuth(false); }
@@ -68,14 +75,19 @@ function App() {
 
   const fetchUserProfile = async (user: { id: string, email?: string }) => {
       setDbError(null);
-      let p = await DB.getUserProfile(user.id);
-      if (!p && user.email) {
-          const newProfile = await DB.createUserProfile(user.id, user.email);
-          if (!newProfile) setDbError("Errore Database.");
-          p = newProfile;
+      try {
+          let p = await DB.getUserProfile(user.id);
+          if (!p && user.email) {
+              const newProfile = await DB.createUserProfile(user.id, user.email);
+              p = newProfile;
+          }
+          if (p) setProfile(p as UserProfile);
+      } catch (e) {
+          console.error("Profile fetch error:", e);
+          setDbError("Errore nel recupero del profilo. Verifica la connessione al database.");
+      } finally {
+          setLoadingAuth(false);
       }
-      setProfile(p as UserProfile);
-      setLoadingAuth(false);
   };
 
   useEffect(() => {
@@ -191,19 +203,30 @@ function App() {
     }
   };
 
+  // 1. Caricamento iniziale
   if (loadingAuth) return <div className="h-screen w-screen flex flex-col items-center justify-center bg-gray-50"><div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div></div>;
 
-  if (dbError || (isSupabaseConfigured && !profile && !loadingAuth)) return <div className="h-screen w-screen flex flex-col"><DatabaseSetup /></div>;
+  // 2. Se l'utente chiede esplicitamente il setup o Supabase non è proprio configurato
+  if (showSetup || (!isSupabaseConfigured && !demoMode)) {
+      return <div className="h-screen w-screen flex flex-col"><DatabaseSetup onDemoStart={() => { setDemoMode(true); setShowSetup(false); }} /></div>;
+  }
 
-  if (!isSupabaseConfigured && !demoMode) return <div className="h-screen w-screen flex flex-col"><DatabaseSetup /></div>;
-
+  // 3. Se non siamo loggati, mostriamo SEMPRE la schermata Auth (Login)
   if (!profile) return <Auth onLoginSuccess={(p) => setProfile(p)} />;
 
+  // 4. Se loggati, mostriamo l'App
   return (
     <div className="flex h-screen bg-white md:bg-gray-50/30 overflow-hidden font-sans text-slate-900 antialiased">
       <Sidebar currentView={view} onChangeView={setView} userProfile={profile} />
       <main className="flex-1 overflow-y-auto relative scroll-smooth bg-gray-50/50">
-          <div className="absolute top-4 right-4 z-[70] flex items-center gap-4 no-print">
+          <div className="absolute top-4 right-4 z-[70] flex items-center gap-3 no-print">
+               <button 
+                  onClick={() => setShowSetup(true)} 
+                  className="bg-white/80 backdrop-blur-md p-2.5 rounded-xl shadow-sm text-gray-400 hover:text-indigo-600 hover:bg-white transition-all border border-gray-100"
+                  title="Configurazione Database"
+                >
+                   <DbIcon size={20} />
+               </button>
                <button onClick={handleLogout} className="bg-white/80 backdrop-blur-md p-2.5 rounded-xl shadow-sm text-gray-400 hover:text-red-500 hover:bg-white transition-all border border-gray-100">
                    <LogOut size={20} />
                </button>
