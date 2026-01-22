@@ -1,10 +1,6 @@
 
 import React, { useState } from 'react';
-import { Database, Copy, Check, RefreshCw, AlertTriangle, PlayCircle } from 'lucide-react';
-
-interface DatabaseSetupProps {
-    onDemoStart?: () => void;
-}
+import { Database, Copy, Check, RefreshCw, AlertTriangle } from 'lucide-react';
 
 const FULL_INIT_SCRIPT = `-- 🚀 FLUXLEDGER PROFESSIONAL - SQL V7
 
@@ -124,7 +120,7 @@ END $$;
 NOTIFY pgrst, 'reload schema';
 `;
 
-const DatabaseSetup: React.FC<DatabaseSetupProps> = ({ onDemoStart }) => {
+const DatabaseSetup = () => {
     const [copied, setCopied] = useState(false);
     const handleCopy = (text: string) => {
         navigator.clipboard.writeText(text);
@@ -135,51 +131,32 @@ const DatabaseSetup: React.FC<DatabaseSetupProps> = ({ onDemoStart }) => {
     return (
         <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans z-50 relative">
             <div className="bg-white max-w-3xl w-full rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-                <div className="bg-indigo-600 p-6 text-white flex items-center justify-between">
+                <div className="bg-emerald-600 p-6 text-white flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <div className="bg-white/20 p-3 rounded-lg"><Database size={32} /></div>
                         <div>
-                            <h1 className="text-2xl font-bold uppercase tracking-tight">Configurazione FluxLedger</h1>
-                            <p className="opacity-90 text-xs">Necessario per salvare i tuoi dati in modo sicuro nel cloud.</p>
+                            <h1 className="text-2xl font-bold uppercase tracking-tight">FluxLedger Repair V7</h1>
+                            <p className="opacity-90 text-xs">Aggiunta gestione Numerazione Fatture/Note.</p>
                         </div>
                     </div>
                 </div>
                 <div className="p-8 space-y-6">
-                    <div className="bg-indigo-50 border-l-4 border-indigo-500 p-4 flex gap-3">
-                        <AlertTriangle className="text-indigo-600 shrink-0" size={24}/>
+                    <div className="bg-amber-50 border-l-4 border-amber-500 p-4 flex gap-3">
+                        <AlertTriangle className="text-amber-600 shrink-0" size={24}/>
                         <div>
-                            <p className="text-sm font-bold text-indigo-800 tracking-tight">Database non connesso</p>
-                            <p className="text-xs text-indigo-700 leading-relaxed">
-                                Se hai già configurato Supabase, copia lo script qui sotto e premi <strong>RUN</strong> nell'SQL Editor del loro sito.
-                                Se vuoi solo provare l'app, clicca sul pulsante "Entra in Modalità Demo" qui sotto.
-                            </p>
+                            <p className="text-sm font-bold text-amber-800 tracking-tight">Migrazione Necessaria</p>
+                            <p className="text-xs text-amber-700 leading-relaxed">Copia lo script e premi <strong>RUN</strong> nell'SQL Editor di Supabase. Questo risolverà il problema del salvataggio del numero di fattura/nota di credito.</p>
                         </div>
                     </div>
-
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        <button 
-                            onClick={onDemoStart}
-                            className="flex-1 bg-slate-900 text-white py-4 rounded-xl font-black uppercase tracking-[0.2em] shadow-xl flex items-center justify-center gap-2 hover:bg-slate-800 transition-all active:scale-95 cursor-pointer"
-                        >
-                            <PlayCircle size={20} /> Entra in Modalità Demo
+                    <div className="relative">
+                        <button onClick={() => handleCopy(FULL_INIT_SCRIPT)} className="absolute top-3 right-3 bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-700 transition-colors">
+                            {copied ? <Check size={14}/> : <Copy size={14}/>} {copied ? 'Copiato!' : 'Copia SQL'}
                         </button>
-                        <button 
-                            onClick={() => window.location.reload()} 
-                            className="flex-1 bg-indigo-50 text-indigo-600 border border-indigo-100 py-4 rounded-xl font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 hover:bg-indigo-100 transition-all active:scale-95 cursor-pointer"
-                        >
-                            <RefreshCw size={20} /> Ricarica App
-                        </button>
+                        <pre className="bg-slate-900 text-emerald-400 p-4 rounded-xl overflow-x-auto text-[10px] font-mono h-64 border-4 border-slate-100 shadow-inner"><code>{FULL_INIT_SCRIPT}</code></pre>
                     </div>
-
-                    <div className="pt-4">
-                        <div className="flex items-center justify-between mb-2">
-                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Script SQL per Supabase</p>
-                             <button onClick={() => handleCopy(FULL_INIT_SCRIPT)} className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-slate-200 transition-colors">
-                                {copied ? <Check size={14} className="inline mr-1"/> : <Copy size={14} className="inline mr-1"/>} {copied ? 'Copiato!' : 'Copia SQL'}
-                            </button>
-                        </div>
-                        <pre className="bg-slate-900 text-indigo-300 p-4 rounded-xl overflow-x-auto text-[10px] font-mono h-48 border border-slate-800"><code>{FULL_INIT_SCRIPT}</code></pre>
-                    </div>
+                    <button onClick={() => window.location.reload()} className="w-full bg-emerald-600 text-white py-4 rounded-xl font-black uppercase tracking-[0.2em] shadow-xl shadow-emerald-100 flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all active:scale-95">
+                        <RefreshCw size={20} /> Applica & Ricarica
+                    </button>
                 </div>
             </div>
         </div>
