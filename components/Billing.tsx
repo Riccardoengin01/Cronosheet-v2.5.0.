@@ -571,9 +571,8 @@ const Billing: React.FC<BillingProps> = ({ entries, projects, userProfile, onEnt
       <div className="pt-16 border-t border-slate-100 text-center no-print">
           <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.6em] mb-4">FluxLedger ERP Professional • Studio Engineering Systems</p>
           <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.3em] leading-relaxed">
-              Software Architecture & Legal Rights Protected by <br/>
-              <span className="text-slate-900 text-[11px]">Engineer Riccardo Righini</span><br/>
-              © {new Date().getFullYear()} • STUDIO ENGINEERING SYSTEMS • All Rights Reserved
+              Ingi.RiccardoRighini<br/>
+              © 2026 • Tutti i diritti riservati
           </p>
       </div>
     </div>

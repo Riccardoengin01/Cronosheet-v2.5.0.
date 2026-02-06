@@ -160,7 +160,7 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, projects, userProfile, o
             <div className="pt-10 border-t border-slate-100 text-center">
                 <p className="text-[8px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">FluxLedger ERP Professional</p>
                 <p className="text-[8px] text-slate-400 font-black uppercase leading-relaxed italic">
-                    Developed by Engineer Riccardo Righini • © {new Date().getFullYear()}
+                    Ingi.RiccardoRighini • © 2026 • Tutti i diritti riservati
                 </p>
             </div>
         </div>

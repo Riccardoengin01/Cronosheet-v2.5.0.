@@ -166,7 +166,7 @@ const DatabaseSetup: React.FC<DatabaseSetupProps> = ({ onDemoStart }) => {
                 <div className="p-8 border-t border-slate-50 text-center bg-slate-50/30">
                     <p className="text-[8px] font-black text-slate-300 uppercase tracking-[0.5em] mb-2">FluxLedger ERP Professional System</p>
                     <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.2em]">
-                        Developed & Protected by <span className="text-slate-900">Engineer Riccardo Righini</span>
+                        Ingi.RiccardoRighini • © 2026 • Tutti i diritti riservati
                     </p>
                 </div>
             </div>

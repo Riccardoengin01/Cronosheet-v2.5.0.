@@ -83,4 +83,4 @@ VITE_PAYPAL_CLIENT_ID=test
 ```
 
 ## © Copyright
-Developed by Engineer Riccardo Righini.
+Developed by Ingi.RiccardoRighini.

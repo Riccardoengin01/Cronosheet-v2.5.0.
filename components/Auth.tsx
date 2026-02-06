@@ -66,7 +66,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
             </div>
           </div>
           <div className="relative z-10 text-xs uppercase tracking-[0.2em] text-indigo-100/80">
-            Software Developed and Protected by Engineer Riccardo Righini
+            Software by Ingi.RiccardoRighini • © 2026 Tutti i diritti riservati
           </div>
         </div>
 
@@ -92,7 +92,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
               <input 
                 type="email" required
                 className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-700"
-                placeholder="ingegnere@studio.it"
+                placeholder="studio@azienda.it"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
               />
@@ -126,9 +126,8 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
             
             <div className="mt-10 pt-8 border-t border-slate-50">
               <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] leading-relaxed">
-                Software Developed and Protected by<br/>
-                <span className="text-slate-900 font-black">Engineer Riccardo Righini</span><br/>
-                © {new Date().getFullYear()} • STUDIO ENGINEERING SYSTEMS
+                Ingi.RiccardoRighini<br/>
+                © 2026 • Tutti i diritti riservati
               </p>
             </div>
           </div>
